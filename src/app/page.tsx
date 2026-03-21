@@ -2,18 +2,18 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Pikorafy - Pick Smarter. Build Faster.",
+  title: "Pikorafy - Navigate the AI Revolution. Pick Smarter.",
   description:
-    "Compare AI and SaaS tools side-by-side. Find the best alternatives, read in-depth reviews, and use free developer tools.",
+    "Compare AI tools side-by-side. Honest reviews of ChatGPT, Claude, Gemini, Midjourney, and 500+ AI tools. Find the best AI alternative for every task.",
 };
 
 const popularComparisons = [
-  { title: "Notion vs Obsidian", slug: "notion-vs-obsidian", categoryA: "Notion", categoryB: "Obsidian" },
   { title: "ChatGPT vs Claude", slug: "chatgpt-vs-claude", categoryA: "ChatGPT", categoryB: "Claude" },
-  { title: "Vercel vs Netlify", slug: "vercel-vs-netlify", categoryA: "Vercel", categoryB: "Netlify" },
-  { title: "Figma vs Sketch", slug: "figma-vs-sketch", categoryA: "Figma", categoryB: "Sketch" },
-  { title: "Linear vs Jira", slug: "linear-vs-jira", categoryA: "Linear", categoryB: "Jira" },
-  { title: "Supabase vs Firebase", slug: "supabase-vs-firebase", categoryA: "Supabase", categoryB: "Firebase" },
+  { title: "Midjourney vs DALL-E 3", slug: "midjourney-vs-dalle", categoryA: "Midjourney", categoryB: "DALL-E" },
+  { title: "GitHub Copilot vs Cursor", slug: "copilot-vs-cursor", categoryA: "Copilot", categoryB: "Cursor" },
+  { title: "Gemini vs ChatGPT", slug: "gemini-vs-chatgpt", categoryA: "Gemini", categoryB: "ChatGPT" },
+  { title: "Jasper vs Copy.ai", slug: "jasper-vs-copyai", categoryA: "Jasper", categoryB: "Copy.ai" },
+  { title: "Notion AI vs Coda AI", slug: "notion-ai-vs-coda-ai", categoryA: "Notion AI", categoryB: "Coda AI" },
 ];
 
 const freeTools = [
@@ -27,22 +27,22 @@ const freeTools = [
 
 const latestArticles = [
   {
-    title: "The State of AI Code Assistants in 2026",
-    excerpt: "A deep dive into how AI-powered coding tools have evolved and which ones deliver real productivity gains.",
-    slug: "ai-code-assistants-2026",
+    title: "Best AI Coding Assistants in 2026: The Complete Ranking",
+    excerpt: "We tested GitHub Copilot, Cursor, Cody, and 12 more AI coding tools. Here's which ones actually make you faster.",
+    slug: "best-ai-coding-assistants-2026",
+    date: "March 20, 2026",
+  },
+  {
+    title: "ChatGPT vs Claude vs Gemini: Which AI Should You Use?",
+    excerpt: "A head-to-head comparison of the three biggest AI chatbots. We tested reasoning, coding, writing, and more.",
+    slug: "chatgpt-vs-claude-vs-gemini",
+    date: "March 18, 2026",
+  },
+  {
+    title: "10 AI Tools That Will Save You 10+ Hours Per Week",
+    excerpt: "From email drafting to image generation, these AI tools deliver real time savings for professionals.",
+    slug: "ai-tools-save-time",
     date: "March 15, 2026",
-  },
-  {
-    title: "Choosing the Right Database for Your SaaS",
-    excerpt: "PostgreSQL, MySQL, or a managed service? We break down the trade-offs for modern SaaS applications.",
-    slug: "choosing-database-saas",
-    date: "March 10, 2026",
-  },
-  {
-    title: "Why Developer Experience Matters More Than Ever",
-    excerpt: "How companies that invest in DX are shipping faster, retaining talent, and building better products.",
-    slug: "developer-experience-matters",
-    date: "March 5, 2026",
   },
 ];
 
@@ -54,13 +54,13 @@ export default function Home() {
         <div className="absolute inset-0 bg-gradient-to-b from-[#3B82F6]/10 via-transparent to-transparent" />
         <div className="relative mx-auto max-w-7xl px-6 lg:px-8 text-center">
           <h1 className="text-4xl font-bold tracking-tight text-white sm:text-6xl lg:text-7xl">
-            Pick smarter.{" "}
-            <span className="text-[#3B82F6]">Build faster.</span>
+            Navigate the{" "}
+            <span className="text-[#3B82F6]">AI Revolution.</span>
           </h1>
           <p className="mt-6 max-w-2xl mx-auto text-lg leading-8 text-zinc-400">
-            Compare AI and SaaS tools side-by-side. Find the best alternatives,
-            read honest reviews, and access free developer utilities — all in
-            one place.
+            500+ AI tools compared side-by-side. Honest reviews of ChatGPT, Claude,
+            Gemini, Midjourney, and every AI tool that matters. Stop guessing,
+            start picking smarter.
           </p>
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
@@ -199,11 +199,11 @@ export default function Home() {
       <section className="bg-[#1a1d27] py-20">
         <div className="mx-auto max-w-2xl px-6 lg:px-8 text-center">
           <h2 className="text-2xl font-bold text-white sm:text-3xl">
-            Stay in the loop
+            Stay ahead of AI
           </h2>
           <p className="mt-4 text-zinc-400">
-            Get weekly tool comparisons, SaaS deals, and developer resources
-            delivered to your inbox.
+            Get weekly AI tool reviews, comparisons, and the best deals
+            delivered to your inbox. Join 0+ readers.
           </p>
           <form className="mt-8 flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
             <input

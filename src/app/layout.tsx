@@ -15,20 +15,20 @@ export const metadata: Metadata = {
     template: "%s | Pikorafy",
   },
   description:
-    "Pick smarter. Build faster. Pikorafy helps developers choose the right tools, frameworks, and libraries for every project.",
+    "Navigate the AI revolution. Compare 500+ AI tools side-by-side with honest reviews and real benchmarks. ChatGPT, Claude, Gemini, Midjourney, and more.",
   openGraph: {
     type: "website",
     locale: "en_US",
     siteName: "Pikorafy",
-    title: "Pikorafy - Pick smarter. Build faster.",
+    title: "Pikorafy - Navigate the AI Revolution",
     description:
-      "Pikorafy helps developers choose the right tools, frameworks, and libraries for every project.",
+      "Compare 500+ AI tools side-by-side. Honest reviews, real benchmarks, and free developer utilities.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Pikorafy - Pick smarter. Build faster.",
+    title: "Pikorafy - Navigate the AI Revolution",
     description:
-      "Pikorafy helps developers choose the right tools, frameworks, and libraries for every project.",
+      "Compare 500+ AI tools side-by-side. Honest reviews, real benchmarks, and free developer utilities.",
   },
 };
 
