@@ -21,9 +21,9 @@ const tools = [
     category: "Security",
   },
   {
-    title: "Base64 Encoder",
+    title: "Base64 Encoder / Decoder",
     description: "Encode and decode Base64 strings for data transfer.",
-    slug: "base64-encoder",
+    slug: "base64",
     category: "Encoding",
   },
   {
@@ -33,9 +33,9 @@ const tools = [
     category: "Design",
   },
   {
-    title: "Markdown Preview",
-    description: "Write Markdown and see it rendered as HTML in real time.",
-    slug: "markdown-preview",
+    title: "Text Diff",
+    description: "Compare two blocks of text and see differences highlighted.",
+    slug: "text-diff",
     category: "Text",
   },
   {
@@ -79,6 +79,12 @@ const tools = [
     description: "Encode and decode URLs for safe data transmission.",
     slug: "url-encoder",
     category: "Encoding",
+  },
+  {
+    title: "Meta Tag Generator",
+    description: "Generate SEO meta tags, Open Graph, and Twitter Cards with live preview.",
+    slug: "meta-tag-generator",
+    category: "SEO",
   },
 ];
 
