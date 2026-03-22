@@ -1,0 +1,52 @@
+---
+title: "Choosing the Right Database for Your SaaS"
+description: "PostgreSQL, MySQL, or a managed service? We break down the trade-offs for modern SaaS applications."
+date: "2026-03-10"
+category: "Databases"
+tags: ["databases", "saas", "postgresql", "infrastructure"]
+slug: "choosing-database-saas"
+---
+
+Your database choice is one of the most consequential architectural decisions you will make. It affects performance, scalability, developer experience, and operational overhead for years to come.
+
+## The contenders
+
+### PostgreSQL
+
+PostgreSQL remains the default choice for modern SaaS applications, and for good reason. Its feature set is unmatched among open source databases:
+
+- Full ACID compliance with excellent concurrency handling
+- Rich data types including JSON, arrays, and full-text search
+- Mature ecosystem of extensions (PostGIS, pgvector, TimescaleDB)
+- Strong community and commercial support options
+
+### MySQL
+
+MySQL still powers a massive portion of the internet. Its strengths include:
+
+- Battle-tested reliability at scale
+- Excellent read performance with proper indexing
+- Wide hosting availability and tooling support
+- Familiar to most backend developers
+
+### Managed services
+
+Platforms like Supabase, PlanetScale, and Neon abstract away operational complexity:
+
+- No server management or patching
+- Built-in connection pooling and scaling
+- Often include additional features like auth, storage, and edge functions
+- Predictable pricing (usually)
+
+## Decision framework
+
+When choosing a database for your SaaS, consider these factors in order of importance:
+
+1. **Data model complexity** — If you need complex queries, joins, and constraints, PostgreSQL is hard to beat.
+2. **Scale requirements** — If you need horizontal scaling from day one, consider a managed service built for it.
+3. **Team expertise** — Use what your team knows. Migration costs are real.
+4. **Operational capacity** — If you do not have a DBA, managed services pay for themselves quickly.
+
+## Our recommendation
+
+For most SaaS applications starting in 2026, we recommend **PostgreSQL on a managed platform** like Supabase or Neon. You get the full power of Postgres without the operational burden, and you can always migrate to self-hosted if your needs change.

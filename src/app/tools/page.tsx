@@ -4,7 +4,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Free Developer Tools - Pikorafy",
   description:
-    "Free online developer tools: JSON formatter, password generator, Base64 encoder, UUID generator, and more.",
+    "Free online developer tools: JSON formatter, password generator, Base64 encoder, image compressor, QR code generator, and more.",
 };
 
 const tools = [
@@ -85,6 +85,30 @@ const tools = [
     description: "Generate SEO meta tags, Open Graph, and Twitter Cards with live preview.",
     slug: "meta-tag-generator",
     category: "SEO",
+  },
+  {
+    title: "Word Counter",
+    description: "Count words, characters, sentences, paragraphs, and estimate reading time.",
+    slug: "word-counter",
+    category: "Text",
+  },
+  {
+    title: "Image Compressor",
+    description: "Compress images client-side with adjustable quality. No uploads needed.",
+    slug: "image-compressor",
+    category: "Media",
+  },
+  {
+    title: "QR Code Generator",
+    description: "Generate QR codes from text or URLs and download as SVG.",
+    slug: "qr-code-generator",
+    category: "Data",
+  },
+  {
+    title: "CSS Gradient Generator",
+    description: "Build beautiful CSS gradients visually and copy the code.",
+    slug: "css-gradient-generator",
+    category: "Design",
   },
 ];
 
