@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getAllArticles } from "@/lib/articles";
 import { getAllComparisons } from "@/lib/comparisons";
+import NewsletterSignup from "@/components/NewsletterSignup";
 
 export const metadata: Metadata = {
   title: "Pikorafy - Navigate the AI Revolution. Pick Smarter.",
@@ -179,19 +180,9 @@ export default function Home() {
             Get weekly AI tool reviews, comparisons, and the best deals
             delivered to your inbox.
           </p>
-          <form className="mt-8 flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
-            <input
-              type="email"
-              placeholder="Enter your email"
-              className="h-12 flex-1 rounded-lg border border-zinc-700 bg-[#0f1117] px-4 text-sm text-white placeholder-zinc-500 focus:border-[#3B82F6] focus:outline-none focus:ring-1 focus:ring-[#3B82F6]"
-            />
-            <button
-              type="submit"
-              className="h-12 rounded-lg bg-[#3B82F6] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#2563EB]"
-            >
-              Subscribe
-            </button>
-          </form>
+          <div className="mt-8 flex justify-center">
+            <NewsletterSignup />
+          </div>
           <p className="mt-3 text-xs text-zinc-500">
             No spam. Unsubscribe anytime.
           </p>
