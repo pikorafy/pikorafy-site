@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getAllArticles } from "@/lib/articles";
 import { getAllComparisons } from "@/lib/comparisons";
 import NewsletterSignup from "@/components/NewsletterSignup";
+import { HeroBackgroundPaths } from "@/components/ui/background-paths";
 
 export const metadata: Metadata = {
   title: "Pikorafy - Navigate the AI Revolution. Pick Smarter.",
@@ -26,34 +27,7 @@ export default function Home() {
   return (
     <div className="flex flex-col min-h-full">
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-[#0f1117] py-24 sm:py-32">
-        <div className="absolute inset-0 bg-gradient-to-b from-[#3B82F6]/10 via-transparent to-transparent" />
-        <div className="relative mx-auto max-w-7xl px-6 lg:px-8 text-center">
-          <h1 className="text-4xl font-bold tracking-tight text-white sm:text-6xl lg:text-7xl">
-            Navigate the{" "}
-            <span className="text-[#3B82F6]">AI Revolution.</span>
-          </h1>
-          <p className="mt-6 max-w-2xl mx-auto text-lg leading-8 text-zinc-400">
-            500+ AI tools compared side-by-side. Honest reviews of ChatGPT, Claude,
-            Gemini, Midjourney, and every AI tool that matters. Stop guessing,
-            start picking smarter.
-          </p>
-          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link
-              href="/vs"
-              className="inline-flex h-12 items-center justify-center rounded-lg bg-[#3B82F6] px-8 text-sm font-semibold text-white transition-colors hover:bg-[#2563EB] focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:ring-offset-2 focus:ring-offset-[#0f1117]"
-            >
-              Browse Comparisons
-            </Link>
-            <Link
-              href="/tools"
-              className="inline-flex h-12 items-center justify-center rounded-lg border border-zinc-700 bg-[#1a1d27] px-8 text-sm font-semibold text-white transition-colors hover:border-[#3B82F6] hover:bg-[#1e2231]"
-            >
-              Free Tools
-            </Link>
-          </div>
-        </div>
-      </section>
+      <HeroBackgroundPaths />
 
       {/* Popular Comparisons - now from real data */}
       <section className="bg-[#0f1117] py-20">
