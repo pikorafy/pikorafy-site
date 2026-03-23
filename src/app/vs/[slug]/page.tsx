@@ -4,6 +4,11 @@ import Link from "next/link";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import { getComparisonBySlug, getComparisonSlugs } from "@/lib/comparisons";
 import NewsletterSignup from "@/components/NewsletterSignup";
+import VPNPricingDemo from "@/components/VPNPricingDemo";
+
+const mdxComponents = {
+  VPNPricingDemo,
+};
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -98,7 +103,7 @@ export default async function ComparisonPage({ params }: Props) {
 
         {/* Content */}
         <article className="mt-8 prose-custom">
-          <MDXRemote source={content} />
+          <MDXRemote source={content} components={mdxComponents} />
         </article>
 
         {/* Tags */}

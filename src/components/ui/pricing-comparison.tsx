@@ -1,8 +1,6 @@
 "use client";
 
 import { buttonVariants } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
@@ -53,17 +51,42 @@ export function PricingComparison({
       </div>
 
       <div className="flex justify-center mb-8">
-        <label className="relative inline-flex items-center cursor-pointer">
-          <Label>
-            <Switch
-              checked={!isMonthly}
-              onCheckedChange={handleToggle}
-            />
-          </Label>
-        </label>
-        <span className="ml-2 font-semibold text-[#e4e6eb]">
-          Annual billing <span className="text-[#3B82F6]">(Save 20%)</span>
-        </span>
+        <div className="relative flex items-center rounded-full bg-[#1a1d27] border border-[#2a2e3a] p-1">
+          <button
+            onClick={() => setIsMonthly(true)}
+            className={cn(
+              "relative z-10 rounded-full px-5 py-2 text-sm font-medium transition-colors",
+              isMonthly ? "text-white" : "text-[#8b8fa3]",
+            )}
+          >
+            {isMonthly && (
+              <motion.span
+                layoutId="pricing-toggle"
+                className="absolute inset-0 rounded-full bg-[#3B82F6]"
+                transition={{ type: "spring", stiffness: 500, damping: 30 }}
+              />
+            )}
+            <span className="relative">Monthly</span>
+          </button>
+          <button
+            onClick={() => setIsMonthly(false)}
+            className={cn(
+              "relative z-10 rounded-full px-5 py-2 text-sm font-medium transition-colors",
+              !isMonthly ? "text-white" : "text-[#8b8fa3]",
+            )}
+          >
+            {!isMonthly && (
+              <motion.span
+                layoutId="pricing-toggle"
+                className="absolute inset-0 rounded-full bg-[#3B82F6]"
+                transition={{ type: "spring", stiffness: 500, damping: 30 }}
+              />
+            )}
+            <span className="relative">
+              Yearly <span className="text-blue-200 text-xs">(-20%)</span>
+            </span>
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
