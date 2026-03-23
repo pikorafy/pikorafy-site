@@ -8,6 +8,7 @@ import {
   getAlternativeSlugs,
 } from "@/lib/alternatives";
 import NewsletterSignup from "@/components/NewsletterSignup";
+import ArticleReader from "@/components/ArticleReader";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -107,6 +108,11 @@ export default async function AlternativePage({ params }: Props) {
 
         {/* Divider */}
         <div className="mt-8 border-t border-[#2a2e3a]" />
+
+        {/* Audio reader */}
+        <div className="mt-6">
+          <ArticleReader />
+        </div>
 
         {/* Content */}
         <article className="mt-8 prose-custom">

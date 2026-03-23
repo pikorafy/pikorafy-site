@@ -5,6 +5,7 @@ import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import { getComparisonBySlug, getComparisonSlugs } from "@/lib/comparisons";
 import NewsletterSignup from "@/components/NewsletterSignup";
+import ArticleReader from "@/components/ArticleReader";
 import VPNPricingDemo from "@/components/VPNPricingDemo";
 
 const mdxComponents = {
@@ -101,6 +102,11 @@ export default async function ComparisonPage({ params }: Props) {
 
         {/* Divider */}
         <div className="mt-8 border-t border-[#2a2e3a]" />
+
+        {/* Audio reader */}
+        <div className="mt-6">
+          <ArticleReader />
+        </div>
 
         {/* Content */}
         <article className="mt-8 prose-custom">

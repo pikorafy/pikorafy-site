@@ -5,6 +5,7 @@ import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import { getArticleBySlug, getArticleSlugs } from "@/lib/articles";
 import NewsletterSignup from "@/components/NewsletterSignup";
+import ArticleReader from "@/components/ArticleReader";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -140,6 +141,11 @@ export default async function ArticlePage({ params }: Props) {
 
         {/* Divider */}
         <div className="mt-8 border-t border-[#2a2e3a]" />
+
+        {/* Audio reader */}
+        <div className="mt-6">
+          <ArticleReader />
+        </div>
 
         {/* Article content */}
         <article className="mt-8 prose-custom">
