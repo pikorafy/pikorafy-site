@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { MDXRemote } from "next-mdx-remote/rsc";
+import remarkGfm from "remark-gfm";
 import {
   getAlternativeBySlug,
   getAlternativeSlugs,
@@ -109,7 +110,7 @@ export default async function AlternativePage({ params }: Props) {
 
         {/* Content */}
         <article className="mt-8 prose-custom">
-          <MDXRemote source={content} />
+          <MDXRemote source={content} options={{ mdxOptions: { remarkPlugins: [remarkGfm] } }} />
         </article>
 
         {/* Tags */}
