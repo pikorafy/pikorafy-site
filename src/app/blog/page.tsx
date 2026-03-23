@@ -25,8 +25,23 @@ export default function BlogPage() {
           </p>
         </div>
 
+        {/* Categories */}
+        <div className="mt-8 flex flex-wrap gap-2">
+          {Array.from(new Set(articles.map((a) => a.frontmatter.category))).map(
+            (cat) => (
+              <Link
+                key={cat}
+                href={`/blog/category/${cat.toLowerCase().replace(/\s+/g, "-")}`}
+                className="rounded-full border border-[#2a2e3a] bg-[#1a1d27] px-4 py-1.5 text-xs font-medium text-[#8b8fa3] hover:border-blue-500/50 hover:text-blue-500 transition-colors"
+              >
+                {cat}
+              </Link>
+            )
+          )}
+        </div>
+
         {/* Articles Grid */}
-        <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {articles.map((article) => (
             <Link
               key={article.frontmatter.slug}

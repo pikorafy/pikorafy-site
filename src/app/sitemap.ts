@@ -89,11 +89,22 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.8,
   }));
 
+  const categories = Array.from(
+    new Set(articles.map((a) => a.frontmatter.category.toLowerCase().replace(/\s+/g, "-")))
+  );
+  const categoryPages: MetadataRoute.Sitemap = categories.map((cat) => ({
+    url: `${BASE_URL}/blog/category/${cat}`,
+    lastModified: new Date(),
+    changeFrequency: "weekly" as const,
+    priority: 0.6,
+  }));
+
   return [
     ...staticPages,
     ...toolPages,
     ...articlePages,
     ...comparisonPages,
     ...alternativePages,
+    ...categoryPages,
   ];
 }
