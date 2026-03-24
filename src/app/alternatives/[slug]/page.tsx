@@ -8,6 +8,7 @@ import {
   getAlternativeSlugs,
 } from "@/lib/alternatives";
 import NewsletterSignup from "@/components/NewsletterSignup";
+import RelatedArticles from "@/components/RelatedArticles";
 import ArticleReader from "@/components/ArticleReader";
 import ToolLogo from "@/components/ToolLogo";
 
@@ -186,6 +187,14 @@ export default async function AlternativePage({ params }: Props) {
             ))}
           </div>
         )}
+
+        {/* Related articles */}
+        <RelatedArticles
+          currentSlug={frontmatter.slug}
+          category={frontmatter.category}
+          tags={frontmatter.tags}
+          type="alternatives"
+        />
 
         {/* Newsletter signup */}
         <div className="mt-16 rounded-xl border border-[#2a2e3a] bg-[#1a1d27] p-8">

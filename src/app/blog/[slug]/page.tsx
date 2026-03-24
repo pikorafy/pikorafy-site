@@ -5,6 +5,7 @@ import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import { getArticleBySlug, getArticleSlugs } from "@/lib/articles";
 import NewsletterSignup from "@/components/NewsletterSignup";
+import RelatedArticles from "@/components/RelatedArticles";
 import ArticleReader from "@/components/ArticleReader";
 import ArticleHero from "@/components/ArticleHero";
 
@@ -168,6 +169,14 @@ export default async function ArticlePage({ params }: Props) {
             ))}
           </div>
         )}
+
+        {/* Related articles */}
+        <RelatedArticles
+          currentSlug={frontmatter.slug}
+          category={frontmatter.category}
+          tags={frontmatter.tags}
+          type="blog"
+        />
 
         {/* Newsletter signup */}
         <div className="mt-16 rounded-xl border border-[#2a2e3a] bg-[#1a1d27] p-8">

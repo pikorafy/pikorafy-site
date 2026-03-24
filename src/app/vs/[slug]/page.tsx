@@ -8,6 +8,7 @@ import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import { getComparisonBySlug, getComparisonSlugs } from "@/lib/comparisons";
 import NewsletterSignup from "@/components/NewsletterSignup";
+import RelatedArticles from "@/components/RelatedArticles";
 import ArticleReader from "@/components/ArticleReader";
 import VPNPricingDemo from "@/components/VPNPricingDemo";
 import ToolLogo from "@/components/ToolLogo";
@@ -229,6 +230,14 @@ export default async function ComparisonPage({ params }: Props) {
             ))}
           </div>
         )}
+
+        {/* Related articles */}
+        <RelatedArticles
+          currentSlug={frontmatter.slug}
+          category={frontmatter.category}
+          tags={frontmatter.tags}
+          type="vs"
+        />
 
         {/* Newsletter signup */}
         <div className="mt-16 rounded-xl border border-[#2a2e3a] bg-[#1a1d27] p-8">

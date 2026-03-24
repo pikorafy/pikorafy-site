@@ -1,6 +1,7 @@
 "use client";
 
 import { BarChart3, BookOpen, Menu, Wrench, GitCompare, Layers, Zap, FileText } from "lucide-react";
+import SearchDialog from "@/components/SearchDialog";
 import Link from "next/link";
 import {
   Accordion,
@@ -77,7 +78,7 @@ const menu: MenuItem[] = [
       },
       {
         title: "View All Tools",
-        description: "Browse all 15+ free developer utilities",
+        description: "Browse all 22 free developer utilities",
         icon: <FileText className="size-5 shrink-0" />,
         url: "/tools",
       },
@@ -87,12 +88,18 @@ const menu: MenuItem[] = [
     title: "Blog",
     url: "/blog",
   },
+  {
+    title: "Deals",
+    url: "/deals",
+  },
 ];
 
 const mobileExtraLinks = [
   { name: "All Tools", url: "/tools" },
   { name: "Comparisons", url: "/vs" },
   { name: "Alternatives", url: "/alternatives" },
+  { name: "Deals", url: "/deals" },
+  { name: "AI Quiz", url: "/quiz" },
   { name: "Sitemap", url: "/sitemap.xml" },
 ];
 
@@ -195,7 +202,8 @@ export default function PikorafyNavbar() {
               </NavigationMenu>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            <SearchDialog />
             <Button asChild variant="outline" size="sm">
               <Link href="/blog">Newsletter</Link>
             </Button>
