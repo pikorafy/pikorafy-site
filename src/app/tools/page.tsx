@@ -110,6 +110,36 @@ const tools = [
     slug: "css-gradient-generator",
     category: "Design",
   },
+  {
+    title: "Markdown Preview",
+    description: "Write Markdown and see a live rendered preview side by side.",
+    slug: "markdown-preview",
+    category: "Text",
+  },
+  {
+    title: "HTML Entity Encoder",
+    description: "Encode and decode HTML entities for safe embedding.",
+    slug: "html-entity-encoder",
+    category: "Encoding",
+  },
+  {
+    title: "SVG to PNG Converter",
+    description: "Convert SVG files to PNG images at any resolution.",
+    slug: "svg-to-png",
+    category: "Media",
+  },
+  {
+    title: "Timestamp Converter",
+    description: "Convert between Unix timestamps and human-readable dates.",
+    slug: "timestamp-converter",
+    category: "Data",
+  },
+  {
+    title: "JSON to CSV",
+    description: "Convert JSON arrays to CSV format for spreadsheets.",
+    slug: "json-to-csv",
+    category: "Data",
+  },
 ];
 
 const categories = Array.from(new Set(tools.map((t) => t.category)));

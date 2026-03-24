@@ -43,8 +43,63 @@ export default async function AlternativePage({ params }: Props) {
 
   const { frontmatter, content, readingTime } = alternative;
 
+  const articleJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: frontmatter.title,
+    description: frontmatter.description,
+    datePublished: frontmatter.date,
+    author: {
+      "@type": "Organization",
+      name: "Pikorafy",
+      url: "https://pikorafy.com",
+    },
+    publisher: {
+      "@type": "Organization",
+      name: "Pikorafy",
+      url: "https://pikorafy.com",
+    },
+    mainEntityOfPage: {
+      "@type": "WebPage",
+      "@id": `https://pikorafy.com/alternatives/${frontmatter.slug}`,
+    },
+  };
+
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: "https://pikorafy.com",
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Alternatives",
+        item: "https://pikorafy.com/alternatives",
+      },
+      {
+        "@type": "ListItem",
+        position: 3,
+        name: frontmatter.title,
+        item: `https://pikorafy.com/alternatives/${frontmatter.slug}`,
+      },
+    ],
+  };
+
   return (
     <div className="bg-[#0f1117] min-h-full py-16 sm:py-24">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
       <div className="mx-auto max-w-3xl px-6 lg:px-8">
         {/* Back link */}
         <Link

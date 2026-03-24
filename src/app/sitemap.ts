@@ -21,6 +21,13 @@ const tools = [
   "qr-code-generator",
   "css-gradient-generator",
   "regex-tester",
+  "hash-generator",
+  "html-entity-encoder",
+  "svg-to-png",
+  "timestamp-converter",
+  "json-to-csv",
+  "jwt-decoder",
+  "css-minifier",
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {
