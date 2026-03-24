@@ -5,28 +5,18 @@ import Link from "next/link";
 
 function minifyCss(css: string): string {
   let result = css;
-
-  // Remove block comments /* ... */
+  // Remove comments /* ... */
   result = result.replace(/\/\*[\s\S]*?\*\//g, "");
-
-  // Remove single-line comments // ... (only outside of strings/urls)
-  result = result.replace(/(^|[^:])\/\/.*$/gm, "$1");
-
   // Remove newlines and carriage returns
   result = result.replace(/[\r\n]+/g, "");
-
   // Collapse multiple spaces into one
   result = result.replace(/\s{2,}/g, " ");
-
-  // Remove spaces around { } : ; , > ~ +
-  result = result.replace(/\s*([{}:;,>~+])\s*/g, "$1");
-
+  // Remove spaces around { } : ; ,
+  result = result.replace(/\s*([{}:;,])\s*/g, "$1");
   // Remove trailing semicolons before closing braces
   result = result.replace(/;}/g, "}");
-
   // Remove leading/trailing whitespace
   result = result.trim();
-
   return result;
 }
 
@@ -56,22 +46,15 @@ export default function CssMinifierClient() {
       setStats(null);
       return;
     }
-    try {
-      const minified = minifyCss(input);
-      setOutput(minified);
-
-      const originalSize = new TextEncoder().encode(input).length;
-      const minifiedSize = new TextEncoder().encode(minified).length;
-      const savings =
-        originalSize > 0
-          ? ((originalSize - minifiedSize) / originalSize) * 100
-          : 0;
-      setStats({ original: originalSize, minified: minifiedSize, savings });
-    } catch {
-      setError("Failed to minify CSS.");
-      setOutput("");
-      setStats(null);
-    }
+    const minified = minifyCss(input);
+    setOutput(minified);
+    const originalSize = new TextEncoder().encode(input).length;
+    const minifiedSize = new TextEncoder().encode(minified).length;
+    const savings =
+      originalSize > 0
+        ? Math.round(((originalSize - minifiedSize) / originalSize) * 100)
+        : 0;
+    setStats({ original: originalSize, minified: minifiedSize, savings });
   }
 
   function handleCopy() {
@@ -91,7 +74,7 @@ export default function CssMinifierClient() {
   }
 
   function handleSample() {
-    const sample = `/* Main container styles */
+    const sample = `/* Main layout styles */
 body {
   margin: 0;
   padding: 0;
@@ -116,15 +99,7 @@ body {
 }
 
 .navbar a:hover {
-  color: #3B82F6;
-}
-
-/* Card component */
-.card {
-  background: #1a1d27;
-  border: 1px solid #2a2e3a;
-  border-radius: 0.75rem;
-  padding: 1.5rem;
+  color: #3b82f6;
 }`;
     setInput(sample);
     setOutput("");
@@ -148,8 +123,8 @@ body {
           CSS Minifier
         </h1>
         <p className="mt-3 text-[#8b8fa3] max-w-2xl">
-          Paste your CSS below to minify it. Comments, unnecessary whitespace,
-          and redundant semicolons are removed to reduce file size.
+          Paste your CSS below to minify it by removing comments, unnecessary
+          whitespace, and extra characters. See the size savings instantly.
         </p>
 
         {/* Controls */}
@@ -184,23 +159,23 @@ body {
         {/* Stats */}
         {stats && (
           <div className="mt-4 flex flex-wrap gap-4">
-            <div className="rounded-lg border border-[#2a2e3a] bg-[#1a1d27] px-4 py-3">
-              <div className="text-xs text-[#8b8fa3]">Original</div>
-              <div className="text-sm font-medium text-[#e4e6eb]">
+            <div className="rounded-lg border border-[#2a2e3a] bg-[#1a1d27] px-4 py-2.5 text-sm">
+              <span className="text-[#8b8fa3]">Original: </span>
+              <span className="text-[#e4e6eb] font-medium">
                 {formatBytes(stats.original)}
-              </div>
+              </span>
             </div>
-            <div className="rounded-lg border border-[#2a2e3a] bg-[#1a1d27] px-4 py-3">
-              <div className="text-xs text-[#8b8fa3]">Minified</div>
-              <div className="text-sm font-medium text-[#e4e6eb]">
+            <div className="rounded-lg border border-[#2a2e3a] bg-[#1a1d27] px-4 py-2.5 text-sm">
+              <span className="text-[#8b8fa3]">Minified: </span>
+              <span className="text-[#e4e6eb] font-medium">
                 {formatBytes(stats.minified)}
-              </div>
+              </span>
             </div>
-            <div className="rounded-lg border border-[#2a2e3a] bg-[#1a1d27] px-4 py-3">
-              <div className="text-xs text-[#8b8fa3]">Savings</div>
-              <div className="text-sm font-medium text-green-400">
-                {stats.savings.toFixed(1)}%
-              </div>
+            <div className="rounded-lg border border-[#2a2e3a] bg-[#1a1d27] px-4 py-2.5 text-sm">
+              <span className="text-[#8b8fa3]">Savings: </span>
+              <span className="text-green-400 font-medium">
+                {stats.savings}%
+              </span>
             </div>
           </div>
         )}
@@ -214,7 +189,7 @@ body {
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder=".selector { property: value; }"
+              placeholder="body { margin: 0; }"
               spellCheck={false}
               className="h-80 w-full resize-y rounded-lg border border-[#2a2e3a] bg-[#1a1d27] p-4 font-mono text-sm text-[#e4e6eb] placeholder-[#8b8fa3]/50 focus:border-blue-500 focus:outline-none"
             />

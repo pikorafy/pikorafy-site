@@ -26,6 +26,7 @@ const SLUG_MAP: Record<string, string> = {
   notion: "notion",
   obsidian: "obsidian",
   coda: "coda",
+  clickup: "clickup",
   trello: "trello",
   asana: "asana",
   linear: "linear",

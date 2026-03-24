@@ -98,6 +98,59 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Quiz CTA */}
+      <section className="bg-gradient-to-b from-blue-500/5 to-purple-500/5 bg-[#0f1117] py-16">
+        <div className="mx-auto max-w-3xl px-6 lg:px-8 text-center">
+          <h2 className="text-2xl font-bold text-white sm:text-3xl">
+            Not sure which AI tool is right for you?
+          </h2>
+          <p className="mt-4 text-zinc-400 text-lg">
+            Take our 2-minute quiz and get personalized recommendations based on your needs.
+          </p>
+          <Link
+            href="/quiz"
+            className="mt-8 inline-flex items-center gap-2 rounded-lg bg-[#3B82F6] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#2563EB]"
+          >
+            Take the Quiz
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+            </svg>
+          </Link>
+        </div>
+      </section>
+
+      {/* Deals */}
+      <section className="bg-[#0f1117] py-16">
+        <div className="mx-auto max-w-7xl px-6 lg:px-8">
+          <h2 className="text-2xl font-bold text-white sm:text-3xl mb-6">
+            Featured Deals
+          </h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {[
+              { name: "NordVPN", discount: "73% off", slug: "nordvpn" },
+              { name: "Surfshark", discount: "86% off", slug: "surfshark" },
+              { name: "Hostinger", discount: "75% off", slug: "hostinger" },
+            ].map((deal) => (
+              <div
+                key={deal.slug}
+                className="flex items-center justify-between rounded-xl border border-zinc-800 bg-[#1a1d27] px-5 py-4"
+              >
+                <div>
+                  <span className="text-sm font-semibold text-white">{deal.name}</span>
+                  <span className="ml-2 text-sm font-medium text-emerald-400">{deal.discount}</span>
+                </div>
+                <Link
+                  href={`/deals/${deal.slug}`}
+                  className="text-sm font-medium text-[#3B82F6] hover:text-[#60A5FA] transition-colors"
+                >
+                  Get Deal &rarr;
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Latest Articles - now from real data */}
       <section className="bg-[#0f1117] py-20">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">

@@ -114,6 +114,37 @@ export default async function ComparisonPage({ params }: Props) {
     ],
   };
 
+  const faqJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: [
+      {
+        "@type": "Question",
+        name: `What is the difference between ${frontmatter.toolA} and ${frontmatter.toolB}?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: frontmatter.description,
+        },
+      },
+      {
+        "@type": "Question",
+        name: `Which is better, ${frontmatter.toolA} or ${frontmatter.toolB}?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: `Both tools have strengths. ${frontmatter.toolA} and ${frontmatter.toolB} each excel in different areas. Read our detailed comparison to find which is best for your needs.`,
+        },
+      },
+      {
+        "@type": "Question",
+        name: `Is ${frontmatter.toolA} or ${frontmatter.toolB} cheaper?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: `Pricing varies by plan. Visit our detailed ${frontmatter.toolA} vs ${frontmatter.toolB} comparison for current pricing breakdowns.`,
+        },
+      },
+    ],
+  };
+
   return (
     <div className="bg-[#0f1117] min-h-full py-16 sm:py-24">
       <script
@@ -123,6 +154,10 @@ export default async function ComparisonPage({ params }: Props) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
       <div className="mx-auto max-w-3xl px-6 lg:px-8">
         {/* Back link */}

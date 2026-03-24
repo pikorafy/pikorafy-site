@@ -4,7 +4,7 @@ import CssMinifierClient from "./CssMinifierClient";
 export const metadata: Metadata = {
   title: "CSS Minifier",
   description:
-    "Minify CSS code online. Remove comments, whitespace, and unnecessary characters to reduce file size.",
+    "Minify CSS online by removing comments, whitespace, and unnecessary characters. Free CSS minification tool.",
 };
 
 export default function CssMinifierPage() {
