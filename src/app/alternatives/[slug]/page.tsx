@@ -9,6 +9,7 @@ import {
 } from "@/lib/alternatives";
 import NewsletterSignup from "@/components/NewsletterSignup";
 import ArticleReader from "@/components/ArticleReader";
+import ToolLogo from "@/components/ToolLogo";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -134,10 +135,8 @@ export default async function AlternativePage({ params }: Props) {
             </span>
           </div>
 
-          <div className="mt-4 flex items-center gap-3">
-            <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-blue-500/10 text-lg font-bold text-blue-500">
-              {frontmatter.toolName.charAt(0)}
-            </span>
+          <div className="mt-4 flex items-center gap-4">
+            <ToolLogo name={frontmatter.toolName} size={32} />
             <h1 className="text-3xl font-bold tracking-tight text-[#e4e6eb] sm:text-4xl">
               {frontmatter.title}
             </h1>

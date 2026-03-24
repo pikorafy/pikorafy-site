@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import { getArticleBySlug, getArticleSlugs } from "@/lib/articles";
 import NewsletterSignup from "@/components/NewsletterSignup";
 import ArticleReader from "@/components/ArticleReader";
+import ArticleHero from "@/components/ArticleHero";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -120,18 +121,20 @@ export default async function ArticlePage({ params }: Props) {
           Back to blog
         </Link>
 
+        {/* Hero banner */}
+        <div className="mt-8">
+          <ArticleHero category={frontmatter.category} title={frontmatter.title} />
+        </div>
+
         {/* Article header */}
-        <header className="mt-8">
+        <header>
           <div className="flex items-center gap-3">
-            <span className="inline-flex rounded-md bg-blue-500/10 px-2.5 py-1 text-xs font-medium text-blue-500">
-              {frontmatter.category}
-            </span>
             <time className="text-sm text-[#8b8fa3]">{frontmatter.date}</time>
             <span className="text-sm text-[#8b8fa3]">
               {readingTime} min read
             </span>
           </div>
-          <h1 className="mt-4 text-3xl font-bold tracking-tight text-[#e4e6eb] sm:text-4xl">
+          <h1 className="mt-3 text-3xl font-bold tracking-tight text-[#e4e6eb] sm:text-4xl">
             {frontmatter.title}
           </h1>
           <p className="mt-4 text-lg text-[#8b8fa3]">

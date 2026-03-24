@@ -4,6 +4,7 @@ import { getAllArticles } from "@/lib/articles";
 import { getAllComparisons } from "@/lib/comparisons";
 import NewsletterSignup from "@/components/NewsletterSignup";
 import { HeroBackgroundPaths } from "@/components/ui/background-paths";
+import ToolLogo from "@/components/ToolLogo";
 
 export const metadata: Metadata = {
   title: "Pikorafy - Navigate the AI Revolution. Pick Smarter.",
@@ -51,13 +52,9 @@ export default function Home() {
                 className="group flex items-center justify-between rounded-xl border border-zinc-800 bg-[#1a1d27] p-6 transition-all hover:border-[#3B82F6]/50 hover:bg-[#1e2231]"
               >
                 <div className="flex items-center gap-4">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#3B82F6]/10 text-sm font-bold text-[#3B82F6]">
-                    {comp.frontmatter.toolA.charAt(0)}
-                  </span>
+                  <ToolLogo name={comp.frontmatter.toolA} size={24} />
                   <span className="text-sm font-medium text-zinc-500">vs</span>
-                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-800 text-sm font-bold text-zinc-300">
-                    {comp.frontmatter.toolB.charAt(0)}
-                  </span>
+                  <ToolLogo name={comp.frontmatter.toolB} size={24} />
                 </div>
                 <span className="text-sm font-semibold text-white group-hover:text-[#3B82F6] transition-colors">
                   {comp.frontmatter.toolA} vs {comp.frontmatter.toolB}
@@ -79,7 +76,7 @@ export default function Home() {
               href="/tools"
               className="text-sm font-medium text-[#3B82F6] hover:text-[#60A5FA] transition-colors"
             >
-              View all 15 tools
+              View all 22 tools
             </Link>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

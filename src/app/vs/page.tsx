@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getAllComparisons } from "@/lib/comparisons";
+import ToolLogo from "@/components/ToolLogo";
 
 export const metadata: Metadata = {
   title: "Tool Comparisons - Pikorafy",
@@ -57,13 +58,9 @@ export default function VsPage() {
 
               {/* VS Badge */}
               <div className="mt-5 flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-800 text-sm font-bold text-white">
-                  {comp.frontmatter.toolA.charAt(0)}
-                </span>
+                <ToolLogo name={comp.frontmatter.toolA} size={24} />
                 <span className="text-xs font-bold text-[#8b8fa3]">VS</span>
-                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-800 text-sm font-bold text-white">
-                  {comp.frontmatter.toolB.charAt(0)}
-                </span>
+                <ToolLogo name={comp.frontmatter.toolB} size={24} />
               </div>
 
               <h2 className="mt-4 text-base font-semibold text-[#e4e6eb] group-hover:text-blue-500 transition-colors">

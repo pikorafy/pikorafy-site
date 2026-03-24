@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getAllAlternatives } from "@/lib/alternatives";
+import ToolLogo from "@/components/ToolLogo";
 
 export const metadata: Metadata = {
   title: "Software Alternatives Directory - Pikorafy",
@@ -35,9 +36,7 @@ export default function AlternativesPage() {
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-blue-500/10 text-lg font-bold text-blue-500">
-                    {alt.frontmatter.toolName.charAt(0)}
-                  </span>
+                  <ToolLogo name={alt.frontmatter.toolName} size={28} />
                   <div>
                     <h2 className="text-lg font-semibold text-[#e4e6eb] group-hover:text-blue-500 transition-colors">
                       {alt.frontmatter.toolName} Alternatives
