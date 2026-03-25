@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, BookOpen, Menu, Wrench, GitCompare, Layers, Zap, FileText } from "lucide-react";
+import { BarChart3, BookOpen, Menu, Wrench, GitCompare, Layers, Zap, FileText, Gamepad2, Tag, MonitorPlay } from "lucide-react";
 import SearchDialog from "@/components/SearchDialog";
 import Link from "next/link";
 import {
@@ -37,18 +37,48 @@ interface MenuItem {
 const menu: MenuItem[] = [
   { title: "Home", url: "/" },
   {
-    title: "AI Tools",
+    title: "Gaming",
     url: "#",
     items: [
       {
-        title: "AI Comparisons",
-        description: "Side-by-side comparisons of popular AI tools",
+        title: "Game Deals",
+        description: "Up to 90% off on PC, Xbox, PS & Nintendo keys",
+        icon: <Tag className="size-5 shrink-0" />,
+        url: "/gaming/deals",
+      },
+      {
+        title: "Gaming Comparisons",
+        description: "Game Pass vs PS Plus, key store comparisons & more",
+        icon: <GitCompare className="size-5 shrink-0" />,
+        url: "/vs",
+      },
+      {
+        title: "Gaming Guides",
+        description: "Cloud gaming, VPNs, streaming & setup guides",
+        icon: <MonitorPlay className="size-5 shrink-0" />,
+        url: "/blog",
+      },
+      {
+        title: "Gaming Hub",
+        description: "Your one-stop gaming resource center",
+        icon: <Gamepad2 className="size-5 shrink-0" />,
+        url: "/gaming",
+      },
+    ],
+  },
+  {
+    title: "Compare",
+    url: "#",
+    items: [
+      {
+        title: "All Comparisons",
+        description: "Side-by-side comparisons of tools and services",
         icon: <GitCompare className="size-5 shrink-0" />,
         url: "/vs",
       },
       {
         title: "Alternatives",
-        description: "Find the best alternatives to any AI tool",
+        description: "Find the best alternatives to any tool",
         icon: <Layers className="size-5 shrink-0" />,
         url: "/alternatives",
       },
@@ -88,17 +118,13 @@ const menu: MenuItem[] = [
     title: "Blog",
     url: "/blog",
   },
-  {
-    title: "Deals",
-    url: "/deals",
-  },
 ];
 
 const mobileExtraLinks = [
+  { name: "Game Deals", url: "/gaming/deals" },
   { name: "All Tools", url: "/tools" },
   { name: "Comparisons", url: "/vs" },
   { name: "Alternatives", url: "/alternatives" },
-  { name: "Deals", url: "/deals" },
   { name: "AI Quiz", url: "/quiz" },
   { name: "Sitemap", url: "/sitemap.xml" },
 ];
@@ -205,10 +231,10 @@ export default function PikorafyNavbar() {
           <div className="flex items-center gap-2">
             <SearchDialog />
             <Button asChild variant="outline" size="sm">
-              <Link href="/blog">Newsletter</Link>
+              <Link href="/vs">Compare</Link>
             </Button>
             <Button asChild size="sm">
-              <Link href="/vs">Compare Tools</Link>
+              <Link href="/gaming/deals">Game Deals</Link>
             </Button>
           </div>
         </nav>
@@ -256,10 +282,10 @@ export default function PikorafyNavbar() {
                   </div>
                   <div className="flex flex-col gap-3">
                     <Button asChild variant="outline">
-                      <Link href="/blog">Newsletter</Link>
+                      <Link href="/vs">Compare</Link>
                     </Button>
                     <Button asChild>
-                      <Link href="/vs">Compare Tools</Link>
+                      <Link href="/gaming/deals">Game Deals</Link>
                     </Button>
                   </div>
                 </div>
