@@ -14,14 +14,14 @@ interface InstantGamingBannerProps {
 const AFFILIATE_URL = "https://www.instant-gaming.com/?igr=pikorafy";
 const IGR = "pikorafy";
 
-const STATIC_BANNERS: Record<Exclude<BannerVariant, "dynamic">, { src: string; alt: string }> = {
-  pc: { src: "/partners/instant-gaming/pc-games.png", alt: "PC Games up to 90% off on Instant Gaming" },
-  xbox: { src: "/partners/instant-gaming/xbox.png", alt: "Xbox Games up to 90% off on Instant Gaming" },
-  playstation: { src: "/partners/instant-gaming/playstation.png", alt: "PlayStation Games up to 90% off on Instant Gaming" },
-  nintendo: { src: "/partners/instant-gaming/nintendo.png", alt: "Nintendo Games up to 90% off on Instant Gaming" },
+const VARIANT_CONFIG: Record<Exclude<BannerVariant, "dynamic">, { label: string; icon: string }> = {
+  pc: { label: "PC Games", icon: "🖥️" },
+  xbox: { label: "Xbox Games", icon: "🎮" },
+  playstation: { label: "PlayStation Games", icon: "🎮" },
+  nintendo: { label: "Nintendo Games", icon: "🕹️" },
 };
 
-export default function InstantGamingBanner({ variant = "dynamic", className = "" }: InstantGamingBannerProps) {
+export default function InstantGamingBanner({ variant = "pc", className = "" }: InstantGamingBannerProps) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -55,23 +55,49 @@ export default function InstantGamingBanner({ variant = "dynamic", className = "
     );
   }
 
-  // Static image banner with affiliate link
-  const banner = STATIC_BANNERS[variant];
+  // Horizontal CTA banner (not a stretched image)
+  const config = VARIANT_CONFIG[variant];
 
   return (
     <a
       href={AFFILIATE_URL}
       target="_blank"
       rel="noopener noreferrer sponsored"
-      className={`block rounded-xl border border-[#2a2e3a] overflow-hidden transition-all hover:border-blue-500/40 hover:shadow-lg hover:shadow-blue-500/5 ${className}`}
+      className={`not-prose group flex items-center gap-4 sm:gap-6 rounded-xl border border-[#2a2e3a] bg-gradient-to-r from-[#1a1d27] to-[#1e2231] p-4 sm:p-6 transition-all hover:border-blue-500/40 hover:shadow-lg hover:shadow-blue-500/5 ${className}`}
     >
-      <Image
-        src={banner.src}
-        alt={banner.alt}
-        width={300}
-        height={600}
-        className="w-full h-auto"
-      />
+      {/* Logo */}
+      <div className="shrink-0">
+        <Image
+          src="/partners/instant-gaming/logo.png"
+          alt="Instant Gaming"
+          width={48}
+          height={48}
+          className="rounded-lg"
+        />
+      </div>
+
+      {/* Text */}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-[#e4e6eb] group-hover:text-blue-400 transition-colors">
+            {config.label} up to 90% off
+          </span>
+          <span className="hidden sm:inline-flex rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] font-bold uppercase text-green-400">
+            Partner Deal
+          </span>
+        </div>
+        <p className="mt-0.5 text-xs text-[#8b8fa3] truncate">
+          Instant delivery of digital game keys — PC, Xbox, PlayStation & Nintendo
+        </p>
+      </div>
+
+      {/* CTA */}
+      <div className="shrink-0 hidden sm:flex items-center gap-1.5 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white group-hover:bg-blue-600 transition-colors">
+        Browse deals
+        <svg className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+        </svg>
+      </div>
     </a>
   );
 }
