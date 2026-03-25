@@ -1,8 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import Script from "next/script";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 type BannerVariant = "pc" | "xbox" | "playstation" | "nintendo" | "dynamic";
 
@@ -14,48 +13,88 @@ interface InstantGamingBannerProps {
 const AFFILIATE_URL = "https://www.instant-gaming.com/?igr=pikorafy";
 const IGR = "pikorafy";
 
-const VARIANT_CONFIG: Record<Exclude<BannerVariant, "dynamic">, { label: string; icon: string }> = {
-  pc: { label: "PC Games", icon: "🖥️" },
-  xbox: { label: "Xbox Games", icon: "🎮" },
-  playstation: { label: "PlayStation Games", icon: "🎮" },
-  nintendo: { label: "Nintendo Games", icon: "🕹️" },
+const VARIANT_CONFIG: Record<Exclude<BannerVariant, "dynamic">, { label: string }> = {
+  pc: { label: "PC Games" },
+  xbox: { label: "Xbox Games" },
+  playstation: { label: "PlayStation Games" },
+  nintendo: { label: "Nintendo Games" },
 };
 
-export default function InstantGamingBanner({ variant = "pc", className = "" }: InstantGamingBannerProps) {
-  const [mounted, setMounted] = useState(false);
+// Track whether we've already loaded the IG script globally
+let igScriptLoaded = false;
+
+export default function InstantGamingBanner({ variant = "dynamic", className = "" }: InstantGamingBannerProps) {
+  const reactId = useId();
+  const bannerId = `ig-banner-${reactId.replace(/:/g, "")}`;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    if (variant !== "dynamic") return;
 
-  if (!mounted) return null;
+    // Set up the config before loading the script
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = window as any;
+    win.igBannerConfig = {
+      lang: "en",
+      igr: IGR,
+      banners: [bannerId],
+    };
 
-  // Dynamic banner using Instant Gaming's JS API
+    function loadScript() {
+      if (igScriptLoaded) {
+        // Script already loaded — re-trigger by removing and re-adding
+        const existing = document.querySelector('script[src*="instant-gaming.com/api/banner"]');
+        if (existing) existing.remove();
+        igScriptLoaded = false;
+      }
+
+      const script = document.createElement("script");
+      script.src = "https://www.instant-gaming.com/api/banner/partner/loader.js";
+      script.defer = true;
+      script.onload = () => {
+        igScriptLoaded = true;
+        setLoaded(true);
+        // Check after a short delay if the banner rendered
+        setTimeout(() => {
+          if (containerRef.current && containerRef.current.children.length === 0) {
+            setFailed(true);
+          }
+        }, 3000);
+      };
+      script.onerror = () => setFailed(true);
+      document.body.appendChild(script);
+    }
+
+    loadScript();
+  }, [variant, bannerId]);
+
+  // Dynamic banner
   if (variant === "dynamic") {
-    const bannerId = `ig-banner-${Math.random().toString(36).slice(2, 8)}`;
+    // If the dynamic banner fails (ad blocker, etc.), show the static fallback
+    if (failed) {
+      return <StaticBanner variant="pc" className={className} />;
+    }
 
     return (
-      <div className={`rounded-xl border border-[#2a2e3a] overflow-hidden ${className}`}>
-        <Script id={`ig-config-${bannerId}`} strategy="afterInteractive">
-          {`
-            window.igBannerConfig = window.igBannerConfig || {};
-            window.igBannerConfig = {
-              lang: 'en',
-              igr: '${IGR}',
-              banners: ['${bannerId}']
-            };
-          `}
-        </Script>
-        <Script
-          src="https://www.instant-gaming.com/api/banner/partner/loader.js"
-          strategy="afterInteractive"
-        />
-        <div className={bannerId} />
+      <div className={`not-prose rounded-xl border border-[#2a2e3a] overflow-hidden ${className}`}>
+        <div ref={containerRef} className={bannerId} style={{ minHeight: 90 }}>
+          {!loaded && (
+            <div className="flex items-center justify-center py-6 text-sm text-[#8b8fa3]">
+              Loading deals...
+            </div>
+          )}
+        </div>
       </div>
     );
   }
 
-  // Horizontal CTA banner (not a stretched image)
+  // Static CTA banner
+  return <StaticBanner variant={variant} className={className} />;
+}
+
+function StaticBanner({ variant, className }: { variant: Exclude<BannerVariant, "dynamic">; className: string }) {
   const config = VARIANT_CONFIG[variant];
 
   return (
@@ -65,7 +104,6 @@ export default function InstantGamingBanner({ variant = "pc", className = "" }: 
       rel="noopener noreferrer sponsored"
       className={`not-prose group flex items-center gap-4 sm:gap-6 rounded-xl border border-[#2a2e3a] bg-gradient-to-r from-[#1a1d27] to-[#1e2231] p-4 sm:p-6 transition-all hover:border-blue-500/40 hover:shadow-lg hover:shadow-blue-500/5 ${className}`}
     >
-      {/* Logo */}
       <div className="shrink-0">
         <Image
           src="/partners/instant-gaming/logo.png"
@@ -76,7 +114,6 @@ export default function InstantGamingBanner({ variant = "pc", className = "" }: 
         />
       </div>
 
-      {/* Text */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-[#e4e6eb] group-hover:text-blue-400 transition-colors">
@@ -91,7 +128,6 @@ export default function InstantGamingBanner({ variant = "pc", className = "" }: 
         </p>
       </div>
 
-      {/* CTA */}
       <div className="shrink-0 hidden sm:flex items-center gap-1.5 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white group-hover:bg-blue-600 transition-colors">
         Browse deals
         <svg className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
