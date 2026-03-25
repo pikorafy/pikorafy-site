@@ -8,6 +8,11 @@ import NewsletterSignup from "@/components/NewsletterSignup";
 import RelatedArticles from "@/components/RelatedArticles";
 import ArticleReader from "@/components/ArticleReader";
 import ArticleHero from "@/components/ArticleHero";
+import InstantGamingBanner from "@/components/InstantGamingBanner";
+
+const mdxComponents = {
+  InstantGamingBanner,
+};
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -153,7 +158,7 @@ export default async function ArticlePage({ params }: Props) {
 
         {/* Article content */}
         <article className="mt-8 prose-custom">
-          <MDXRemote source={content} options={{ mdxOptions: { remarkPlugins: [remarkGfm] } }} />
+          <MDXRemote source={content} components={mdxComponents} options={{ mdxOptions: { remarkPlugins: [remarkGfm] } }} />
         </article>
 
         {/* Tags */}

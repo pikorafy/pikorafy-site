@@ -135,6 +135,20 @@ const deals: Deal[] = [
     href: "#",
   },
 
+  // Gaming
+  {
+    name: "Instant Gaming",
+    category: "Gaming",
+    description:
+      "Buy PC, Xbox, PlayStation, and Nintendo game keys at up to 90% off retail prices. Trusted marketplace with instant delivery.",
+    originalPrice: null,
+    discountedPrice: "Up to 90% off",
+    savingsPercent: 90,
+    savingsLabel: "UP TO -90%",
+    expiry: "Always available",
+    href: "https://www.instant-gaming.com/?igr=pikorafy",
+  },
+
   // Design
   {
     name: "Figma",

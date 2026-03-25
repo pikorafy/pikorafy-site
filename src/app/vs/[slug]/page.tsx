@@ -11,10 +11,12 @@ import NewsletterSignup from "@/components/NewsletterSignup";
 import RelatedArticles from "@/components/RelatedArticles";
 import ArticleReader from "@/components/ArticleReader";
 import VPNPricingDemo from "@/components/VPNPricingDemo";
+import InstantGamingBanner from "@/components/InstantGamingBanner";
 import ToolLogo from "@/components/ToolLogo";
 
 const mdxComponents = {
   VPNPricingDemo,
+  InstantGamingBanner,
 };
 
 type Props = {
