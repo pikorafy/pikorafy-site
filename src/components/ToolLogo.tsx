@@ -85,9 +85,20 @@ const SLUG_MAP: Record<string, string> = {
   "icloud": "icloud",
   "onedrive": "microsoftonedrive",
 
+  // Gaming
+  "xbox game pass": "xbox",
+  "ps plus": "playstation",
+  playstation: "playstation",
+  xbox: "xbox",
+  "geforce now": "nvidia",
+  nvidia: "nvidia",
+  steam: "steam",
+
   // Communication
   discord: "discord",
+  "discord nitro": "discord",
   telegram: "telegram",
+  "telegram premium": "telegram",
   whatsapp: "whatsapp",
 
   // Dev tools
