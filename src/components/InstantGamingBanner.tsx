@@ -1,9 +1,28 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useId, useRef, useState } from "react";
+import React, { Component, useEffect, useId, useRef, useState } from "react";
 
 type BannerVariant = "pc" | "xbox" | "playstation" | "nintendo" | "dynamic";
+
+class BannerErrorBoundary extends Component<
+  { children: React.ReactNode; fallback: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode; fallback: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) return this.props.fallback;
+    return this.props.children;
+  }
+}
 
 interface InstantGamingBannerProps {
   variant?: BannerVariant;
@@ -24,6 +43,14 @@ const VARIANT_CONFIG: Record<Exclude<BannerVariant, "dynamic">, { label: string 
 let igScriptLoaded = false;
 
 export default function InstantGamingBanner({ variant = "dynamic", className = "" }: InstantGamingBannerProps) {
+  return (
+    <BannerErrorBoundary fallback={<StaticBanner variant="pc" className={className} />}>
+      <InstantGamingBannerInner variant={variant} className={className} />
+    </BannerErrorBoundary>
+  );
+}
+
+function InstantGamingBannerInner({ variant = "dynamic", className = "" }: InstantGamingBannerProps) {
   const reactId = useId();
   const bannerId = `ig-banner-${reactId.replace(/:/g, "")}`;
   const containerRef = useRef<HTMLDivElement>(null);
@@ -33,41 +60,45 @@ export default function InstantGamingBanner({ variant = "dynamic", className = "
   useEffect(() => {
     if (variant !== "dynamic") return;
 
-    // Set up the config before loading the script
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const win = window as any;
-    win.igBannerConfig = {
-      lang: "en",
-      igr: IGR,
-      banners: [bannerId],
-    };
+    try {
+      // Set up the config before loading the script
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const win = window as any;
+      win.igBannerConfig = {
+        lang: "en",
+        igr: IGR,
+        banners: [bannerId],
+      };
 
-    function loadScript() {
-      if (igScriptLoaded) {
-        // Script already loaded — re-trigger by removing and re-adding
-        const existing = document.querySelector('script[src*="instant-gaming.com/api/banner"]');
-        if (existing) existing.remove();
-        igScriptLoaded = false;
+      function loadScript() {
+        if (igScriptLoaded) {
+          // Script already loaded — re-trigger by removing and re-adding
+          const existing = document.querySelector('script[src*="instant-gaming.com/api/banner"]');
+          if (existing) existing.remove();
+          igScriptLoaded = false;
+        }
+
+        const script = document.createElement("script");
+        script.src = "https://www.instant-gaming.com/api/banner/partner/loader.js";
+        script.defer = true;
+        script.onload = () => {
+          igScriptLoaded = true;
+          setLoaded(true);
+          // Check after a short delay if the banner rendered
+          setTimeout(() => {
+            if (containerRef.current && containerRef.current.children.length === 0) {
+              setFailed(true);
+            }
+          }, 3000);
+        };
+        script.onerror = () => setFailed(true);
+        document.body.appendChild(script);
       }
 
-      const script = document.createElement("script");
-      script.src = "https://www.instant-gaming.com/api/banner/partner/loader.js";
-      script.defer = true;
-      script.onload = () => {
-        igScriptLoaded = true;
-        setLoaded(true);
-        // Check after a short delay if the banner rendered
-        setTimeout(() => {
-          if (containerRef.current && containerRef.current.children.length === 0) {
-            setFailed(true);
-          }
-        }, 3000);
-      };
-      script.onerror = () => setFailed(true);
-      document.body.appendChild(script);
+      loadScript();
+    } catch {
+      setFailed(true);
     }
-
-    loadScript();
   }, [variant, bannerId]);
 
   // Dynamic banner
