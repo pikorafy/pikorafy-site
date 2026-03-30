@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
         hostname: "cdn.cloudflare.steamstatic.com",
         pathname: "/steam/apps/**",
       },
+      {
+        protocol: "https",
+        hostname: "logo.clearbit.com",
+      },
     ],
   },
 };

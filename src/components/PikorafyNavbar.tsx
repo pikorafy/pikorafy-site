@@ -1,6 +1,6 @@
 "use client";
 
-import { Menu, GitCompare, Layers, Gamepad2, Tag, MonitorPlay } from "lucide-react";
+import { Menu, GitCompare, Layers, Gamepad2, Tag, MonitorPlay, Store } from "lucide-react";
 import SearchDialog from "@/components/SearchDialog";
 import Link from "next/link";
 import {
@@ -54,6 +54,11 @@ const menu: MenuItem[] = [
     ],
   },
   {
+    title: "Stores",
+    url: "/stores",
+    icon: <Store className="size-5 shrink-0 text-emerald-400" />,
+  },
+  {
     title: "Compare",
     url: "#",
     items: [
@@ -86,6 +91,7 @@ const menu: MenuItem[] = [
 const mobileExtraLinks = [
   { name: "Game Deals", url: "/gaming/deals" },
   { name: "Gaming Hub", url: "/gaming" },
+  { name: "Stores", url: "/stores" },
   { name: "Comparisons", url: "/vs" },
   { name: "Alternatives", url: "/alternatives" },
 ];
