@@ -47,14 +47,6 @@ const gamingComparisons = [
   { slug: "dlss-4-vs-fsr-4", toolA: "DLSS 4.5", toolB: "FSR 4", label: "AI Upscaling" },
 ];
 
-const freeTools = [
-  { title: "JSON Formatter", slug: "json-formatter", icon: "{}" },
-  { title: "Password Generator", slug: "password-generator", icon: "***" },
-  { title: "QR Code Generator", slug: "qr-code-generator", icon: "QR" },
-  { title: "Color Converter", slug: "color-converter", icon: "#" },
-  { title: "Regex Tester", slug: "regex-tester", icon: ".*" },
-  { title: "Word Counter", slug: "word-counter", icon: "Aa" },
-];
 
 export default function Home() {
   const comparisons = getAllComparisons().slice(0, 6);
@@ -249,33 +241,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Free Tools Strip */}
-      <section className="bg-[#0f1117] py-12 border-t border-[#2a2e3a]/50">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-white">Free Tools</h2>
-            <Link href="/tools" className="text-sm font-medium text-emerald-400 hover:text-emerald-300 transition-colors">
-              View all 22 tools &rarr;
-            </Link>
-          </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            {freeTools.map((tool) => (
-              <Link
-                key={tool.slug}
-                href={`/tools/${tool.slug}`}
-                className="group flex flex-col items-center rounded-lg border border-[#2a2e3a] bg-[#1a1d27] p-4 transition-all hover:border-emerald-500/30 hover:bg-[#1e2231] text-center"
-              >
-                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#0f1117] border border-[#2a2e3a] text-sm font-mono font-bold text-emerald-400 group-hover:border-emerald-500/30">
-                  {tool.icon}
-                </span>
-                <span className="mt-2 text-xs font-medium text-white group-hover:text-emerald-400 transition-colors">
-                  {tool.title}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
     </div>
   );
 }

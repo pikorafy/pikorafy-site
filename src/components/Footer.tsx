@@ -11,16 +11,15 @@ const gamingLinks = [
 const resourceLinks = [
   { name: "All Comparisons", href: "/vs" },
   { name: "Alternatives", href: "/alternatives" },
-  { name: "Free Tools", href: "/tools" },
   { name: "Blog", href: "/blog" },
   { name: "AI Quiz", href: "/quiz" },
 ];
 
-const toolLinks = [
-  { name: "JSON Formatter", href: "/tools/json-formatter" },
-  { name: "Password Generator", href: "/tools/password-generator" },
-  { name: "QR Code Generator", href: "/tools/qr-code-generator" },
-  { name: "Base64 Encoder", href: "/tools/base64" },
+const contentLinks = [
+  { name: "Latest Articles", href: "/blog" },
+  { name: "AI Quiz", href: "/quiz" },
+  { name: "Cloud Gaming Guide", href: "/blog/best-game-streaming-services-2026" },
+  { name: "Gaming VPNs", href: "/blog/best-gaming-vpns-2026" },
 ];
 
 export default function Footer() {
@@ -79,22 +78,17 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Free Tools */}
+          {/* Content */}
           <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-[#8b8fa3]">Free Tools</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-[#8b8fa3]">Content</h3>
             <ul className="mt-3 space-y-2">
-              {toolLinks.map((link) => (
+              {contentLinks.map((link) => (
                 <li key={link.name}>
                   <Link href={link.href} className="text-sm text-[#b0b3c0] transition-colors hover:text-white">
                     {link.name}
                   </Link>
                 </li>
               ))}
-              <li>
-                <Link href="/tools" className="text-sm text-emerald-400 transition-colors hover:text-emerald-300">
-                  View all 22 tools &rarr;
-                </Link>
-              </li>
             </ul>
           </div>
         </div>

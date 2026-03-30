@@ -5,30 +5,6 @@ import { getAllAlternatives } from "@/lib/alternatives";
 
 const BASE_URL = "https://pikorafy.com";
 
-const tools = [
-  "json-formatter",
-  "password-generator",
-  "base64",
-  "color-converter",
-  "markdown-preview",
-  "uuid-generator",
-  "url-encoder",
-  "text-diff",
-  "meta-tag-generator",
-  "lorem-ipsum",
-  "word-counter",
-  "image-compressor",
-  "qr-code-generator",
-  "css-gradient-generator",
-  "regex-tester",
-  "hash-generator",
-  "html-entity-encoder",
-  "svg-to-png",
-  "timestamp-converter",
-  "json-to-csv",
-  "jwt-decoder",
-  "css-minifier",
-];
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const articles = getAllArticles();
@@ -61,12 +37,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.9,
     },
     {
-      url: `${BASE_URL}/tools`,
-      lastModified: new Date(),
-      changeFrequency: "weekly",
-      priority: 0.8,
-    },
-    {
       url: `${BASE_URL}/gaming`,
       lastModified: new Date(),
       changeFrequency: "daily",
@@ -92,12 +62,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
   ];
 
-  const toolPages: MetadataRoute.Sitemap = tools.map((slug) => ({
-    url: `${BASE_URL}/tools/${slug}`,
-    lastModified: new Date(),
-    changeFrequency: "monthly" as const,
-    priority: 0.7,
-  }));
 
   const articlePages: MetadataRoute.Sitemap = articles.map((a) => ({
     url: `${BASE_URL}/blog/${a.frontmatter.slug}`,
@@ -132,7 +96,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   return [
     ...staticPages,
-    ...toolPages,
     ...articlePages,
     ...comparisonPages,
     ...alternativePages,

@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, BookOpen, Menu, Wrench, GitCompare, Layers, Zap, FileText, Gamepad2, Tag, MonitorPlay } from "lucide-react";
+import { Menu, GitCompare, Layers, Gamepad2, Tag, MonitorPlay } from "lucide-react";
 import SearchDialog from "@/components/SearchDialog";
 import Link from "next/link";
 import {
@@ -78,36 +78,6 @@ const menu: MenuItem[] = [
     ],
   },
   {
-    title: "Tools",
-    url: "#",
-    items: [
-      {
-        title: "JSON Formatter",
-        description: "Format and validate JSON data instantly",
-        icon: <Wrench className="size-5 shrink-0" />,
-        url: "/tools/json-formatter",
-      },
-      {
-        title: "Password Generator",
-        description: "Generate strong, secure passwords",
-        icon: <Zap className="size-5 shrink-0" />,
-        url: "/tools/password-generator",
-      },
-      {
-        title: "QR Code Generator",
-        description: "Generate QR codes from any text or URL",
-        icon: <BarChart3 className="size-5 shrink-0" />,
-        url: "/tools/qr-code-generator",
-      },
-      {
-        title: "View All Tools",
-        description: "Browse all 22 free developer utilities",
-        icon: <FileText className="size-5 shrink-0" />,
-        url: "/tools",
-      },
-    ],
-  },
-  {
     title: "Blog",
     url: "/blog",
   },
@@ -116,7 +86,6 @@ const menu: MenuItem[] = [
 const mobileExtraLinks = [
   { name: "Game Deals", url: "/gaming/deals" },
   { name: "Gaming Hub", url: "/gaming" },
-  { name: "All Tools", url: "/tools" },
   { name: "Comparisons", url: "/vs" },
   { name: "Alternatives", url: "/alternatives" },
 ];
