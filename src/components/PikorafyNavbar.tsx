@@ -35,33 +35,20 @@ interface MenuItem {
 }
 
 const menu: MenuItem[] = [
-  { title: "Home", url: "/" },
   {
-    title: "Gaming",
+    title: "Deals",
     url: "#",
     items: [
       {
         title: "Game Deals",
         description: "Up to 90% off on PC, Xbox, PS & Nintendo keys",
-        icon: <Tag className="size-5 shrink-0" />,
+        icon: <Tag className="size-5 shrink-0 text-emerald-400" />,
         url: "/gaming/deals",
-      },
-      {
-        title: "Gaming Comparisons",
-        description: "Game Pass vs PS Plus, key store comparisons & more",
-        icon: <GitCompare className="size-5 shrink-0" />,
-        url: "/vs",
-      },
-      {
-        title: "Gaming Guides",
-        description: "Cloud gaming, VPNs, streaming & setup guides",
-        icon: <MonitorPlay className="size-5 shrink-0" />,
-        url: "/blog",
       },
       {
         title: "Gaming Hub",
         description: "Your one-stop gaming resource center",
-        icon: <Gamepad2 className="size-5 shrink-0" />,
+        icon: <Gamepad2 className="size-5 shrink-0 text-blue-400" />,
         url: "/gaming",
       },
     ],
@@ -77,6 +64,12 @@ const menu: MenuItem[] = [
         url: "/vs",
       },
       {
+        title: "Gaming Comparisons",
+        description: "Game Pass vs PS Plus, key store comparisons & more",
+        icon: <MonitorPlay className="size-5 shrink-0" />,
+        url: "/vs",
+      },
+      {
         title: "Alternatives",
         description: "Find the best alternatives to any tool",
         icon: <Layers className="size-5 shrink-0" />,
@@ -85,7 +78,7 @@ const menu: MenuItem[] = [
     ],
   },
   {
-    title: "Free Tools",
+    title: "Tools",
     url: "#",
     items: [
       {
@@ -122,11 +115,10 @@ const menu: MenuItem[] = [
 
 const mobileExtraLinks = [
   { name: "Game Deals", url: "/gaming/deals" },
+  { name: "Gaming Hub", url: "/gaming" },
   { name: "All Tools", url: "/tools" },
   { name: "Comparisons", url: "/vs" },
   { name: "Alternatives", url: "/alternatives" },
-  { name: "AI Quiz", url: "/quiz" },
-  { name: "Sitemap", url: "/sitemap.xml" },
 ];
 
 const renderMenuItem = (item: MenuItem) => {
@@ -212,12 +204,12 @@ const renderMobileMenuItem = (item: MenuItem) => {
 
 export default function PikorafyNavbar() {
   return (
-    <header className="sticky top-0 z-50 border-b border-[#2a2e3a] bg-[#0f1117]/80 backdrop-blur-md">
+    <header className="sticky top-0 z-50 border-b border-[#2a2e3a] bg-[#0f1117]/90 backdrop-blur-lg">
       <div className="mx-auto max-w-7xl px-6 py-3">
         <nav className="hidden justify-between lg:flex">
           <div className="flex items-center gap-6">
             <Link href="/" className="flex items-center gap-2">
-              <BookOpen className="h-7 w-7 text-[#3B82F6]" />
+              <Gamepad2 className="h-6 w-6 text-emerald-400" />
               <span className="text-lg font-bold text-[#e4e6eb]">Pikorafy</span>
             </Link>
             <div className="flex items-center">
@@ -230,10 +222,10 @@ export default function PikorafyNavbar() {
           </div>
           <div className="flex items-center gap-2">
             <SearchDialog />
-            <Button asChild variant="outline" size="sm">
+            <Button asChild variant="outline" size="sm" className="border-[#2a2e3a] text-[#8b8fa3] hover:text-white">
               <Link href="/vs">Compare</Link>
             </Button>
-            <Button asChild size="sm">
+            <Button asChild size="sm" className="bg-emerald-500 hover:bg-emerald-600 text-white">
               <Link href="/gaming/deals">Game Deals</Link>
             </Button>
           </div>
@@ -241,56 +233,59 @@ export default function PikorafyNavbar() {
         <div className="block lg:hidden">
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center gap-2">
-              <BookOpen className="h-7 w-7 text-[#3B82F6]" />
+              <Gamepad2 className="h-6 w-6 text-emerald-400" />
               <span className="text-lg font-bold text-[#e4e6eb]">Pikorafy</span>
             </Link>
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="outline" size="icon">
-                  <Menu className="size-4" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent className="overflow-y-auto">
-                <SheetHeader>
-                  <SheetTitle>
-                    <Link href="/" className="flex items-center gap-2">
-                      <BookOpen className="h-7 w-7 text-[#3B82F6]" />
-                      <span className="text-lg font-semibold">Pikorafy</span>
-                    </Link>
-                  </SheetTitle>
-                </SheetHeader>
-                <div className="my-6 flex flex-col gap-6">
-                  <Accordion
-                    type="single"
-                    collapsible
-                    className="flex w-full flex-col gap-4"
-                  >
-                    {menu.map((item) => renderMobileMenuItem(item))}
-                  </Accordion>
-                  <div className="border-t py-4">
-                    <div className="grid grid-cols-2 justify-start">
-                      {mobileExtraLinks.map((link, idx) => (
-                        <Link
-                          key={idx}
-                          className="inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-accent-foreground"
-                          href={link.url}
-                        >
-                          {link.name}
-                        </Link>
-                      ))}
+            <div className="flex items-center gap-2">
+              <SearchDialog />
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="outline" size="icon">
+                    <Menu className="size-4" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent className="overflow-y-auto">
+                  <SheetHeader>
+                    <SheetTitle>
+                      <Link href="/" className="flex items-center gap-2">
+                        <Gamepad2 className="h-6 w-6 text-emerald-400" />
+                        <span className="text-lg font-semibold">Pikorafy</span>
+                      </Link>
+                    </SheetTitle>
+                  </SheetHeader>
+                  <div className="my-6 flex flex-col gap-6">
+                    <Accordion
+                      type="single"
+                      collapsible
+                      className="flex w-full flex-col gap-4"
+                    >
+                      {menu.map((item) => renderMobileMenuItem(item))}
+                    </Accordion>
+                    <div className="border-t py-4">
+                      <div className="grid grid-cols-2 justify-start">
+                        {mobileExtraLinks.map((link, idx) => (
+                          <Link
+                            key={idx}
+                            className="inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-accent-foreground"
+                            href={link.url}
+                          >
+                            {link.name}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-3">
+                      <Button asChild variant="outline">
+                        <Link href="/vs">Compare</Link>
+                      </Button>
+                      <Button asChild className="bg-emerald-500 hover:bg-emerald-600 text-white">
+                        <Link href="/gaming/deals">Game Deals</Link>
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex flex-col gap-3">
-                    <Button asChild variant="outline">
-                      <Link href="/vs">Compare</Link>
-                    </Button>
-                    <Button asChild>
-                      <Link href="/gaming/deals">Game Deals</Link>
-                    </Button>
-                  </div>
-                </div>
-              </SheetContent>
-            </Sheet>
+                </SheetContent>
+              </Sheet>
+            </div>
           </div>
         </div>
       </div>

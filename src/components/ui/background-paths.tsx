@@ -2,147 +2,114 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 
-function FloatingPaths({ position }: { position: number }) {
-  const paths = Array.from({ length: 20 }, (_, i) => ({
-    id: i,
-    d: `M-${380 - i * 5 * position} -${189 + i * 6}C-${
-      380 - i * 5 * position
-    } -${189 + i * 6} -${312 - i * 5 * position} ${216 - i * 6} ${
-      152 - i * 5 * position
-    } ${343 - i * 6}C${616 - i * 5 * position} ${470 - i * 6} ${
-      684 - i * 5 * position
-    } ${875 - i * 6} ${684 - i * 5 * position} ${875 - i * 6}`,
-    width: 0.5 + i * 0.03,
-  }));
+const platformFilters = [
+  { label: "All Deals", href: "/gaming/deals", active: true },
+  { label: "PC", href: "/gaming/deals?platform=pc", active: false },
+  { label: "PlayStation", href: "/gaming/deals?platform=playstation", active: false },
+  { label: "Xbox", href: "/gaming/deals?platform=xbox", active: false },
+  { label: "Nintendo", href: "/gaming/deals?platform=nintendo", active: false },
+];
 
-  return (
-    <div className="absolute inset-0 pointer-events-none">
-      <svg
-        className="w-full h-full text-white"
-        viewBox="0 0 696 316"
-        fill="none"
-      >
-        <title>Background Paths</title>
-        {paths.map((path) => (
-          <motion.path
-            key={path.id}
-            d={path.d}
-            stroke="currentColor"
-            strokeWidth={path.width}
-            strokeOpacity={0.1 + path.id * 0.03}
-            initial={{ pathLength: 0.3, opacity: 0.6 }}
-            animate={{
-              pathLength: 1,
-              opacity: [0.3, 0.6, 0.3],
-              pathOffset: [0, 1, 0],
-            }}
-            transition={{
-              duration: 20 + Math.random() * 10,
-              repeat: Number.POSITIVE_INFINITY,
-              ease: "linear",
-            }}
-          />
-        ))}
-      </svg>
-    </div>
-  );
-}
+const stats = [
+  { value: "5,000+", label: "Game deals" },
+  { value: "90%", label: "Max discount" },
+  { value: "Instant", label: "Key delivery" },
+];
 
 export function HeroBackgroundPaths() {
-  const words = ["Navigate the", "AI Revolution."];
-
   return (
-    <div className="relative w-full flex items-center justify-center overflow-hidden bg-[#0f1117] py-24 sm:py-32">
+    <div className="relative w-full overflow-hidden bg-[#0f1117] border-b border-[#2a2e3a]">
+      {/* Animated gradient background */}
       <div className="absolute inset-0">
-        <FloatingPaths position={1} />
-        <FloatingPaths position={-1} />
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/8 via-transparent to-blue-500/8" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-gradient-to-b from-emerald-500/5 to-transparent rounded-full blur-3xl" />
       </div>
 
-      <div className="relative z-10 container mx-auto px-4 md:px-6 text-center">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 2 }}
-          className="max-w-4xl mx-auto"
-        >
-          <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-bold mb-6 tracking-tighter">
-            {words.map((word, wordIndex) => (
-              <span key={wordIndex} className="inline-block mr-4 last:mr-0">
-                {word.split("").map((letter, letterIndex) => (
-                  <motion.span
-                    key={`${wordIndex}-${letterIndex}`}
-                    initial={{ y: 100, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    transition={{
-                      delay: wordIndex * 0.1 + letterIndex * 0.03,
-                      type: "spring",
-                      stiffness: 150,
-                      damping: 25,
-                    }}
-                    className={`inline-block ${
-                      wordIndex === 1
-                        ? "text-transparent bg-clip-text bg-gradient-to-r from-[#3B82F6] to-[#60A5FA]"
-                        : "text-white"
-                    }`}
+      <div className="relative z-10 mx-auto max-w-7xl px-6 lg:px-8 py-16 sm:py-20">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-10">
+          {/* Left: Text content */}
+          <div className="max-w-2xl">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-400 mb-4">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+                </span>
+                Deals updated daily
+              </div>
+
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-white">
+                Find the{" "}
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-blue-400">
+                  best game deals
+                </span>
+              </h1>
+
+              <p className="mt-4 text-base sm:text-lg text-[#8b8fa3] leading-relaxed max-w-lg">
+                Compare prices across stores. Save up to 90% on PC, PlayStation, Xbox & Nintendo game keys.
+              </p>
+
+              {/* Platform filter pills */}
+              <div className="mt-6 flex flex-wrap gap-2">
+                {platformFilters.map((filter) => (
+                  <Link
+                    key={filter.label}
+                    href={filter.href}
+                    className={
+                      filter.active
+                        ? "rounded-full bg-emerald-500/15 border border-emerald-500/30 px-4 py-1.5 text-sm font-medium text-emerald-400 transition-colors hover:bg-emerald-500/25"
+                        : "rounded-full border border-[#2a2e3a] bg-[#1a1d27] px-4 py-1.5 text-sm font-medium text-[#8b8fa3] transition-colors hover:border-[#3a3e4a] hover:text-white"
+                    }
                   >
-                    {letter === " " ? "\u00A0" : letter}
-                  </motion.span>
+                    {filter.label}
+                  </Link>
                 ))}
-              </span>
-            ))}
-          </h1>
+              </div>
 
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.8, duration: 0.8 }}
-            className="mt-6 max-w-2xl mx-auto text-lg leading-8 text-zinc-400"
-          >
-            500+ AI tools compared side-by-side. Honest reviews of ChatGPT,
-            Claude, Gemini, Midjourney, and every AI tool that matters. Stop
-            guessing, start picking smarter.
-          </motion.p>
+              {/* CTA buttons */}
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Link
+                  href="/gaming/deals"
+                  className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-emerald-600 hover:shadow-lg hover:shadow-emerald-500/20"
+                >
+                  Browse Deals
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                  </svg>
+                </Link>
+                <Link
+                  href="/vs"
+                  className="inline-flex items-center gap-2 rounded-lg border border-[#2a2e3a] bg-[#1a1d27] px-5 py-2.5 text-sm font-semibold text-white transition-all hover:border-[#3a3e4a] hover:bg-[#1e2231]"
+                >
+                  Compare Services
+                </Link>
+              </div>
+            </motion.div>
+          </div>
 
+          {/* Right: Stats cards */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.2, duration: 0.8 }}
-            className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4"
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="grid grid-cols-3 gap-3 lg:gap-4"
           >
-            <div className="inline-block group relative bg-gradient-to-b from-white/10 to-black/10 p-px rounded-2xl backdrop-blur-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
-              <Button
-                asChild
-                variant="ghost"
-                className="rounded-[1.15rem] px-8 py-6 text-lg font-semibold backdrop-blur-md bg-[#3B82F6] hover:bg-[#2563EB] text-white transition-all duration-300 group-hover:-translate-y-0.5 border border-white/10 hover:shadow-md"
+            {stats.map((stat) => (
+              <div
+                key={stat.label}
+                className="flex flex-col items-center rounded-xl border border-[#2a2e3a] bg-[#1a1d27]/80 backdrop-blur-sm px-4 py-5 sm:px-6 sm:py-6 text-center"
               >
-                <Link href="/vs">
-                  <span className="opacity-90 group-hover:opacity-100 transition-opacity">
-                    Browse Comparisons
-                  </span>
-                  <span className="ml-3 opacity-70 group-hover:opacity-100 group-hover:translate-x-1.5 transition-all duration-300">
-                    →
-                  </span>
-                </Link>
-              </Button>
-            </div>
-
-            <div className="inline-block group relative bg-gradient-to-b from-white/10 to-black/10 p-px rounded-2xl backdrop-blur-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
-              <Button
-                asChild
-                variant="ghost"
-                className="rounded-[1.15rem] px-8 py-6 text-lg font-semibold backdrop-blur-md bg-[#0f1117]/95 hover:bg-[#1a1d27] text-white transition-all duration-300 group-hover:-translate-y-0.5 border border-zinc-700 hover:border-[#3B82F6] hover:shadow-md"
-              >
-                <Link href="/tools">
-                  <span className="opacity-90 group-hover:opacity-100 transition-opacity">
-                    Free Tools
-                  </span>
-                </Link>
-              </Button>
-            </div>
+                <span className="text-xl sm:text-2xl font-bold text-emerald-400">{stat.value}</span>
+                <span className="mt-1 text-xs text-[#8b8fa3]">{stat.label}</span>
+              </div>
+            ))}
           </motion.div>
-        </motion.div>
+        </div>
       </div>
     </div>
   );

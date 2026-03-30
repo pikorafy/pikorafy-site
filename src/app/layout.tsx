@@ -18,20 +18,20 @@ export const metadata: Metadata = {
     template: "%s | Pikorafy",
   },
   description:
-    "Navigate the AI revolution. Compare 500+ AI tools side-by-side with honest reviews and real benchmarks. ChatGPT, Claude, Gemini, Midjourney, and more.",
+    "Find the best game deals with up to 90% off. Compare gaming subscriptions, key stores, and platforms. Free developer utilities included.",
   openGraph: {
     type: "website",
     locale: "en_US",
     siteName: "Pikorafy",
-    title: "Pikorafy - Navigate the AI Revolution",
+    title: "Pikorafy - Game Deals, Comparisons & Free Tools",
     description:
-      "Compare 500+ AI tools side-by-side. Honest reviews, real benchmarks, and free developer utilities.",
+      "Find the best game deals with up to 90% off. Compare gaming subscriptions, key stores, and platforms side-by-side.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Pikorafy - Navigate the AI Revolution",
+    title: "Pikorafy - Game Deals, Comparisons & Free Tools",
     description:
-      "Compare 500+ AI tools side-by-side. Honest reviews, real benchmarks, and free developer utilities.",
+      "Find the best game deals with up to 90% off. Compare gaming subscriptions, key stores, and platforms side-by-side.",
   },
 };
 
@@ -41,7 +41,7 @@ const websiteJsonLd = {
   name: "Pikorafy",
   url: "https://pikorafy.com",
   description:
-    "Navigate the AI revolution. Compare 500+ AI tools side-by-side with honest reviews and real benchmarks.",
+    "Find the best game deals with up to 90% off. Compare gaming subscriptions, key stores, and platforms. Free developer tools.",
   potentialAction: {
     "@type": "SearchAction",
     target: {
