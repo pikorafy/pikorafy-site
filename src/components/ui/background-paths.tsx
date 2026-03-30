@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Image from "next/image";
 import Link from "next/link";
 
 const platformFilters = [
@@ -11,10 +12,24 @@ const platformFilters = [
   { label: "Nintendo", href: "/gaming/deals?platform=nintendo", active: false },
 ];
 
-const stats = [
-  { value: "5,000+", label: "Game deals" },
-  { value: "90%", label: "Max discount" },
-  { value: "Instant", label: "Key delivery" },
+// Most sold/played games — two rows for the scrolling mosaic
+const mosaicGames = [
+  { name: "Elden Ring", steamId: 1245620 },
+  { name: "Cyberpunk 2077", steamId: 1091500 },
+  { name: "Baldur's Gate 3", steamId: 1086940 },
+  { name: "Red Dead Redemption 2", steamId: 1174180 },
+  { name: "God of War Ragnarök", steamId: 2322010 },
+  { name: "Monster Hunter Wilds", steamId: 2246340 },
+  { name: "Hades II", steamId: 1145350 },
+  { name: "Hogwarts Legacy", steamId: 990080 },
+  { name: "Resident Evil 4", steamId: 2050650 },
+  { name: "The Last of Us", steamId: 1888930 },
+  { name: "Starfield", steamId: 1716740 },
+  { name: "Diablo IV", steamId: 2344520 },
+  { name: "GTA V", steamId: 271590 },
+  { name: "Counter-Strike 2", steamId: 730 },
+  { name: "Palworld", steamId: 1623730 },
+  { name: "Helldivers 2", steamId: 553850 },
 ];
 
 export function HeroBackgroundPaths() {
@@ -92,22 +107,75 @@ export function HeroBackgroundPaths() {
             </motion.div>
           </div>
 
-          {/* Right: Stats cards */}
+          {/* Right: Scrolling game mosaic */}
           <motion.div
             initial={{ opacity: 0, x: 30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="grid grid-cols-3 gap-3 lg:gap-4"
+            className="relative w-full lg:w-[420px] xl:w-[480px] h-[260px] sm:h-[300px] overflow-hidden rounded-xl border border-[#2a2e3a]"
           >
-            {stats.map((stat) => (
-              <div
-                key={stat.label}
-                className="flex flex-col items-center rounded-xl border border-[#2a2e3a] bg-[#1a1d27]/80 backdrop-blur-sm px-4 py-5 sm:px-6 sm:py-6 text-center"
-              >
-                <span className="text-xl sm:text-2xl font-bold text-emerald-400">{stat.value}</span>
-                <span className="mt-1 text-xs text-[#8b8fa3]">{stat.label}</span>
-              </div>
-            ))}
+            {/* Gradient overlays for fade edges */}
+            <div className="absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-[#0f1117] to-transparent z-10 pointer-events-none" />
+            <div className="absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-[#0f1117] to-transparent z-10 pointer-events-none" />
+            <div className="absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-[#0f1117] to-transparent z-10 pointer-events-none" />
+            <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-[#0f1117] to-transparent z-10 pointer-events-none" />
+
+            {/* Row 1 — scrolls left */}
+            <div className="flex gap-2 mb-2 animate-[scrollLeft_25s_linear_infinite]" style={{ width: "max-content" }}>
+              {[...mosaicGames.slice(0, 8), ...mosaicGames.slice(0, 8)].map((game, i) => (
+                <div key={`r1-${i}`} className="relative w-[180px] sm:w-[200px] aspect-[460/215] rounded-lg overflow-hidden flex-shrink-0 group">
+                  <Image
+                    src={`https://cdn.cloudflare.steamstatic.com/steam/apps/${game.steamId}/header.jpg`}
+                    alt={game.name}
+                    fill
+                    unoptimized
+                    className="object-cover transition-transform duration-300 group-hover:scale-110"
+                  />
+                  <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors" />
+                  <span className="absolute bottom-1.5 left-2 text-[10px] font-semibold text-white/90 drop-shadow-lg">
+                    {game.name}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Row 2 — scrolls right */}
+            <div className="flex gap-2 mb-2 animate-[scrollRight_30s_linear_infinite]" style={{ width: "max-content" }}>
+              {[...mosaicGames.slice(8, 16), ...mosaicGames.slice(8, 16)].map((game, i) => (
+                <div key={`r2-${i}`} className="relative w-[180px] sm:w-[200px] aspect-[460/215] rounded-lg overflow-hidden flex-shrink-0 group">
+                  <Image
+                    src={`https://cdn.cloudflare.steamstatic.com/steam/apps/${game.steamId}/header.jpg`}
+                    alt={game.name}
+                    fill
+                    unoptimized
+                    className="object-cover transition-transform duration-300 group-hover:scale-110"
+                  />
+                  <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors" />
+                  <span className="absolute bottom-1.5 left-2 text-[10px] font-semibold text-white/90 drop-shadow-lg">
+                    {game.name}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Row 3 — scrolls left (slower) */}
+            <div className="flex gap-2 animate-[scrollLeft_35s_linear_infinite]" style={{ width: "max-content" }}>
+              {[...mosaicGames.slice(4, 12), ...mosaicGames.slice(4, 12)].map((game, i) => (
+                <div key={`r3-${i}`} className="relative w-[180px] sm:w-[200px] aspect-[460/215] rounded-lg overflow-hidden flex-shrink-0 group">
+                  <Image
+                    src={`https://cdn.cloudflare.steamstatic.com/steam/apps/${game.steamId}/header.jpg`}
+                    alt={game.name}
+                    fill
+                    unoptimized
+                    className="object-cover transition-transform duration-300 group-hover:scale-110"
+                  />
+                  <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors" />
+                  <span className="absolute bottom-1.5 left-2 text-[10px] font-semibold text-white/90 drop-shadow-lg">
+                    {game.name}
+                  </span>
+                </div>
+              ))}
+            </div>
           </motion.div>
         </div>
       </div>
