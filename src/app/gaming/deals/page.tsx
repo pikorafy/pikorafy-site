@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import InstantGamingBanner from "@/components/InstantGamingBanner";
 
@@ -16,25 +17,26 @@ type GameDeal = {
   discountedPrice: string;
   discountPercent: number;
   href: string;
+  steamId: number;
 };
 
 const deals: GameDeal[] = [
-  { title: "Elden Ring", platform: "PC", platformBadge: "Steam", originalPrice: "$59.99", discountedPrice: "$24.99", discountPercent: 58, href: "https://www.instant-gaming.com/?igr=pikorafy" },
-  { title: "Cyberpunk 2077", platform: "PC", platformBadge: "Steam", originalPrice: "$59.99", discountedPrice: "$19.99", discountPercent: 67, href: "https://www.instant-gaming.com/?igr=pikorafy" },
-  { title: "God of War Ragnarok", platform: "PlayStation", platformBadge: "PS5", originalPrice: "$69.99", discountedPrice: "$34.99", discountPercent: 50, href: "https://www.instant-gaming.com/?igr=pikorafy" },
-  { title: "Zelda: Tears of the Kingdom", platform: "Nintendo", platformBadge: "Switch", originalPrice: "$69.99", discountedPrice: "$44.99", discountPercent: 36, href: "https://www.instant-gaming.com/?igr=pikorafy" },
-  { title: "Red Dead Redemption 2", platform: "PC", platformBadge: "Steam", originalPrice: "$59.99", discountedPrice: "$14.99", discountPercent: 75, href: "https://www.instant-gaming.com/?igr=pikorafy" },
-  { title: "Hogwarts Legacy", platform: "PC", platformBadge: "Steam", originalPrice: "$59.99", discountedPrice: "$22.99", discountPercent: 62, href: "https://www.instant-gaming.com/?igr=pikorafy" },
-  { title: "Resident Evil 4 Remake", platform: "PC", platformBadge: "Steam", originalPrice: "$59.99", discountedPrice: "$27.99", discountPercent: 53, href: "https://www.instant-gaming.com/?igr=pikorafy" },
-  { title: "Starfield", platform: "Xbox", platformBadge: "Xbox", originalPrice: "$69.99", discountedPrice: "$29.99", discountPercent: 57, href: "https://www.instant-gaming.com/?igr=pikorafy" },
-  { title: "Baldur's Gate 3", platform: "PC", platformBadge: "Steam", originalPrice: "$59.99", discountedPrice: "$39.99", discountPercent: 33, href: "https://www.instant-gaming.com/?igr=pikorafy" },
-  { title: "Spider-Man 2", platform: "PlayStation", platformBadge: "PS5", originalPrice: "$69.99", discountedPrice: "$39.99", discountPercent: 43, href: "https://www.instant-gaming.com/?igr=pikorafy" },
-  { title: "Mario Kart 8 Deluxe", platform: "Nintendo", platformBadge: "Switch", originalPrice: "$59.99", discountedPrice: "$39.99", discountPercent: 33, href: "https://www.instant-gaming.com/?igr=pikorafy" },
-  { title: "Hades II", platform: "PC", platformBadge: "Steam", originalPrice: "$29.99", discountedPrice: "$19.99", discountPercent: 33, href: "https://www.instant-gaming.com/?igr=pikorafy" },
-  { title: "The Last of Us Part I", platform: "PC", platformBadge: "Steam", originalPrice: "$59.99", discountedPrice: "$29.99", discountPercent: 50, href: "https://www.instant-gaming.com/?igr=pikorafy" },
-  { title: "Diablo IV", platform: "Xbox", platformBadge: "Xbox", originalPrice: "$69.99", discountedPrice: "$24.99", discountPercent: 64, href: "https://www.instant-gaming.com/?igr=pikorafy" },
-  { title: "Final Fantasy XVI", platform: "PC", platformBadge: "Steam", originalPrice: "$49.99", discountedPrice: "$29.99", discountPercent: 40, href: "https://www.instant-gaming.com/?igr=pikorafy" },
-  { title: "Monster Hunter Wilds", platform: "PC", platformBadge: "Steam", originalPrice: "$69.99", discountedPrice: "$54.99", discountPercent: 21, href: "https://www.instant-gaming.com/?igr=pikorafy" },
+  { title: "Elden Ring", platform: "PC", platformBadge: "Steam", originalPrice: "$59.99", discountedPrice: "$24.99", discountPercent: 58, href: "https://www.instant-gaming.com/?igr=pikorafy", steamId: 1245620 },
+  { title: "Cyberpunk 2077", platform: "PC", platformBadge: "Steam", originalPrice: "$59.99", discountedPrice: "$19.99", discountPercent: 67, href: "https://www.instant-gaming.com/?igr=pikorafy", steamId: 1091500 },
+  { title: "God of War Ragnarok", platform: "PlayStation", platformBadge: "PS5", originalPrice: "$69.99", discountedPrice: "$34.99", discountPercent: 50, href: "https://www.instant-gaming.com/?igr=pikorafy", steamId: 2322010 },
+  { title: "Zelda: Tears of the Kingdom", platform: "Nintendo", platformBadge: "Switch", originalPrice: "$69.99", discountedPrice: "$44.99", discountPercent: 36, href: "https://www.instant-gaming.com/?igr=pikorafy", steamId: 0 },
+  { title: "Red Dead Redemption 2", platform: "PC", platformBadge: "Steam", originalPrice: "$59.99", discountedPrice: "$14.99", discountPercent: 75, href: "https://www.instant-gaming.com/?igr=pikorafy", steamId: 1174180 },
+  { title: "Hogwarts Legacy", platform: "PC", platformBadge: "Steam", originalPrice: "$59.99", discountedPrice: "$22.99", discountPercent: 62, href: "https://www.instant-gaming.com/?igr=pikorafy", steamId: 990080 },
+  { title: "Resident Evil 4 Remake", platform: "PC", platformBadge: "Steam", originalPrice: "$59.99", discountedPrice: "$27.99", discountPercent: 53, href: "https://www.instant-gaming.com/?igr=pikorafy", steamId: 2050650 },
+  { title: "Starfield", platform: "Xbox", platformBadge: "Xbox", originalPrice: "$69.99", discountedPrice: "$29.99", discountPercent: 57, href: "https://www.instant-gaming.com/?igr=pikorafy", steamId: 1716740 },
+  { title: "Baldur's Gate 3", platform: "PC", platformBadge: "Steam", originalPrice: "$59.99", discountedPrice: "$39.99", discountPercent: 33, href: "https://www.instant-gaming.com/?igr=pikorafy", steamId: 1086940 },
+  { title: "Spider-Man 2", platform: "PlayStation", platformBadge: "PS5", originalPrice: "$69.99", discountedPrice: "$39.99", discountPercent: 43, href: "https://www.instant-gaming.com/?igr=pikorafy", steamId: 0 },
+  { title: "Mario Kart 8 Deluxe", platform: "Nintendo", platformBadge: "Switch", originalPrice: "$59.99", discountedPrice: "$39.99", discountPercent: 33, href: "https://www.instant-gaming.com/?igr=pikorafy", steamId: 0 },
+  { title: "Hades II", platform: "PC", platformBadge: "Steam", originalPrice: "$29.99", discountedPrice: "$19.99", discountPercent: 33, href: "https://www.instant-gaming.com/?igr=pikorafy", steamId: 1145350 },
+  { title: "The Last of Us Part I", platform: "PC", platformBadge: "Steam", originalPrice: "$59.99", discountedPrice: "$29.99", discountPercent: 50, href: "https://www.instant-gaming.com/?igr=pikorafy", steamId: 1888930 },
+  { title: "Diablo IV", platform: "Xbox", platformBadge: "Xbox", originalPrice: "$69.99", discountedPrice: "$24.99", discountPercent: 64, href: "https://www.instant-gaming.com/?igr=pikorafy", steamId: 2344520 },
+  { title: "Final Fantasy XVI", platform: "PC", platformBadge: "Steam", originalPrice: "$49.99", discountedPrice: "$29.99", discountPercent: 40, href: "https://www.instant-gaming.com/?igr=pikorafy", steamId: 2515020 },
+  { title: "Monster Hunter Wilds", platform: "PC", platformBadge: "Steam", originalPrice: "$69.99", discountedPrice: "$54.99", discountPercent: 21, href: "https://www.instant-gaming.com/?igr=pikorafy", steamId: 2246340 },
 ];
 
 const platformTabs = ["All", "PC", "Xbox", "PlayStation", "Nintendo"];
@@ -55,40 +57,58 @@ function getDealRating(discount: number) {
 
 function DealCard({ deal }: { deal: GameDeal }) {
   const rating = getDealRating(deal.discountPercent);
+  const hasCover = deal.steamId > 0;
+
   return (
     <a
       href={deal.href}
       target="_blank"
       rel="noopener noreferrer sponsored"
-      className="group relative flex flex-col rounded-lg border border-[#2a2e3a] bg-[#1a1d27] p-4 transition-all hover:border-emerald-500/30 hover:bg-[#1e2231] hover:shadow-lg hover:shadow-emerald-500/5 hover:-translate-y-0.5"
+      className="group relative flex flex-col rounded-lg border border-[#2a2e3a] bg-[#1a1d27] overflow-hidden transition-all hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5 hover:-translate-y-0.5"
     >
-      {/* Top row */}
-      <div className="flex items-center justify-between gap-2">
-        <span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase border ${platformBadgeColors[deal.platformBadge] || "bg-[#3B82F6]/10 text-[#3B82F6] border-[#3B82F6]/20"}`}>
-          {deal.platformBadge}
+      {/* Cover image */}
+      <div className="relative aspect-[460/215] w-full bg-[#0f1117] overflow-hidden">
+        {hasCover ? (
+          <Image
+            src={`https://cdn.cloudflare.steamstatic.com/steam/apps/${deal.steamId}/header.jpg`}
+            alt={deal.title}
+            fill
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            unoptimized
+          />
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-[#1e2231] to-[#2a2e3a] flex items-center justify-center">
+            <span className="text-2xl font-bold text-[#8b8fa3]/30">{deal.title.charAt(0)}</span>
+          </div>
+        )}
+        {/* Discount badge */}
+        <span className="absolute top-2 right-2 rounded-md bg-emerald-500 px-2 py-0.5 text-xs font-bold text-white shadow-lg">
+          -{deal.discountPercent}%
         </span>
-        <span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-bold uppercase border ${rating.color}`}>
+        {/* Deal rating */}
+        <span className={`absolute top-2 left-2 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase border backdrop-blur-sm ${rating.color}`}>
           {rating.label}
         </span>
       </div>
 
-      {/* Title */}
-      <h3 className="mt-3 text-sm font-semibold text-white group-hover:text-emerald-400 transition-colors leading-tight line-clamp-2 min-h-[2.5rem]">
-        {deal.title}
-      </h3>
-
-      {/* Price */}
-      <div className="mt-auto pt-3 flex items-end justify-between">
-        <div>
-          <span className="text-xs text-[#8b8fa3] line-through block">{deal.originalPrice}</span>
-          <span className="text-lg font-bold text-emerald-400">{deal.discountedPrice}</span>
-        </div>
-        <span className="rounded-md bg-emerald-500/15 border border-emerald-500/20 px-2 py-1 text-xs font-bold text-emerald-400">
-          -{deal.discountPercent}%
+      <div className="flex flex-col flex-1 p-3">
+        {/* Platform badge */}
+        <span className={`self-start inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase border ${platformBadgeColors[deal.platformBadge] || "bg-[#3B82F6]/10 text-[#3B82F6] border-[#3B82F6]/20"}`}>
+          {deal.platformBadge}
         </span>
-      </div>
 
-      <p className="mt-2 text-[10px] text-[#8b8fa3]">via Instant Gaming</p>
+        {/* Title */}
+        <h3 className="mt-1.5 text-sm font-semibold text-white group-hover:text-emerald-400 transition-colors leading-tight line-clamp-1">
+          {deal.title}
+        </h3>
+
+        {/* Price */}
+        <div className="mt-auto pt-2 flex items-baseline gap-2">
+          <span className="text-lg font-bold text-emerald-400">{deal.discountedPrice}</span>
+          <span className="text-xs text-[#8b8fa3] line-through">{deal.originalPrice}</span>
+        </div>
+      </div>
     </a>
   );
 }

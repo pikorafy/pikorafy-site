@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { getAllArticles } from "@/lib/articles";
 import { getAllComparisons } from "@/lib/comparisons";
@@ -12,15 +13,16 @@ export const metadata: Metadata = {
     "Find the best game deals with up to 90% off. Compare gaming subscriptions, key stores, and platforms. Free developer utilities included.",
 };
 
+// Steam App IDs for cover images via Steam CDN
 const hotDeals = [
-  { title: "Elden Ring", platform: "Steam", discount: 58, price: "$24.99", original: "$59.99" },
-  { title: "Cyberpunk 2077", platform: "Steam", discount: 67, price: "$19.99", original: "$59.99" },
-  { title: "Baldur's Gate 3", platform: "Steam", discount: 33, price: "$39.99", original: "$59.99" },
-  { title: "Red Dead Redemption 2", platform: "Steam", discount: 75, price: "$14.99", original: "$59.99" },
-  { title: "God of War Ragnarok", platform: "PS5", discount: 50, price: "$34.99", original: "$69.99" },
-  { title: "Starfield", platform: "Xbox", discount: 57, price: "$29.99", original: "$69.99" },
-  { title: "Monster Hunter Wilds", platform: "Steam", discount: 21, price: "$54.99", original: "$69.99" },
-  { title: "Hades II", platform: "Steam", discount: 33, price: "$19.99", original: "$29.99" },
+  { title: "Elden Ring", platform: "Steam", discount: 58, price: "$24.99", original: "$59.99", steamId: 1245620 },
+  { title: "Cyberpunk 2077", platform: "Steam", discount: 67, price: "$19.99", original: "$59.99", steamId: 1091500 },
+  { title: "Baldur's Gate 3", platform: "Steam", discount: 33, price: "$39.99", original: "$59.99", steamId: 1086940 },
+  { title: "Red Dead Redemption 2", platform: "Steam", discount: 75, price: "$14.99", original: "$59.99", steamId: 1174180 },
+  { title: "God of War Ragnarok", platform: "PS5", discount: 50, price: "$34.99", original: "$69.99", steamId: 2322010 },
+  { title: "Starfield", platform: "Xbox", discount: 57, price: "$29.99", original: "$69.99", steamId: 1716740 },
+  { title: "Monster Hunter Wilds", platform: "Steam", discount: 21, price: "$54.99", original: "$69.99", steamId: 2246340 },
+  { title: "Hades II", platform: "Steam", discount: 33, price: "$19.99", original: "$29.99", steamId: 1145350 },
 ];
 
 const AFFILIATE_URL = "https://www.instant-gaming.com/?igr=pikorafy";
@@ -89,36 +91,45 @@ export default function Home() {
                   href={AFFILIATE_URL}
                   target="_blank"
                   rel="noopener noreferrer sponsored"
-                  className="group relative flex flex-col rounded-lg border border-[#2a2e3a] bg-[#1a1d27] p-4 transition-all hover:border-emerald-500/30 hover:bg-[#1e2231] hover:shadow-lg hover:shadow-emerald-500/5 hover:-translate-y-0.5"
+                  className="group relative flex flex-col rounded-lg border border-[#2a2e3a] bg-[#1a1d27] overflow-hidden transition-all hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5 hover:-translate-y-0.5"
                 >
-                  {/* Top row: platform + deal rating */}
-                  <div className="flex items-center justify-between gap-2">
-                    <span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase border ${platformBadgeColors[deal.platform] || "bg-[#3B82F6]/10 text-[#3B82F6] border-[#3B82F6]/20"}`}>
-                      {deal.platform}
+                  {/* Cover image */}
+                  <div className="relative aspect-[460/215] w-full bg-[#0f1117] overflow-hidden">
+                    <Image
+                      src={`https://cdn.cloudflare.steamstatic.com/steam/apps/${deal.steamId}/header.jpg`}
+                      alt={deal.title}
+                      fill
+                      className="object-cover transition-transform duration-300 group-hover:scale-105"
+                      sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                      unoptimized
+                    />
+                    {/* Discount badge overlay */}
+                    <span className="absolute top-2 right-2 rounded-md bg-emerald-500 px-2 py-0.5 text-xs font-bold text-white shadow-lg">
+                      -{deal.discount}%
                     </span>
-                    <span className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-bold uppercase border ${rating.color}`}>
+                    {/* Deal rating overlay */}
+                    <span className={`absolute top-2 left-2 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase border backdrop-blur-sm ${rating.color}`}>
                       {rating.label}
                     </span>
                   </div>
 
-                  {/* Game title */}
-                  <h3 className="mt-3 text-sm font-semibold text-white group-hover:text-emerald-400 transition-colors leading-tight line-clamp-2 min-h-[2.5rem]">
-                    {deal.title}
-                  </h3>
-
-                  {/* Pricing row */}
-                  <div className="mt-auto pt-3 flex items-end justify-between">
-                    <div>
-                      <span className="text-xs text-[#8b8fa3] line-through block">{deal.original}</span>
-                      <span className="text-lg font-bold text-emerald-400">{deal.price}</span>
-                    </div>
-                    <span className="rounded-md bg-emerald-500/15 border border-emerald-500/20 px-2 py-1 text-xs font-bold text-emerald-400">
-                      -{deal.discount}%
+                  <div className="flex flex-col flex-1 p-3">
+                    {/* Platform badge */}
+                    <span className={`self-start inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase border ${platformBadgeColors[deal.platform] || "bg-[#3B82F6]/10 text-[#3B82F6] border-[#3B82F6]/20"}`}>
+                      {deal.platform}
                     </span>
-                  </div>
 
-                  {/* Store attribution */}
-                  <p className="mt-2 text-[10px] text-[#8b8fa3]">via Instant Gaming</p>
+                    {/* Game title */}
+                    <h3 className="mt-1.5 text-sm font-semibold text-white group-hover:text-emerald-400 transition-colors leading-tight line-clamp-1">
+                      {deal.title}
+                    </h3>
+
+                    {/* Pricing row */}
+                    <div className="mt-auto pt-2 flex items-baseline gap-2">
+                      <span className="text-lg font-bold text-emerald-400">{deal.price}</span>
+                      <span className="text-xs text-[#8b8fa3] line-through">{deal.original}</span>
+                    </div>
+                  </div>
                 </a>
               );
             })}
