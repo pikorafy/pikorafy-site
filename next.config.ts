@@ -10,7 +10,8 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
-        hostname: "logo.clearbit.com",
+        hostname: "www.google.com",
+        pathname: "/s2/favicons/**",
       },
     ],
   },
