@@ -64,12 +64,6 @@ const marketplaces: Store[] = [
     logo: "https://logo.clearbit.com/g2play.net",
   },
   {
-    name: "MMOGA",
-    url: "https://www.mmoga.com/",
-    description: "Long-running marketplace for game keys, in-game currency and gift cards.",
-    logo: "https://logo.clearbit.com/mmoga.com",
-  },
-  {
     name: "Driffle",
     url: "https://driffle.com/",
     description: "Marketplace for games, gift cards and subscriptions with instant delivery.",
@@ -81,92 +75,20 @@ const generalStores: Store[] = [
   {
     name: "Instant Gaming",
     url: "https://www.instant-gaming.com/?igr=pikorafy",
-    description: "Official activation codes delivered via email for Steam, Xbox, PS, Uplay and Origin.",
+    description: "Activation codes delivered via email for Steam, Xbox, PS, Uplay and Origin.",
     logo: "https://logo.clearbit.com/instant-gaming.com",
   },
   {
     name: "CDKeys",
     url: "https://www.cdkeys.com/",
-    description: "Trusted single-seller store since 2009 with a 4.8/5 Trustpilot rating.",
+    description: "Trusted single-seller key store since 2009 with a 4.8/5 Trustpilot rating.",
     logo: "https://logo.clearbit.com/cdkeys.com",
   },
   {
-    name: "Green Man Gaming",
-    url: "https://www.greenmangaming.com/",
-    description: "Authorized retailer with direct publisher partnerships and XP loyalty rewards.",
-    logo: "https://logo.clearbit.com/greenmangaming.com",
-  },
-  {
-    name: "Fanatical",
-    url: "https://www.fanatical.com/",
-    description: "Authorized retailer known for curated bundles, flash deals and star deals.",
-    logo: "https://logo.clearbit.com/fanatical.com",
-  },
-  {
-    name: "Humble Bundle",
-    url: "https://www.humblebundle.com/",
-    description: "Pay-what-you-want bundles and Humble Choice subscription, with charity donations.",
-    logo: "https://logo.clearbit.com/humblebundle.com",
-  },
-  {
-    name: "Gamesplanet",
-    url: "https://www.gamesplanet.com/",
-    description: "Authorized retailer with UK, French, German and US storefronts.",
-    logo: "https://logo.clearbit.com/gamesplanet.com",
-  },
-  {
-    name: "GamersGate",
-    url: "https://www.gamersgate.com/",
-    description: "One of the longest-running digital game stores with loyalty rewards.",
-    logo: "https://logo.clearbit.com/gamersgate.com",
-  },
-  {
-    name: "WinGameStore",
-    url: "https://www.wingamestore.com/",
-    description: "Ad-free authorized retailer for Windows and Linux games.",
-    logo: "https://logo.clearbit.com/wingamestore.com",
-  },
-  {
-    name: "DLGamer",
-    url: "https://www.dlgamer.com/",
-    description: "Authorized digital retailer operating since 2004 with publisher partnerships.",
-    logo: "https://logo.clearbit.com/dlgamer.com",
-  },
-  {
-    name: "Voidu",
-    url: "https://www.voidu.com/",
-    description: "Authorized retailer with stackable discount codes for extra savings.",
-    logo: "https://logo.clearbit.com/voidu.com",
-  },
-  {
-    name: "2Game",
-    url: "https://www.2game.com/",
-    description: "Authorized retailer focused on AAA titles with price alert system.",
-    logo: "https://logo.clearbit.com/2game.com",
-  },
-  {
-    name: "Nuuvem",
-    url: "https://www.nuuvem.com/",
-    description: "Brazil-based authorized retailer with excellent regional pricing.",
-    logo: "https://logo.clearbit.com/nuuvem.com",
-  },
-  {
-    name: "GameBillet",
-    url: "https://www.gamebillet.com/",
-    description: "Authorized Steam key retailer with competitive pricing.",
-    logo: "https://logo.clearbit.com/gamebillet.com",
-  },
-  {
-    name: "IndieGala",
-    url: "https://www.indiegala.com/",
-    description: "Specializing in indie game bundles with deals up to 98% off.",
-    logo: "https://logo.clearbit.com/indiegala.com",
-  },
-  {
-    name: "itch.io",
-    url: "https://itch.io/",
-    description: "Open indie game platform where developers sell directly to players.",
-    logo: "https://logo.clearbit.com/itch.io",
+    name: "MMOGA",
+    url: "https://www.mmoga.com/",
+    description: "Long-running key store for game keys, in-game currency and gift cards.",
+    logo: "https://logo.clearbit.com/mmoga.com",
   },
 ];
 
@@ -236,6 +158,84 @@ const officialStores: Store[] = [
     url: "https://store.square-enix-games.com/",
     description: "Official store for Final Fantasy, Dragon Quest, Kingdom Hearts and Nier.",
     logo: "https://logo.clearbit.com/square-enix-games.com",
+  },
+  {
+    name: "Green Man Gaming",
+    url: "https://www.greenmangaming.com/",
+    description: "Authorized retailer with direct publisher partnerships and XP loyalty rewards.",
+    logo: "https://logo.clearbit.com/greenmangaming.com",
+  },
+  {
+    name: "Fanatical",
+    url: "https://www.fanatical.com/",
+    description: "Authorized retailer known for curated bundles, flash deals and star deals.",
+    logo: "https://logo.clearbit.com/fanatical.com",
+  },
+  {
+    name: "Humble Bundle",
+    url: "https://www.humblebundle.com/",
+    description: "Pay-what-you-want bundles and Humble Choice subscription, with charity donations.",
+    logo: "https://logo.clearbit.com/humblebundle.com",
+  },
+  {
+    name: "Gamesplanet",
+    url: "https://www.gamesplanet.com/",
+    description: "Authorized retailer with UK, French, German and US storefronts.",
+    logo: "https://logo.clearbit.com/gamesplanet.com",
+  },
+  {
+    name: "GamersGate",
+    url: "https://www.gamersgate.com/",
+    description: "One of the longest-running authorized digital game stores with loyalty rewards.",
+    logo: "https://logo.clearbit.com/gamersgate.com",
+  },
+  {
+    name: "WinGameStore",
+    url: "https://www.wingamestore.com/",
+    description: "Authorized ad-free retailer for Windows and Linux games.",
+    logo: "https://logo.clearbit.com/wingamestore.com",
+  },
+  {
+    name: "DLGamer",
+    url: "https://www.dlgamer.com/",
+    description: "Authorized digital retailer operating since 2004 with publisher partnerships.",
+    logo: "https://logo.clearbit.com/dlgamer.com",
+  },
+  {
+    name: "Voidu",
+    url: "https://www.voidu.com/",
+    description: "Authorized retailer with stackable discount codes for extra savings.",
+    logo: "https://logo.clearbit.com/voidu.com",
+  },
+  {
+    name: "2Game",
+    url: "https://www.2game.com/",
+    description: "Authorized retailer focused on AAA titles with a price alert system.",
+    logo: "https://logo.clearbit.com/2game.com",
+  },
+  {
+    name: "Nuuvem",
+    url: "https://www.nuuvem.com/",
+    description: "Brazil-based authorized retailer with excellent regional pricing.",
+    logo: "https://logo.clearbit.com/nuuvem.com",
+  },
+  {
+    name: "GameBillet",
+    url: "https://www.gamebillet.com/",
+    description: "Authorized Steam key retailer with competitive pricing.",
+    logo: "https://logo.clearbit.com/gamebillet.com",
+  },
+  {
+    name: "IndieGala",
+    url: "https://www.indiegala.com/",
+    description: "Authorized retailer specializing in indie game bundles with deals up to 98% off.",
+    logo: "https://logo.clearbit.com/indiegala.com",
+  },
+  {
+    name: "itch.io",
+    url: "https://itch.io/",
+    description: "Open indie game platform where developers sell directly to players.",
+    logo: "https://logo.clearbit.com/itch.io",
   },
 ];
 
@@ -370,7 +370,7 @@ export default function StoresPage() {
           <div id="general">
             <StoreSection
               title="General Stores"
-              description="Single-seller stores and authorized retailers that sell game keys directly. Many have direct publisher partnerships."
+              description="Grey market key stores that sell game keys directly. Not officially publisher-authorized but widely used and generally reputable."
               stores={generalStores}
               colors={categoryColors.general}
               count={generalStores.length}
@@ -381,7 +381,7 @@ export default function StoresPage() {
           <div id="official">
             <StoreSection
               title="Official Stores"
-              description="First-party and publisher storefronts. Buy directly from the platform holders and game publishers."
+              description="First-party storefronts, publisher stores and authorized retailers with direct publisher partnerships."
               stores={officialStores}
               colors={categoryColors.official}
               count={officialStores.length}
