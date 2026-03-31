@@ -3,41 +3,22 @@ import Image from "next/image";
 import Link from "next/link";
 import { getAllArticles } from "@/lib/articles";
 import { getAllComparisons } from "@/lib/comparisons";
+import { getDeals, getStoreName, getDealUrl, getSteamCoverUrl } from "@/lib/cheapshark";
+import { AFFILIATE_DISCLOSURE_SHORT } from "@/lib/affiliate";
 import InstantGamingBanner from "@/components/InstantGamingBanner";
 import { HeroBackgroundPaths } from "@/components/ui/background-paths";
 import ToolLogo from "@/components/ToolLogo";
 
 export const metadata: Metadata = {
-  title: "Pikorafy - Best Game Deals, Comparisons & Free Tools",
+  title: "Pikorafy — Best Game Deals, Price Comparisons & Value Analysis",
   description:
-    "Find the best game deals with up to 90% off. Compare gaming subscriptions, key stores, and platforms. Free developer utilities included.",
+    "Find the best game deals with real-time price comparison across 30+ stores. Value analysis, deal ratings, and Metacritic scores to help you buy smart.",
 };
 
-// Steam App IDs for cover images via Steam CDN
-const hotDeals = [
-  { title: "Elden Ring", platform: "Steam", discount: 58, price: "$24.99", original: "$59.99", steamId: 1245620 },
-  { title: "Cyberpunk 2077", platform: "Steam", discount: 67, price: "$19.99", original: "$59.99", steamId: 1091500 },
-  { title: "Baldur's Gate 3", platform: "Steam", discount: 33, price: "$39.99", original: "$59.99", steamId: 1086940 },
-  { title: "Red Dead Redemption 2", platform: "Steam", discount: 75, price: "$14.99", original: "$59.99", steamId: 1174180 },
-  { title: "God of War Ragnarok", platform: "PS5", discount: 50, price: "$34.99", original: "$69.99", steamId: 2322010 },
-  { title: "Starfield", platform: "Xbox", discount: 57, price: "$29.99", original: "$69.99", steamId: 1716740 },
-  { title: "Monster Hunter Wilds", platform: "Steam", discount: 21, price: "$54.99", original: "$69.99", steamId: 2246340 },
-  { title: "Hades II", platform: "Steam", discount: 33, price: "$19.99", original: "$29.99", steamId: 1145350 },
-];
-
-const AFFILIATE_URL = "https://www.instant-gaming.com/?igr=pikorafy";
-
-const platformBadgeColors: Record<string, string> = {
-  Steam: "bg-[#1b2838]/60 text-[#66c0f4] border-[#66c0f4]/20",
-  Xbox: "bg-green-500/10 text-green-400 border-green-500/20",
-  PS5: "bg-blue-600/10 text-blue-400 border-blue-600/20",
-  Switch: "bg-red-500/10 text-red-400 border-red-500/20",
-};
-
-function getDealRating(discount: number) {
-  if (discount >= 70) return { label: "HOT", color: "bg-red-500/15 text-red-400 border-red-500/20" };
-  if (discount >= 50) return { label: "GREAT", color: "bg-orange-500/15 text-orange-400 border-orange-500/20" };
-  if (discount >= 30) return { label: "GOOD", color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" };
+function getDealRating(savings: number) {
+  if (savings >= 70) return { label: "HOT", color: "bg-red-500/15 text-red-400 border-red-500/20" };
+  if (savings >= 50) return { label: "GREAT", color: "bg-orange-500/15 text-orange-400 border-orange-500/20" };
+  if (savings >= 30) return { label: "GOOD", color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" };
   return { label: "FAIR", color: "bg-blue-500/15 text-blue-400 border-blue-500/20" };
 }
 
@@ -47,82 +28,98 @@ const gamingComparisons = [
   { slug: "dlss-4-vs-fsr-4", toolA: "DLSS 4.5", toolB: "FSR 4", label: "AI Upscaling" },
 ];
 
-
-export default function Home() {
+export default async function Home() {
   const comparisons = getAllComparisons().slice(0, 6);
   const articles = getAllArticles().slice(0, 4);
+
+  // Fetch real deals from CheapShark
+  const hotDeals = await getDeals({
+    sortBy: "Deal Rating",
+    pageSize: 8,
+    onSale: true,
+    metacritic: 60,
+  });
 
   return (
     <div className="flex flex-col min-h-full">
       <HeroBackgroundPaths />
 
-      {/* Hot Deals Section — gg.deals style */}
+      {/* Hot Deals Section — real data from CheapShark */}
       <section className="bg-[#0f1117] py-12">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-3">
               <h2 className="text-xl font-bold text-white">Hot Deals</h2>
-              <span className="rounded-full bg-red-500/15 border border-red-500/20 px-2.5 py-0.5 text-[10px] font-bold uppercase text-red-400">
+              <span className="rounded-full bg-red-500/15 border border-red-500/20 px-2.5 py-0.5 text-[10px] font-bold uppercase text-red-400 animate-pulse">
                 Live
               </span>
             </div>
             <Link
-              href="/gaming/deals"
+              href="/deals"
               className="text-sm font-medium text-emerald-400 hover:text-emerald-300 transition-colors"
             >
               View all deals &rarr;
             </Link>
           </div>
+          <p className="text-xs text-[#8b8fa3]/60 mb-4">{AFFILIATE_DISCLOSURE_SHORT}</p>
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {hotDeals.map((deal) => {
-              const rating = getDealRating(deal.discount);
+              const savings = parseFloat(deal.savings);
+              const rating = getDealRating(savings);
+              const coverUrl = getSteamCoverUrl(deal.steamAppID);
               return (
-                <a
-                  key={deal.title}
-                  href={AFFILIATE_URL}
-                  target="_blank"
-                  rel="noopener noreferrer sponsored"
+                <div
+                  key={deal.dealID}
                   className="group relative flex flex-col rounded-lg border border-[#2a2e3a] bg-[#1a1d27] overflow-hidden transition-all hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5 hover:-translate-y-0.5"
                 >
                   {/* Cover image */}
-                  <div className="relative aspect-[460/215] w-full bg-[#0f1117] overflow-hidden">
-                    <Image
-                      src={`https://cdn.cloudflare.steamstatic.com/steam/apps/${deal.steamId}/header.jpg`}
-                      alt={deal.title}
-                      fill
-                      className="object-cover transition-transform duration-300 group-hover:scale-105"
-                      sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                      unoptimized
-                    />
-                    {/* Discount badge overlay */}
+                  <Link href={`/game/${deal.gameID}`} className="relative aspect-[460/215] w-full bg-[#0f1117] overflow-hidden block">
+                    {coverUrl ? (
+                      <Image
+                        src={coverUrl}
+                        alt={deal.title}
+                        fill
+                        className="object-cover transition-transform duration-300 group-hover:scale-105"
+                        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                        unoptimized
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-[#8b8fa3] text-xs">No image</span>
+                      </div>
+                    )}
+                    {/* Discount badge */}
                     <span className="absolute top-2 right-2 rounded-md bg-emerald-500 px-2 py-0.5 text-xs font-bold text-white shadow-lg">
-                      -{deal.discount}%
+                      -{savings.toFixed(0)}%
                     </span>
-                    {/* Deal rating overlay */}
+                    {/* Deal rating */}
                     <span className={`absolute top-2 left-2 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase border backdrop-blur-sm ${rating.color}`}>
                       {rating.label}
                     </span>
-                  </div>
+                  </Link>
 
                   <div className="flex flex-col flex-1 p-3">
-                    {/* Platform badge */}
-                    <span className={`self-start inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase border ${platformBadgeColors[deal.platform] || "bg-[#3B82F6]/10 text-[#3B82F6] border-[#3B82F6]/20"}`}>
-                      {deal.platform}
+                    {/* Store badge */}
+                    <span className="self-start inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase text-[#8b8fa3] border border-[#2a2e3a] bg-[#0f1117]">
+                      {getStoreName(deal.storeID)}
                     </span>
 
                     {/* Game title */}
-                    <h3 className="mt-1.5 text-sm font-semibold text-white group-hover:text-emerald-400 transition-colors leading-tight line-clamp-1">
+                    <Link
+                      href={`/game/${deal.gameID}`}
+                      className="mt-1.5 text-sm font-semibold text-white group-hover:text-emerald-400 transition-colors leading-tight line-clamp-1"
+                    >
                       {deal.title}
-                    </h3>
+                    </Link>
 
-                    {/* Pricing row */}
+                    {/* Pricing */}
                     <div className="mt-auto pt-2 flex items-baseline gap-2">
-                      <span className="text-lg font-bold text-emerald-400">{deal.price}</span>
-                      <span className="text-xs text-[#8b8fa3] line-through">{deal.original}</span>
+                      <span className="text-lg font-bold text-emerald-400">${deal.salePrice}</span>
+                      <span className="text-xs text-[#8b8fa3] line-through">${deal.normalPrice}</span>
                     </div>
                   </div>
-                </a>
+                </div>
               );
             })}
           </div>
@@ -136,7 +133,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Gaming Comparisons — horizontal cards */}
+      {/* Gaming Comparisons */}
       <section className="bg-[#0f1117] py-12 border-t border-[#2a2e3a]/50">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <div className="flex items-center justify-between mb-6">
@@ -240,7 +237,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
     </div>
   );
 }

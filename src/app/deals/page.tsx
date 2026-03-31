@@ -1,293 +1,145 @@
 import type { Metadata } from "next";
+import Image from "next/image";
+import Link from "next/link";
+import { getDeals, getStoreName, getDealUrl, getSteamCoverUrl } from "@/lib/cheapshark";
+import { AFFILIATE_DISCLOSURE_SHORT } from "@/lib/affiliate";
 
 export const metadata: Metadata = {
-  title: "Best SaaS & AI Tool Deals - Pikorafy",
+  title: "Today's Best Game Deals — Up to 95% Off",
   description:
-    "Exclusive discounts on the best SaaS, AI, and productivity tools. Save up to 81% on VPNs, hosting, AI writing tools, and more. Updated March 2026.",
+    "Find the best PC game deals right now. Compare prices across Steam, GOG, Epic, Humble, Fanatical and more. Updated hourly.",
+  openGraph: {
+    title: "Today's Best Game Deals | Pikorafy",
+    description: "Compare PC game prices across 30+ stores. Find deals up to 95% off.",
+  },
 };
 
-type Deal = {
-  name: string;
-  category: string;
-  description: string;
-  originalPrice: string | null;
-  discountedPrice: string;
-  savingsPercent: number | null;
-  savingsLabel: string;
-  expiry: string;
-  href: string;
-};
+function getDealBadge(savings: number) {
+  if (savings >= 80) return { label: "INSANE", color: "bg-red-500/15 text-red-400 border-red-500/20" };
+  if (savings >= 60) return { label: "HOT", color: "bg-orange-500/15 text-orange-400 border-orange-500/20" };
+  if (savings >= 40) return { label: "GREAT", color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" };
+  return { label: "GOOD", color: "bg-blue-500/15 text-blue-400 border-blue-500/20" };
+}
 
-const deals: Deal[] = [
-  // VPN & Security
-  {
-    name: "NordVPN",
-    category: "VPN & Security",
-    description:
-      "Industry-leading VPN with fast servers in 60+ countries. 2-year plan includes threat protection and 3 extra months free.",
-    originalPrice: "$11.99/mo",
-    discountedPrice: "$3.09/mo",
-    savingsPercent: 73,
-    savingsLabel: "-73%",
-    expiry: "Limited time",
-    href: "#",
-  },
-  {
-    name: "Surfshark",
-    category: "VPN & Security",
-    description:
-      "Unlimited-device VPN with CleanWeb ad blocker, split tunneling, and MultiHop. 2-year plan with bonus months included.",
-    originalPrice: "$12.95/mo",
-    discountedPrice: "$2.19/mo",
-    savingsPercent: 81,
-    savingsLabel: "-81%",
-    expiry: "Limited time",
-    href: "#",
-  },
-  {
-    name: "1Password",
-    category: "VPN & Security",
-    description:
-      "Secure password manager with Watchtower breach alerts, travel mode, and family sharing. 25% off your first year.",
-    originalPrice: "$2.99/mo",
-    discountedPrice: "$2.24/mo",
-    savingsPercent: 25,
-    savingsLabel: "-25%",
-    expiry: "Limited time",
-    href: "#",
-  },
+export default async function DealsPage() {
+  const deals = await getDeals({
+    sortBy: "Deal Rating",
+    pageSize: 60,
+    onSale: true,
+    metacritic: 50,
+  });
 
-  // Hosting
-  {
-    name: "Hostinger",
-    category: "Hosting",
-    description:
-      "Premium web hosting with free domain, SSL, email, and website builder. Ideal for blogs, portfolios, and business sites.",
-    originalPrice: "$11.99/mo",
-    discountedPrice: "$2.99/mo",
-    savingsPercent: 75,
-    savingsLabel: "-75%",
-    expiry: "Limited time",
-    href: "#",
-  },
-  {
-    name: "SiteGround",
-    category: "Hosting",
-    description:
-      "Reliable managed hosting with daily backups, free CDN, and top-rated support. StartUp plan for one website.",
-    originalPrice: "$14.99/mo",
-    discountedPrice: "$3.99/mo",
-    savingsPercent: 73,
-    savingsLabel: "-73%",
-    expiry: "Limited time",
-    href: "#",
-  },
-
-  // AI Tools
-  {
-    name: "Jasper AI",
-    category: "AI Tools",
-    description:
-      "Enterprise-grade AI writing and marketing platform. Generate blog posts, ads, emails, and more with brand voice control.",
-    originalPrice: "$49/mo",
-    discountedPrice: "$39/mo",
-    savingsPercent: 20,
-    savingsLabel: "-20%",
-    expiry: "Limited time",
-    href: "#",
-  },
-  {
-    name: "Copy.ai",
-    category: "AI Tools",
-    description:
-      "AI-powered copywriting tool with 90+ templates for ads, product descriptions, and social media. Free tier available.",
-    originalPrice: "$59/mo",
-    discountedPrice: "$49/mo",
-    savingsPercent: 17,
-    savingsLabel: "-17%",
-    expiry: "Limited time",
-    href: "#",
-  },
-
-  // Productivity
-  {
-    name: "Notion",
-    category: "Productivity",
-    description:
-      "All-in-one workspace for notes, docs, wikis, and project management. Free for personal use with unlimited pages.",
-    originalPrice: null,
-    discountedPrice: "$8/user/mo",
-    savingsPercent: null,
-    savingsLabel: "FREE PLAN",
-    expiry: "Limited time",
-    href: "#",
-  },
-  {
-    name: "Canva Pro",
-    category: "Productivity",
-    description:
-      "Professional design tool with premium templates, brand kits, background remover, and Magic Resize. Try free for 30 days.",
-    originalPrice: null,
-    discountedPrice: "$12.99/mo",
-    savingsPercent: null,
-    savingsLabel: "FREE TRIAL",
-    expiry: "Limited time",
-    href: "#",
-  },
-
-  // Gaming
-  {
-    name: "Instant Gaming",
-    category: "Gaming",
-    description:
-      "Buy PC, Xbox, PlayStation, and Nintendo game keys at up to 90% off retail prices. Trusted marketplace with instant delivery.",
-    originalPrice: null,
-    discountedPrice: "Up to 90% off",
-    savingsPercent: 90,
-    savingsLabel: "UP TO -90%",
-    expiry: "Always available",
-    href: "https://www.instant-gaming.com/?igr=pikorafy",
-  },
-
-  // Design
-  {
-    name: "Figma",
-    category: "Design",
-    description:
-      "Collaborative interface design tool with prototyping, dev mode, and design systems. Free tier for up to 3 projects.",
-    originalPrice: null,
-    discountedPrice: "$12/editor/mo",
-    savingsPercent: null,
-    savingsLabel: "FREE TIER",
-    expiry: "Limited time",
-    href: "#",
-  },
-];
-
-const categories = [
-  "All",
-  ...Array.from(new Set(deals.map((d) => d.category))),
-];
-
-export default function DealsPage() {
   return (
-    <div className="bg-[#0f1117] min-h-full">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden border-b border-[#2a2e3a]">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-purple-500/5" />
-        <div className="relative mx-auto max-w-7xl px-6 lg:px-8 py-20 sm:py-28">
-          <div className="max-w-3xl">
-            <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl">
-              Best SaaS &amp; AI Tool Deals
-            </h1>
-            <p className="mt-6 text-lg text-[#8b8fa3] leading-relaxed">
-              Hand-picked discounts on VPNs, hosting, AI tools, and
-              productivity software. We negotiate and curate the best prices so
-              you don&apos;t have to.
-            </p>
+    <div className="bg-[#0f1117] min-h-screen">
+      {/* Header */}
+      <section className="border-b border-[#2a2e3a]">
+        <div className="mx-auto max-w-7xl px-6 py-10 lg:py-14">
+          <div className="flex items-center gap-3 mb-2">
+            <h1 className="text-3xl md:text-4xl font-bold text-white">Best Game Deals</h1>
+            <span className="rounded-full bg-red-500/15 border border-red-500/20 px-2.5 py-0.5 text-xs font-bold uppercase text-red-400 animate-pulse">
+              Live
+            </span>
           </div>
+          <p className="text-[#8b8fa3] max-w-2xl">
+            Compare prices across 30+ stores. Sorted by deal quality — best value first. Updated hourly.
+          </p>
+          <p className="mt-2 text-xs text-[#8b8fa3]/60">{AFFILIATE_DISCLOSURE_SHORT}</p>
         </div>
       </section>
 
-      <div className="mx-auto max-w-7xl px-6 lg:px-8 py-12 sm:py-16">
-        {/* Category Filter Chips */}
-        <div className="flex flex-wrap gap-2">
-          {categories.map((cat, i) => (
-            <span
-              key={cat}
-              className={
-                i === 0
-                  ? "inline-flex rounded-lg bg-[#3B82F6] px-3 py-1.5 text-xs font-medium text-white cursor-pointer"
-                  : "inline-flex rounded-lg border border-[#2a2e3a] bg-[#1a1d27] px-3 py-1.5 text-xs font-medium text-[#8b8fa3] transition-colors hover:border-[#3B82F6]/50 hover:text-white cursor-pointer"
-              }
-            >
-              {cat}
-            </span>
-          ))}
-        </div>
+      {/* Deals grid */}
+      <section className="mx-auto max-w-7xl px-6 py-8">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          {deals.map((deal) => {
+            const savings = parseFloat(deal.savings);
+            const badge = getDealBadge(savings);
+            const coverUrl = getSteamCoverUrl(deal.steamAppID);
 
-        {/* Deals Grid */}
-        <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {deals.map((deal) => (
-            <a
-              key={deal.name}
-              href={deal.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group relative flex flex-col rounded-xl border border-[#2a2e3a] bg-[#1a1d27] p-6 transition-all hover:border-[#3B82F6]/50 hover:bg-[#1e2231]"
-            >
-              {/* Discount badge in corner */}
+            return (
               <div
-                className={`absolute -top-2.5 right-4 rounded-full px-2.5 py-0.5 text-xs font-bold border ${
-                  deal.savingsPercent
-                    ? "bg-green-500/10 text-green-400 border-green-500/20"
-                    : "bg-blue-500/10 text-blue-400 border-blue-500/20"
-                }`}
+                key={deal.dealID}
+                className="group relative flex flex-col rounded-lg border border-[#2a2e3a] bg-[#1a1d27] overflow-hidden transition-all hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5 hover:-translate-y-0.5"
               >
-                {deal.savingsLabel}
-              </div>
-
-              {/* Category badge */}
-              <div>
-                <span className="inline-flex rounded-md bg-[#3B82F6]/10 px-2 py-0.5 text-xs font-medium text-[#3B82F6]">
-                  {deal.category}
-                </span>
-              </div>
-
-              {/* Tool name */}
-              <h3 className="mt-4 text-lg font-semibold text-white group-hover:text-[#3B82F6] transition-colors">
-                {deal.name}
-              </h3>
-
-              {/* Description */}
-              <p className="mt-2 flex-1 text-sm text-[#8b8fa3] leading-relaxed">
-                {deal.description}
-              </p>
-
-              {/* Pricing */}
-              <div className="mt-4 flex items-baseline gap-2 flex-wrap">
-                {deal.originalPrice && (
-                  <span className="text-sm text-[#8b8fa3] line-through">
-                    {deal.originalPrice}
+                {/* Cover */}
+                <Link href={`/game/${deal.gameID}`} className="relative aspect-[460/215] w-full bg-[#0f1117] overflow-hidden block">
+                  {coverUrl ? (
+                    <Image
+                      src={coverUrl}
+                      alt={deal.title}
+                      fill
+                      className="object-cover transition-transform duration-300 group-hover:scale-105"
+                      sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-[#8b8fa3] text-xs">No image</span>
+                    </div>
+                  )}
+                  <span className="absolute top-2 right-2 rounded-md bg-emerald-500 px-2 py-0.5 text-xs font-bold text-white shadow-lg">
+                    -{savings.toFixed(0)}%
                   </span>
-                )}
-                <span className="text-xl font-bold text-white">
-                  {deal.discountedPrice}
-                </span>
+                  <span className={`absolute top-2 left-2 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase border backdrop-blur-sm ${badge.color}`}>
+                    {badge.label}
+                  </span>
+                </Link>
+
+                <div className="flex flex-col flex-1 p-3">
+                  {/* Store */}
+                  <span className="self-start inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase text-[#8b8fa3] border border-[#2a2e3a] bg-[#0f1117]">
+                    {getStoreName(deal.storeID)}
+                  </span>
+
+                  {/* Title */}
+                  <Link
+                    href={`/game/${deal.gameID}`}
+                    className="mt-1.5 text-sm font-semibold text-white group-hover:text-emerald-400 transition-colors leading-tight line-clamp-2"
+                  >
+                    {deal.title}
+                  </Link>
+
+                  {/* Metacritic */}
+                  {parseInt(deal.metacriticScore) > 0 && (
+                    <div className="mt-1.5 flex items-center gap-1.5">
+                      <span className={`rounded px-1 py-0.5 text-[10px] font-bold ${
+                        parseInt(deal.metacriticScore) >= 75
+                          ? "bg-emerald-500/15 text-emerald-400"
+                          : parseInt(deal.metacriticScore) >= 50
+                            ? "bg-yellow-500/15 text-yellow-400"
+                            : "bg-red-500/15 text-red-400"
+                      }`}>
+                        {deal.metacriticScore}
+                      </span>
+                      {deal.steamRatingText && (
+                        <span className="text-[10px] text-[#8b8fa3] truncate">{deal.steamRatingText}</span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Price */}
+                  <div className="mt-auto pt-2 flex items-center justify-between">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-lg font-bold text-emerald-400">${deal.salePrice}</span>
+                      <span className="text-xs text-[#8b8fa3] line-through">${deal.normalPrice}</span>
+                    </div>
+                    <a
+                      href={getDealUrl(deal.dealID)}
+                      target="_blank"
+                      rel="noopener noreferrer sponsored"
+                      className="rounded-md bg-emerald-500 p-1.5 text-white hover:bg-emerald-600 transition-colors"
+                      title="Get this deal"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                      </svg>
+                    </a>
+                  </div>
+                </div>
               </div>
-
-              {/* Expiry label */}
-              <p className="mt-2 text-xs text-[#8b8fa3]">{deal.expiry}</p>
-
-              {/* CTA Button */}
-              <span className="mt-4 inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#3B82F6] px-4 py-2.5 text-sm font-semibold text-white transition-colors group-hover:bg-[#2563EB]">
-                Get Deal
-                <svg
-                  className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={2}
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"
-                  />
-                </svg>
-              </span>
-            </a>
-          ))}
+            );
+          })}
         </div>
-
-        {/* Disclaimer */}
-        <div className="mt-16 rounded-xl border border-[#2a2e3a] bg-[#1a1d27] p-6">
-          <p className="text-sm text-[#8b8fa3]">
-            Prices may vary. Last updated March 2026. Some links are affiliate
-            links.
-          </p>
-        </div>
-      </div>
+      </section>
     </div>
   );
 }

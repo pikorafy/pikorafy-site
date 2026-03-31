@@ -41,9 +41,9 @@ const menu: MenuItem[] = [
     items: [
       {
         title: "Game Deals",
-        description: "Up to 90% off on PC, Xbox, PS & Nintendo keys",
+        description: "Real-time price comparison across 30+ stores",
         icon: <Tag className="size-5 shrink-0 text-emerald-400" />,
-        url: "/gaming/deals",
+        url: "/deals",
       },
       {
         title: "Gaming Hub",
@@ -201,7 +201,7 @@ export default function PikorafyNavbar() {
               <Link href="/vs">Compare</Link>
             </Button>
             <Button asChild size="sm" className="bg-emerald-500 hover:bg-emerald-600 text-white">
-              <Link href="/gaming/deals">Game Deals</Link>
+              <Link href="/deals">Game Deals</Link>
             </Button>
           </div>
         </nav>
@@ -254,7 +254,7 @@ export default function PikorafyNavbar() {
                         <Link href="/vs">Compare</Link>
                       </Button>
                       <Button asChild className="bg-emerald-500 hover:bg-emerald-600 text-white">
-                        <Link href="/gaming/deals">Game Deals</Link>
+                        <Link href="/deals">Game Deals</Link>
                       </Button>
                     </div>
                   </div>

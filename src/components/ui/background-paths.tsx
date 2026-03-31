@@ -27,7 +27,7 @@ const GAME_IMAGES = [
 
 const FADE_IN = {
   hidden: { opacity: 0, y: 10 },
-  show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 100, damping: 20 } },
+  show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 100, damping: 20 } },
 };
 
 export function HeroBackgroundPaths() {
