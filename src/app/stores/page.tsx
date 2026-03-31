@@ -79,16 +79,52 @@ const generalStores: Store[] = [
     logo: "https://logo.clearbit.com/instant-gaming.com",
   },
   {
-    name: "CDKeys",
-    url: "https://www.cdkeys.com/",
-    description: "Trusted single-seller key store since 2009 with a 4.8/5 Trustpilot rating.",
-    logo: "https://logo.clearbit.com/cdkeys.com",
+    name: "Loaded",
+    url: "https://www.loaded.com/",
+    description: "Formerly CDKeys — trusted key store since 2009, rebranded in 2025. 15,000+ titles.",
+    logo: "https://logo.clearbit.com/loaded.com",
   },
   {
     name: "MMOGA",
     url: "https://www.mmoga.com/",
     description: "Long-running key store for game keys, in-game currency and gift cards.",
     logo: "https://logo.clearbit.com/mmoga.com",
+  },
+  {
+    name: "CJS CD Keys",
+    url: "https://www.cjs-cdkeys.com/",
+    description: "UK-based key store with instant delivery and full money-back guarantee.",
+    logo: "https://logo.clearbit.com/cjs-cdkeys.com",
+  },
+  {
+    name: "GAMESEAL",
+    url: "https://www.gameseal.com/",
+    description: "Direct-deal key store with 4.3/5 Trustpilot rating and 14,000+ reviews.",
+    logo: "https://logo.clearbit.com/gameseal.com",
+  },
+  {
+    name: "Gamingdragons",
+    url: "https://www.gamingdragons.com/",
+    description: "Key store since 2011 offering PC, Xbox and PlayStation game keys.",
+    logo: "https://logo.clearbit.com/gamingdragons.com",
+  },
+  {
+    name: "ElectronicFirst",
+    url: "https://www.electronicfirst.com/",
+    description: "Key store for game keys, gift cards and software with instant delivery.",
+    logo: "https://logo.clearbit.com/electronicfirst.com",
+  },
+  {
+    name: "YUPLAY",
+    url: "https://www.yuplay.com/",
+    description: "Key store specializing in Steam, Origin and Uplay activation codes.",
+    logo: "https://logo.clearbit.com/yuplay.com",
+  },
+  {
+    name: "Wyrel",
+    url: "https://www.wyrel.com/",
+    description: "Key store offering game keys at competitive prices with customer support.",
+    logo: "https://logo.clearbit.com/wyrel.com",
   },
 ];
 
