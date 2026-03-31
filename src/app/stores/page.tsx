@@ -169,13 +169,13 @@ const officialStores: Store[] = [
     name: "EA App",
     url: "https://www.ea.com/ea-app",
     description: "Electronic Arts' official PC launcher for EA Sports FC, Battlefield, The Sims and more.",
-    logo: "https://www.google.com/s2/favicons?domain=ea.com&sz=64",
+    logo: "https://icon.horse/icon/ea.com",
   },
   {
     name: "Ubisoft Store",
     url: "https://store.ubisoft.com/",
     description: "Ubisoft's official store for Assassin's Creed, Far Cry, Rainbow Six and more.",
-    logo: "https://www.google.com/s2/favicons?domain=ubisoft.com&sz=64",
+    logo: "https://icon.horse/icon/ubisoft.com",
   },
   {
     name: "Battle.net",
