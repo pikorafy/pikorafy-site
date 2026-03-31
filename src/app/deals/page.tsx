@@ -4,6 +4,8 @@ import Link from "next/link";
 import { getDeals, getStoreName, getDealUrl, getSteamCoverUrl } from "@/lib/cheapshark";
 import { AFFILIATE_DISCLOSURE_SHORT } from "@/lib/affiliate";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Today's Best Game Deals — Up to 95% Off",
   description:

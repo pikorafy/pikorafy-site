@@ -112,11 +112,15 @@ export async function getDeals(params: {
   if (params.pageSize !== undefined) searchParams.set("pageSize", String(params.pageSize));
   if (params.onSale) searchParams.set("onSale", "1");
 
-  const res = await fetch(`${BASE_URL}/deals?${searchParams}`, {
-    next: { revalidate: 3600 },
-  });
-  if (!res.ok) throw new Error(`CheapShark deals error: ${res.status}`);
-  return res.json();
+  try {
+    const res = await fetch(`${BASE_URL}/deals?${searchParams}`, {
+      next: { revalidate: 3600 },
+    });
+    if (!res.ok) return [];
+    return res.json();
+  } catch {
+    return [];
+  }
 }
 
 export async function searchGames(title: string, limit = 10): Promise<CheapSharkGameSearchResult[]> {

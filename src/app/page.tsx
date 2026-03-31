@@ -9,6 +9,8 @@ import InstantGamingBanner from "@/components/InstantGamingBanner";
 import { HeroBackgroundPaths } from "@/components/ui/background-paths";
 import ToolLogo from "@/components/ToolLogo";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Pikorafy — Best Game Deals, Price Comparisons & Value Analysis",
   description:
