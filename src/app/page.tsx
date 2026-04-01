@@ -1,15 +1,12 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { getAllArticles } from "@/lib/articles";
 import { getAllComparisons } from "@/lib/comparisons";
-import { getDeals, getStoreName, getDealUrl, getSteamCoverUrl } from "@/lib/cheapshark";
 import { AFFILIATE_DISCLOSURE_SHORT } from "@/lib/affiliate";
 import InstantGamingBanner from "@/components/InstantGamingBanner";
 import { HeroBackgroundPaths } from "@/components/ui/background-paths";
 import ToolLogo from "@/components/ToolLogo";
-
-export const dynamic = "force-dynamic";
+import DealsGrid from "@/components/DealsGrid";
 
 export const metadata: Metadata = {
   title: "Pikorafy — Best Game Deals, Price Comparisons & Value Analysis",
@@ -17,36 +14,21 @@ export const metadata: Metadata = {
     "Find the best game deals with real-time price comparison across 30+ stores. Value analysis, deal ratings, and Metacritic scores to help you buy smart.",
 };
 
-function getDealRating(savings: number) {
-  if (savings >= 70) return { label: "HOT", color: "bg-red-500/15 text-red-400 border-red-500/20" };
-  if (savings >= 50) return { label: "GREAT", color: "bg-orange-500/15 text-orange-400 border-orange-500/20" };
-  if (savings >= 30) return { label: "GOOD", color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" };
-  return { label: "FAIR", color: "bg-blue-500/15 text-blue-400 border-blue-500/20" };
-}
-
 const gamingComparisons = [
   { slug: "xbox-game-pass-vs-ps-plus", toolA: "Xbox Game Pass", toolB: "PS Plus", label: "Subscriptions" },
   { slug: "eneba-vs-g2a-vs-kinguin", toolA: "Eneba", toolB: "G2A", label: "Key Stores" },
   { slug: "dlss-4-vs-fsr-4", toolA: "DLSS 4.5", toolB: "FSR 4", label: "AI Upscaling" },
 ];
 
-export default async function Home() {
+export default function Home() {
   const comparisons = getAllComparisons().slice(0, 6);
   const articles = getAllArticles().slice(0, 4);
-
-  // Fetch real deals from CheapShark
-  const hotDeals = await getDeals({
-    sortBy: "Deal Rating",
-    pageSize: 8,
-    onSale: true,
-    metacritic: 60,
-  });
 
   return (
     <div className="flex flex-col min-h-full">
       <HeroBackgroundPaths />
 
-      {/* Hot Deals Section — real data from CheapShark */}
+      {/* Hot Deals Section — fetched client-side */}
       <section className="bg-[#0f1117] py-12">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <div className="flex items-center justify-between mb-1">
@@ -65,66 +47,14 @@ export default async function Home() {
           </div>
           <p className="text-xs text-[#8b8fa3]/60 mb-4">{AFFILIATE_DISCLOSURE_SHORT}</p>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {hotDeals.map((deal) => {
-              const savings = parseFloat(deal.savings);
-              const rating = getDealRating(savings);
-              const coverUrl = getSteamCoverUrl(deal.steamAppID);
-              return (
-                <div
-                  key={deal.dealID}
-                  className="group relative flex flex-col rounded-lg border border-[#2a2e3a] bg-[#1a1d27] overflow-hidden transition-all hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5 hover:-translate-y-0.5"
-                >
-                  {/* Cover image */}
-                  <Link href={`/game/${deal.gameID}`} className="relative aspect-[460/215] w-full bg-[#0f1117] overflow-hidden block">
-                    {coverUrl ? (
-                      <Image
-                        src={coverUrl}
-                        alt={deal.title}
-                        fill
-                        className="object-cover transition-transform duration-300 group-hover:scale-105"
-                        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                        unoptimized
-                      />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-[#8b8fa3] text-xs">No image</span>
-                      </div>
-                    )}
-                    {/* Discount badge */}
-                    <span className="absolute top-2 right-2 rounded-md bg-emerald-500 px-2 py-0.5 text-xs font-bold text-white shadow-lg">
-                      -{savings.toFixed(0)}%
-                    </span>
-                    {/* Deal rating */}
-                    <span className={`absolute top-2 left-2 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase border backdrop-blur-sm ${rating.color}`}>
-                      {rating.label}
-                    </span>
-                  </Link>
-
-                  <div className="flex flex-col flex-1 p-3">
-                    {/* Store badge */}
-                    <span className="self-start inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase text-[#8b8fa3] border border-[#2a2e3a] bg-[#0f1117]">
-                      {getStoreName(deal.storeID)}
-                    </span>
-
-                    {/* Game title */}
-                    <Link
-                      href={`/game/${deal.gameID}`}
-                      className="mt-1.5 text-sm font-semibold text-white group-hover:text-emerald-400 transition-colors leading-tight line-clamp-1"
-                    >
-                      {deal.title}
-                    </Link>
-
-                    {/* Pricing */}
-                    <div className="mt-auto pt-2 flex items-baseline gap-2">
-                      <span className="text-lg font-bold text-emerald-400">${deal.salePrice}</span>
-                      <span className="text-xs text-[#8b8fa3] line-through">${deal.normalPrice}</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <DealsGrid
+            sortBy="Deal Rating"
+            pageSize={8}
+            metacritic={60}
+            columns="4"
+            showMetacritic={false}
+            showGetDeal={false}
+          />
         </div>
       </section>
 
