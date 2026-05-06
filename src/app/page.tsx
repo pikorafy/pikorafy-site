@@ -4,20 +4,51 @@ import { getAllArticles } from "@/lib/articles";
 import { getAllComparisons } from "@/lib/comparisons";
 import { AFFILIATE_DISCLOSURE_SHORT } from "@/lib/affiliate";
 import InstantGamingBanner from "@/components/InstantGamingBanner";
-import { HeroBackgroundPaths } from "@/components/ui/background-paths";
 import ToolLogo from "@/components/ToolLogo";
 import DealsGrid from "@/components/DealsGrid";
+import HeroSection from "@/components/HeroSection";
 
 export const metadata: Metadata = {
-  title: "Pikorafy — Best Game Deals, Price Comparisons & Value Analysis",
+  title: "Pikorafy — Game Key Price Comparison",
   description:
-    "Find the best game deals with real-time price comparison across 30+ stores. Value analysis, deal ratings, and Metacritic scores to help you buy smart.",
+    "Find the cheapest game keys across 40+ stores. Real-time price tracking, deal alerts, and trust scores so you never overpay again.",
 };
 
-const gamingComparisons = [
-  { slug: "xbox-game-pass-vs-ps-plus", toolA: "Xbox Game Pass", toolB: "PS Plus", label: "Subscriptions" },
-  { slug: "eneba-vs-g2a-vs-kinguin", toolA: "Eneba", toolB: "G2A", label: "Key Stores" },
-  { slug: "dlss-4-vs-fsr-4", toolA: "DLSS 4.5", toolB: "FSR 4", label: "AI Upscaling" },
+const TRUSTED_STORES = [
+  { name: "Steam",            short: "STM", trust: 99 },
+  { name: "GOG",              short: "GOG", trust: 98 },
+  { name: "Epic Games",       short: "EPC", trust: 97 },
+  { name: "Humble",           short: "HMB", trust: 95 },
+  { name: "Fanatical",        short: "FNT", trust: 94 },
+  { name: "Green Man Gaming", short: "GMG", trust: 93 },
+  { name: "GameBillet",       short: "GMB", trust: 88 },
+  { name: "IndieGala",        short: "IGL", trust: 84 },
+  { name: "Voidu",            short: "VDU", trust: 82 },
+  { name: "Kinguin",          short: "KIN", trust: 70 },
+  { name: "G2A",              short: "G2A", trust: 65 },
+];
+
+const FAQ_ITEMS = [
+  [
+    "Are the stores you list actually safe?",
+    "Every store goes through our trust audit — chargeback rate, regional licensing, response time, refund policy. Anything below 70 trust is flagged in red and pushed to the bottom of every list. We never accept paid placement.",
+  ],
+  [
+    "How often do prices update?",
+    "Live indexes (Steam, GOG, Epic) refresh every 14 seconds via the CheapShark API. You're looking at a price that's at most a few minutes old.",
+  ],
+  [
+    "What's the difference between a key and a direct purchase?",
+    "A \"key\" is a code you redeem on Steam, GOG, or another launcher. A direct purchase adds the game to your store library. Keys are usually cheaper but tied to a specific platform — we label every offer so there are no surprises.",
+  ],
+  [
+    "Do you make money from this?",
+    "A small affiliate commission on some retailers, fully disclosed. Affiliate status never affects ranking — the cheapest legit price always shows first.",
+  ],
+  [
+    "Can I compare subscriptions too?",
+    "Yes — our /vs section lets you compare Xbox Game Pass vs PS Plus, key store pricing, and more. Use it to find the best value for your setup.",
+  ],
 ];
 
 export default function Home() {
@@ -26,27 +57,29 @@ export default function Home() {
 
   return (
     <div className="flex flex-col min-h-full">
-      <HeroBackgroundPaths />
+      {/* ─── Hero ─── */}
+      <HeroSection />
 
-      {/* Hot Deals Section — fetched client-side */}
-      <section className="bg-[#0f1117] py-12">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-3">
-              <h2 className="text-xl font-bold text-white">Hot Deals</h2>
-              <span className="rounded-full bg-red-500/15 border border-red-500/20 px-2.5 py-0.5 text-[10px] font-bold uppercase text-red-400 animate-pulse">
-                Live
-              </span>
+      {/* ─── Top Deals ─── */}
+      <section className="section" id="deals">
+        <div className="shell">
+          <div className="section-hd">
+            <div>
+              <div className="eyebrow">Top deals · biggest discounts</div>
+              <h2 className="h2">
+                The <em>cheapest</em> moves<br />this hour.
+              </h2>
             </div>
-            <Link
-              href="/deals"
-              className="text-sm font-medium text-emerald-400 hover:text-emerald-300 transition-colors"
-            >
-              View all deals &rarr;
-            </Link>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontFamily: "var(--ff-mono)", fontSize: 11, color: "var(--text-3)", letterSpacing: "0.12em", textTransform: "uppercase" }}>
+                Live · CheapShark
+              </span>
+              <Link href="/deals" className="btn btn-ghost">All deals →</Link>
+            </div>
           </div>
-          <p className="text-xs text-[#8b8fa3]/60 mb-4">{AFFILIATE_DISCLOSURE_SHORT}</p>
-
+          <p style={{ fontFamily: "var(--ff-mono)", fontSize: 11, color: "var(--text-3)", marginBottom: 20, letterSpacing: "0.08em" }}>
+            {AFFILIATE_DISCLOSURE_SHORT}
+          </p>
           <DealsGrid
             sortBy="Deal Rating"
             pageSize={8}
@@ -58,113 +91,226 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Instant Gaming Banner */}
-      <section className="bg-[#0f1117] pb-6">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
+      {/* ─── Instant Gaming Banner ─── */}
+      <section style={{ paddingBottom: "var(--pad-sec)" }}>
+        <div className="shell">
           <InstantGamingBanner />
         </div>
       </section>
 
-      {/* Gaming Comparisons */}
-      <section className="bg-[#0f1117] py-12 border-t border-[#2a2e3a]/50">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-white">Gaming Comparisons</h2>
-            <Link href="/vs" className="text-sm font-medium text-emerald-400 hover:text-emerald-300 transition-colors">
-              View all &rarr;
-            </Link>
+      {/* ─── Trusted Stores ─── */}
+      <section className="section">
+        <div className="shell">
+          <div className="section-hd">
+            <div>
+              <div className="eyebrow">Stores · we compare</div>
+              <h2 className="h2">
+                47 stores. <em>One</em> ranking.<br />
+                Trust score, never paid placement.
+              </h2>
+            </div>
+            <Link href="/stores" className="btn btn-ghost">View all stores →</Link>
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {gamingComparisons.map((comp) => (
-              <Link
-                key={comp.slug}
-                href={`/vs/${comp.slug}`}
-                className="group flex items-center gap-4 rounded-lg border border-[#2a2e3a] bg-[#1a1d27] p-4 transition-all hover:border-emerald-500/30 hover:bg-[#1e2231]"
-              >
-                <div className="flex items-center gap-2">
-                  <ToolLogo name={comp.toolA} size={22} />
-                  <span className="text-xs text-[#8b8fa3]">vs</span>
-                  <ToolLogo name={comp.toolB} size={22} />
+          <div className="stores-band">
+            {TRUSTED_STORES.map((s) => (
+              <div key={s.name} className="store-tile">
+                <div className="sn">{s.name}</div>
+                <div className="stt">
+                  <span style={{ fontFamily: "var(--ff-mono)" }}>{s.short}</span>
+                  <span>·</span>
+                  <span>trust {s.trust}</span>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-white group-hover:text-emerald-400 transition-colors truncate">
-                    {comp.toolA} vs {comp.toolB}
-                  </p>
-                  <p className="text-xs text-[#8b8fa3]">{comp.label}</p>
+                <div className={`trust-bar${s.trust < 75 ? " bad" : ""}`}>
+                  <div style={{ width: `${s.trust}%` }} />
                 </div>
-                <svg className="h-4 w-4 text-[#8b8fa3] transition-transform group-hover:translate-x-0.5 group-hover:text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                </svg>
-              </Link>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Popular Comparisons Grid */}
-      <section className="bg-[#0f1117] py-12">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-white">Popular Comparisons</h2>
-            <Link href="/vs" className="text-sm font-medium text-emerald-400 hover:text-emerald-300 transition-colors">
-              View all &rarr;
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {comparisons.map((comp) => (
-              <Link
-                key={comp.frontmatter.slug}
-                href={`/vs/${comp.frontmatter.slug}`}
-                className="group flex items-center justify-between rounded-lg border border-[#2a2e3a] bg-[#1a1d27] p-4 transition-all hover:border-emerald-500/30 hover:bg-[#1e2231]"
-              >
-                <div className="flex items-center gap-3">
-                  <ToolLogo name={comp.frontmatter.toolA} size={22} />
-                  <span className="text-xs text-[#8b8fa3]">vs</span>
-                  <ToolLogo name={comp.frontmatter.toolB} size={22} />
-                </div>
-                <span className="text-sm font-semibold text-white group-hover:text-emerald-400 transition-colors">
-                  {comp.frontmatter.toolA} vs {comp.frontmatter.toolB}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Latest Articles */}
-      <section className="bg-[#0f1117] py-12 border-t border-[#2a2e3a]/50">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-white">Latest Articles</h2>
-            <Link href="/blog" className="text-sm font-medium text-emerald-400 hover:text-emerald-300 transition-colors">
-              View all &rarr;
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {articles.map((article) => (
-              <Link
-                key={article.frontmatter.slug}
-                href={`/blog/${article.frontmatter.slug}`}
-                className="group flex flex-col rounded-lg border border-[#2a2e3a] bg-[#1a1d27] p-5 transition-all hover:border-emerald-500/30 hover:bg-[#1e2231]"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="rounded bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400">
-                    {article.frontmatter.category}
+      {/* ─── Comparisons ─── */}
+      {comparisons.length > 0 && (
+        <section className="section" style={{ borderTop: "1px solid var(--line)" }}>
+          <div className="shell">
+            <div className="section-hd">
+              <div>
+                <div className="eyebrow">Compare · side-by-side</div>
+                <h2 className="h2">
+                  Don't guess.<br /><em>Compare.</em>
+                </h2>
+              </div>
+              <Link href="/vs" className="btn btn-ghost">All comparisons →</Link>
+            </div>
+            <div style={{ display: "grid", gap: "var(--gap)", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))" }}>
+              {comparisons.map((comp) => (
+                <Link
+                  key={comp.frontmatter.slug}
+                  href={`/vs/${comp.frontmatter.slug}`}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 16,
+                    padding: "16px 18px",
+                    background: "var(--bg-elev)",
+                    border: "1px solid var(--line)",
+                    borderRadius: "var(--r)",
+                    transition: "border-color .15s, transform .15s",
+                  }}
+                  className="comp-card"
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <ToolLogo name={comp.frontmatter.toolA} size={22} />
+                    <span style={{ fontFamily: "var(--ff-mono)", fontSize: 10, color: "var(--text-3)" }}>vs</span>
+                    <ToolLogo name={comp.frontmatter.toolB} size={22} />
+                  </div>
+                  <span style={{ fontFamily: "var(--ff-display)", fontWeight: 600, fontSize: 14, flex: 1 }}>
+                    {comp.frontmatter.toolA} vs {comp.frontmatter.toolB}
                   </span>
-                  <time className="text-[10px] text-[#8b8fa3]">
-                    {new Date(article.frontmatter.date).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </time>
-                </div>
-                <h3 className="mt-2 text-sm font-semibold text-white group-hover:text-emerald-400 transition-colors leading-snug line-clamp-2">
-                  {article.frontmatter.title}
-                </h3>
-                <span className="mt-auto pt-3 text-xs font-medium text-emerald-400">
-                  Read more &rarr;
-                </span>
-              </Link>
+                  <span style={{ fontFamily: "var(--ff-mono)", fontSize: 12, color: "var(--accent)" }}>→</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ─── CTA Band ─── */}
+      <section className="section">
+        <div className="shell">
+          <div className="cta-band">
+            <div>
+              <div className="eyebrow">● Price drop alerts</div>
+              <h3>
+                Wait for the price to <em>break.</em><br />
+                We'll ping you the second it does.
+              </h3>
+              <p>
+                Set a target price on any title — Pikorafy emails you the moment any tracked store
+                drops below it. Average wait: 18 days. Average savings: 64% off MSRP.
+              </p>
+            </div>
+            <form className="cta-form" action="#">
+              <input type="email" placeholder="you@inbox.com" required />
+              <button type="submit">Track →</button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Latest Articles ─── */}
+      {articles.length > 0 && (
+        <section className="section" style={{ borderTop: "1px solid var(--line)" }}>
+          <div className="shell">
+            <div className="section-hd">
+              <div>
+                <div className="eyebrow">Articles · latest from the blog</div>
+                <h2 className="h2">
+                  Read before<br />you <em>buy</em>.
+                </h2>
+              </div>
+              <Link href="/blog" className="btn btn-ghost">All articles →</Link>
+            </div>
+            <div style={{ display: "grid", gap: "var(--gap)", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
+              {articles.map((article) => (
+                <Link
+                  key={article.frontmatter.slug}
+                  href={`/blog/${article.frontmatter.slug}`}
+                  className="article-card"
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 10,
+                    padding: "var(--pad-card)",
+                    background: "var(--bg-elev)",
+                    border: "1px solid var(--line)",
+                    borderRadius: "var(--r)",
+                    transition: "border-color .15s, transform .15s",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{
+                      fontFamily: "var(--ff-mono)", fontSize: 10, color: "var(--accent)",
+                      textTransform: "uppercase", letterSpacing: "0.12em",
+                      padding: "2px 6px", border: "1px solid var(--accent)", borderRadius: 3,
+                    }}>
+                      {article.frontmatter.category}
+                    </span>
+                    <time style={{ fontFamily: "var(--ff-mono)", fontSize: 10, color: "var(--text-3)" }}>
+                      {new Date(article.frontmatter.date).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </time>
+                  </div>
+                  <h3 style={{
+                    fontFamily: "var(--ff-display)", fontWeight: 600, fontSize: 15,
+                    letterSpacing: "-0.01em", margin: 0, lineHeight: 1.3,
+                    display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
+                  }}>
+                    {article.frontmatter.title}
+                  </h3>
+                  <span style={{
+                    marginTop: "auto", fontFamily: "var(--ff-mono)", fontSize: 11,
+                    color: "var(--accent)", letterSpacing: "0.08em",
+                  }}>
+                    Read more →
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ─── Newsletter ─── */}
+      <section className="section" style={{ borderTop: "1px solid var(--line)" }}>
+        <div className="shell">
+          <div className="newsletter-band">
+            <div>
+              <div className="eyebrow">The Drop · weekly digest</div>
+              <h2 className="h2">
+                One email.<br />The week's <em>best 10</em> deals.
+              </h2>
+              <p className="sub" style={{ marginTop: 12 }}>
+                Every Friday, hand-curated. No spam, no affiliate-stuffing.
+              </p>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <form className="newsletter-form" action="#">
+                <input type="email" placeholder="you@inbox.com" />
+                <button className="btn btn-primary" type="submit">Subscribe →</button>
+              </form>
+              <div className="newsletter-meta">
+                <span>✓ No spam</span>
+                <span>✓ Unsubscribe any time</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── FAQ ─── */}
+      <section className="section" style={{ borderTop: "1px solid var(--line)" }}>
+        <div className="shell">
+          <div className="section-hd">
+            <div>
+              <div className="eyebrow">FAQ · the honest version</div>
+              <h2 className="h2">
+                Questions we<br />answer <em>without dodging</em>.
+              </h2>
+            </div>
+          </div>
+          <div className="faq">
+            {FAQ_ITEMS.map(([q, a], i) => (
+              <details key={q} open={i === 0}>
+                <summary>
+                  {q}
+                  <span className="plus">+</span>
+                </summary>
+                <p>{a}</p>
+              </details>
             ))}
           </div>
         </div>

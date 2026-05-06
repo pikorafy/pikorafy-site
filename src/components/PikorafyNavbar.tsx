@@ -1,269 +1,119 @@
 "use client";
 
-import { Menu, GitCompare, Layers, Gamepad2, Tag, MonitorPlay, Store } from "lucide-react";
-import SearchDialog from "@/components/SearchDialog";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import { Button } from "@/components/ui/button";
-import {
-  NavigationMenu,
-  NavigationMenuContent,
-  NavigationMenuItem,
-  NavigationMenuLink,
-  NavigationMenuList,
-  NavigationMenuTrigger,
-} from "@/components/ui/navigation-menu";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import { usePathname } from "next/navigation";
 
-interface MenuItem {
-  title: string;
-  url: string;
-  description?: string;
-  icon?: React.ReactNode;
-  items?: MenuItem[];
-}
-
-const menu: MenuItem[] = [
-  {
-    title: "Deals",
-    url: "#",
-    items: [
-      {
-        title: "Game Deals",
-        description: "Real-time price comparison across 30+ stores",
-        icon: <Tag className="size-5 shrink-0 text-emerald-400" />,
-        url: "/deals",
-      },
-      {
-        title: "Gaming Hub",
-        description: "Your one-stop gaming resource center",
-        icon: <Gamepad2 className="size-5 shrink-0 text-blue-400" />,
-        url: "/gaming",
-      },
-    ],
-  },
-  {
-    title: "Stores",
-    url: "/stores",
-    icon: <Store className="size-5 shrink-0 text-emerald-400" />,
-  },
-  {
-    title: "Compare",
-    url: "#",
-    items: [
-      {
-        title: "All Comparisons",
-        description: "Side-by-side comparisons of tools and services",
-        icon: <GitCompare className="size-5 shrink-0" />,
-        url: "/vs",
-      },
-      {
-        title: "Gaming Comparisons",
-        description: "Game Pass vs PS Plus, key store comparisons & more",
-        icon: <MonitorPlay className="size-5 shrink-0" />,
-        url: "/vs",
-      },
-      {
-        title: "Alternatives",
-        description: "Find the best alternatives to any tool",
-        icon: <Layers className="size-5 shrink-0" />,
-        url: "/alternatives",
-      },
-    ],
-  },
-  {
-    title: "Blog",
-    url: "/blog",
-  },
+const NAV_LINKS = [
+  { label: "Deals", href: "/deals" },
+  { label: "Browse", href: "/gaming" },
+  { label: "Upcoming", href: "/gaming#upcoming" },
+  { label: "Free", href: "/gaming#free" },
+  { label: "Stores", href: "/stores" },
+  { label: "Blog", href: "/blog" },
 ];
-
-const mobileExtraLinks = [
-  { name: "Game Deals", url: "/gaming/deals" },
-  { name: "Gaming Hub", url: "/gaming" },
-  { name: "Stores", url: "/stores" },
-  { name: "Comparisons", url: "/vs" },
-  { name: "Alternatives", url: "/alternatives" },
-];
-
-const renderMenuItem = (item: MenuItem) => {
-  if (item.items) {
-    return (
-      <NavigationMenuItem key={item.title} className="text-muted-foreground">
-        <NavigationMenuTrigger>{item.title}</NavigationMenuTrigger>
-        <NavigationMenuContent>
-          <ul className="w-80 p-3">
-            {item.items.map((subItem) => (
-              <li key={subItem.title}>
-                <NavigationMenuLink asChild>
-                  <Link
-                    className="flex select-none gap-4 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-muted hover:text-accent-foreground"
-                    href={subItem.url}
-                  >
-                    {subItem.icon}
-                    <div>
-                      <div className="text-sm font-semibold">
-                        {subItem.title}
-                      </div>
-                      {subItem.description && (
-                        <p className="text-sm leading-snug text-muted-foreground">
-                          {subItem.description}
-                        </p>
-                      )}
-                    </div>
-                  </Link>
-                </NavigationMenuLink>
-              </li>
-            ))}
-          </ul>
-        </NavigationMenuContent>
-      </NavigationMenuItem>
-    );
-  }
-  return (
-    <Link
-      key={item.title}
-      className="group inline-flex h-10 w-max items-center justify-center rounded-md bg-background px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-accent-foreground"
-      href={item.url}
-    >
-      {item.title}
-    </Link>
-  );
-};
-
-const renderMobileMenuItem = (item: MenuItem) => {
-  if (item.items) {
-    return (
-      <AccordionItem key={item.title} value={item.title} className="border-b-0">
-        <AccordionTrigger className="py-0 font-semibold hover:no-underline">
-          {item.title}
-        </AccordionTrigger>
-        <AccordionContent className="mt-2">
-          {item.items.map((subItem) => (
-            <Link
-              key={subItem.title}
-              className="flex select-none gap-4 rounded-md p-3 leading-none outline-none transition-colors hover:bg-muted hover:text-accent-foreground"
-              href={subItem.url}
-            >
-              {subItem.icon}
-              <div>
-                <div className="text-sm font-semibold">{subItem.title}</div>
-                {subItem.description && (
-                  <p className="text-sm leading-snug text-muted-foreground">
-                    {subItem.description}
-                  </p>
-                )}
-              </div>
-            </Link>
-          ))}
-        </AccordionContent>
-      </AccordionItem>
-    );
-  }
-  return (
-    <Link key={item.title} href={item.url} className="font-semibold">
-      {item.title}
-    </Link>
-  );
-};
 
 export default function PikorafyNavbar() {
+  const pathname = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [dark, setDark] = useState(true);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("pkfy:theme");
+    if (stored === "light") {
+      setDark(false);
+      document.documentElement.dataset.theme = "light";
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const next = !dark;
+    setDark(next);
+    document.documentElement.dataset.theme = next ? "dark" : "light";
+    localStorage.setItem("pkfy:theme", next ? "dark" : "light");
+  };
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        const inp = document.querySelector<HTMLInputElement>(".searchbar input");
+        if (inp) { inp.focus(); inp.select(); }
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
   return (
-    <header className="sticky top-0 z-50 border-b border-[#2a2e3a] bg-[#0f1117]/90 backdrop-blur-lg">
-      <div className="mx-auto max-w-7xl px-6 py-3">
-        <nav className="hidden justify-between lg:flex">
-          <div className="flex items-center gap-6">
-            <Link href="/" className="flex items-center gap-2">
-              <Gamepad2 className="h-6 w-6 text-emerald-400" />
-              <span className="text-lg font-bold text-[#e4e6eb]">Pikorafy</span>
+    <>
+      <header className="nav">
+        <div className="nav-inner">
+          {/* Brand */}
+          <Link href="/" className="brand">
+            <span className="brand-dot" />
+            PIKORAFY
+          </Link>
+
+          {/* Desktop nav links */}
+          <nav className="nav-links">
+            {NAV_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                aria-current={pathname === link.href ? "page" : undefined}
+              >
+                {link.label}
+              </Link>
+            ))}
+          </nav>
+
+          {/* Right tools */}
+          <div className="nav-tools">
+            <button className="icon-btn" onClick={toggleTheme} title="Toggle theme">
+              {dark ? "☾" : "☀"}
+            </button>
+            <Link href="/deals" className="icon-btn" title="Wishlist" style={{ display: "grid" }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 21s-7-4.5-9.5-9C.7 8.5 2.5 4.5 6.5 4c2.2 0 3.7 1.2 5.5 3.2C13.8 5.2 15.3 4 17.5 4c4 .5 5.8 4.5 4 8-2.5 4.5-9.5 9-9.5 9z" />
+              </svg>
             </Link>
-            <div className="flex items-center">
-              <NavigationMenu>
-                <NavigationMenuList>
-                  {menu.map((item) => renderMenuItem(item))}
-                </NavigationMenuList>
-              </NavigationMenu>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <SearchDialog />
-            <Button asChild variant="outline" size="sm" className="border-[#2a2e3a] text-[#8b8fa3] hover:text-white">
-              <Link href="/vs">Compare</Link>
-            </Button>
-            <Button asChild size="sm" className="bg-emerald-500 hover:bg-emerald-600 text-white">
-              <Link href="/deals">Game Deals</Link>
-            </Button>
-          </div>
-        </nav>
-        <div className="block lg:hidden">
-          <div className="flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-2">
-              <Gamepad2 className="h-6 w-6 text-emerald-400" />
-              <span className="text-lg font-bold text-[#e4e6eb]">Pikorafy</span>
+            <Link href="/deals" className="btn btn-primary">
+              Get Deals
             </Link>
-            <div className="flex items-center gap-2">
-              <SearchDialog />
-              <Sheet>
-                <SheetTrigger asChild>
-                  <Button variant="outline" size="icon">
-                    <Menu className="size-4" />
-                  </Button>
-                </SheetTrigger>
-                <SheetContent className="overflow-y-auto">
-                  <SheetHeader>
-                    <SheetTitle>
-                      <Link href="/" className="flex items-center gap-2">
-                        <Gamepad2 className="h-6 w-6 text-emerald-400" />
-                        <span className="text-lg font-semibold">Pikorafy</span>
-                      </Link>
-                    </SheetTitle>
-                  </SheetHeader>
-                  <div className="my-6 flex flex-col gap-6">
-                    <Accordion
-                      type="single"
-                      collapsible
-                      className="flex w-full flex-col gap-4"
-                    >
-                      {menu.map((item) => renderMobileMenuItem(item))}
-                    </Accordion>
-                    <div className="border-t py-4">
-                      <div className="grid grid-cols-2 justify-start">
-                        {mobileExtraLinks.map((link, idx) => (
-                          <Link
-                            key={idx}
-                            className="inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-accent-foreground"
-                            href={link.url}
-                          >
-                            {link.name}
-                          </Link>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-3">
-                      <Button asChild variant="outline">
-                        <Link href="/vs">Compare</Link>
-                      </Button>
-                      <Button asChild className="bg-emerald-500 hover:bg-emerald-600 text-white">
-                        <Link href="/deals">Game Deals</Link>
-                      </Button>
-                    </div>
-                  </div>
-                </SheetContent>
-              </Sheet>
-            </div>
+            {/* Mobile hamburger */}
+            <button
+              className="nav-mobile-toggle"
+              onClick={() => setMobileOpen((o) => !o)}
+              aria-label="Menu"
+            >
+              {mobileOpen ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M3 12h18M3 6h18M3 18h18" />
+                </svg>
+              )}
+            </button>
           </div>
         </div>
-      </div>
-    </header>
+
+        {/* Mobile menu */}
+        <nav className={`nav-mobile-menu ${mobileOpen ? "open" : ""}`}>
+          {NAV_LINKS.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              onClick={() => setMobileOpen(false)}
+              aria-current={pathname === link.href ? "page" : undefined}
+            >
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+      </header>
+    </>
   );
 }

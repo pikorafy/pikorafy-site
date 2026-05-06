@@ -1,107 +1,94 @@
 import Link from "next/link";
 
-const gamingLinks = [
-  { name: "Game Deals", href: "/gaming/deals" },
-  { name: "Gaming Hub", href: "/gaming" },
-  { name: "Xbox Game Pass vs PS Plus", href: "/vs/xbox-game-pass-vs-ps-plus" },
-  { name: "Eneba vs G2A vs Kinguin", href: "/vs/eneba-vs-g2a-vs-kinguin" },
-  { name: "DLSS vs FSR", href: "/vs/dlss-4-vs-fsr-4" },
-];
-
-const resourceLinks = [
-  { name: "All Comparisons", href: "/vs" },
-  { name: "Alternatives", href: "/alternatives" },
-  { name: "Blog", href: "/blog" },
-  { name: "AI Quiz", href: "/quiz" },
-];
-
-const contentLinks = [
-  { name: "Latest Articles", href: "/blog" },
-  { name: "AI Quiz", href: "/quiz" },
-  { name: "Cloud Gaming Guide", href: "/blog/best-game-streaming-services-2026" },
-  { name: "Gaming VPNs", href: "/blog/best-gaming-vpns-2026" },
+const COLS = [
+  {
+    label: "Browse",
+    links: [
+      { name: "All Deals", href: "/deals" },
+      { name: "Top Discounts", href: "/deals?sort=savings" },
+      { name: "New Releases", href: "/gaming#new" },
+      { name: "Upcoming", href: "/gaming#upcoming" },
+      { name: "Free Games", href: "/gaming#free" },
+    ],
+  },
+  {
+    label: "Compare",
+    links: [
+      { name: "All Comparisons", href: "/vs" },
+      { name: "Alternatives", href: "/alternatives" },
+      { name: "Game Pass vs PS Plus", href: "/vs/xbox-game-pass-vs-ps-plus" },
+      { name: "DLSS vs FSR", href: "/vs/dlss-4-vs-fsr-4" },
+      { name: "Key Stores", href: "/vs/eneba-vs-g2a-vs-kinguin" },
+    ],
+  },
+  {
+    label: "Content",
+    links: [
+      { name: "Blog", href: "/blog" },
+      { name: "Gaming Hub", href: "/gaming" },
+      { name: "AI Quiz", href: "/quiz" },
+      { name: "Cloud Gaming", href: "/blog/best-game-streaming-services-2026" },
+      { name: "Gaming VPNs", href: "/blog/best-gaming-vpns-2026" },
+    ],
+  },
+  {
+    label: "Pikorafy",
+    links: [
+      { name: "Stores", href: "/stores" },
+      { name: "About", href: "#" },
+      { name: "Press Kit", href: "#" },
+      { name: "Contact", href: "#" },
+      { name: "Report a Deal", href: "#" },
+    ],
+  },
 ];
 
 export default function Footer() {
   return (
-    <footer className="border-t border-[#2a2e3a] bg-[#0a0c10]">
-      <div className="mx-auto max-w-7xl px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
-          {/* Brand */}
-          <div className="col-span-2 sm:col-span-1">
-            <Link href="/" className="flex items-center gap-2">
-              <svg className="h-6 w-6 text-emerald-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M14.25 6.087c0-.355.186-.676.401-.959.221-.29.349-.634.349-1.003 0-1.036-1.007-1.875-2.25-1.875s-2.25.84-2.25 1.875c0 .369.128.713.349 1.003.215.283.401.604.401.959v0a.64.64 0 0 1-.657.643 48.39 48.39 0 0 1-4.163-.3c.186 1.613.293 3.25.315 4.907a.656.656 0 0 1-.658.663v0c-.355 0-.676-.186-.959-.401a1.647 1.647 0 0 0-1.003-.349c-1.036 0-1.875 1.007-1.875 2.25s.84 2.25 1.875 2.25c.369 0 .713-.128 1.003-.349.283-.215.604-.401.959-.401v0c.31 0 .555.26.532.57a48.039 48.039 0 0 1-.642 5.056c1.518.19 3.058.309 4.616.354a.64.64 0 0 0 .657-.643v0c0-.355-.186-.676-.401-.959a1.647 1.647 0 0 1-.349-1.003c0-1.035 1.008-1.875 2.25-1.875 1.243 0 2.25.84 2.25 1.875 0 .369-.128.713-.349 1.003-.215.283-.4.604-.4.959v0c0 .333.277.599.61.58a48.1 48.1 0 0 0 5.427-.63 48.05 48.05 0 0 0 .582-4.717.532.532 0 0 0-.533-.57v0c-.355 0-.676.186-.959.401-.29.221-.634.349-1.003.349-1.035 0-1.875-1.007-1.875-2.25s.84-2.25 1.875-2.25c.37 0 .713.128 1.003.349.283.215.604.401.959.401v0a.656.656 0 0 0 .658-.663 48.422 48.422 0 0 0-.37-5.36c-1.886.342-3.81.574-5.766.689a.578.578 0 0 1-.61-.58v0Z" />
+    <footer className="footer shell">
+      <div className="footer-grid">
+        {/* Brand col */}
+        <div>
+          <Link href="/" className="brand" style={{ marginBottom: 14, display: "inline-flex" }}>
+            <span className="brand-dot" />
+            PIKORAFY
+          </Link>
+          <p style={{ color: "var(--text-2)", fontSize: 14, maxWidth: "38ch", margin: "14px 0 0", lineHeight: 1.6 }}>
+            We compare keys, codes, and Steam prices across 40+ trusted stores. No affiliate fluff — just the cheapest, safest deal at the top.
+          </p>
+          <div style={{ marginTop: 18, display: "flex", gap: 8 }}>
+            <a
+              href="https://twitter.com/pikorafy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="icon-btn"
+              title="Twitter / X"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
               </svg>
-              <span className="text-base font-bold text-white">Pikorafy</span>
-            </Link>
-            <p className="mt-3 text-sm text-[#8b8fa3] leading-relaxed">
-              Game deals, comparisons & free tools. Save up to 90% on digital game keys.
-            </p>
-            <div className="mt-4 flex items-center gap-3">
-              <Link
-                href="https://twitter.com/pikorafy"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#2a2e3a] bg-[#1a1d27] text-[#8b8fa3] transition-colors hover:border-[#3a3e4a] hover:text-white"
-              >
-                <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
-              </Link>
-            </div>
-          </div>
-
-          {/* Gaming */}
-          <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-[#8b8fa3]">Gaming</h3>
-            <ul className="mt-3 space-y-2">
-              {gamingLinks.map((link) => (
-                <li key={link.name}>
-                  <Link href={link.href} className="text-sm text-[#b0b3c0] transition-colors hover:text-white">
-                    {link.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Resources */}
-          <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-[#8b8fa3]">Resources</h3>
-            <ul className="mt-3 space-y-2">
-              {resourceLinks.map((link) => (
-                <li key={link.name}>
-                  <Link href={link.href} className="text-sm text-[#b0b3c0] transition-colors hover:text-white">
-                    {link.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Content */}
-          <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-[#8b8fa3]">Content</h3>
-            <ul className="mt-3 space-y-2">
-              {contentLinks.map((link) => (
-                <li key={link.name}>
-                  <Link href={link.href} className="text-sm text-[#b0b3c0] transition-colors hover:text-white">
-                    {link.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            </a>
           </div>
         </div>
 
-        {/* Bottom bar */}
-        <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-[#2a2e3a] pt-6 sm:flex-row">
-          <p className="text-xs text-[#8b8fa3]">
-            &copy; {new Date().getFullYear()} Pikorafy. All rights reserved.
-          </p>
-          <p className="text-xs text-[#8b8fa3]">
-            Prices are provided by stores and may vary. Some links are affiliate links.
-          </p>
-        </div>
+        {/* Link cols */}
+        {COLS.map((col) => (
+          <div key={col.label}>
+            <h5>{col.label}</h5>
+            <ul>
+              {col.links.map((link) => (
+                <li key={link.name}>
+                  <Link href={link.href}>{link.name}</Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+
+      <div className="footer-bot">
+        <span>© {new Date().getFullYear()} Pikorafy · Independent · No affiliate boost</span>
+        <span>Prices from 40+ stores · Some links earn a small commission</span>
       </div>
     </footer>
   );
