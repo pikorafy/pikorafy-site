@@ -3,10 +3,14 @@ import Link from "next/link";
 import { getAllArticles } from "@/lib/articles";
 import { getAllComparisons } from "@/lib/comparisons";
 import { AFFILIATE_DISCLOSURE_SHORT } from "@/lib/affiliate";
-import InstantGamingBanner from "@/components/InstantGamingBanner";
 import ToolLogo from "@/components/ToolLogo";
-import DealsGrid from "@/components/DealsGrid";
 import HeroSection from "@/components/HeroSection";
+import TopDealsSection from "@/components/TopDealsSection";
+import TrendingSection from "@/components/TrendingSection";
+import NewReleasesSection from "@/components/NewReleasesSection";
+import UpcomingSection from "@/components/UpcomingSection";
+import FreeGamesSection from "@/components/FreeGamesSection";
+import InstantGamingBanner from "@/components/InstantGamingBanner";
 
 export const metadata: Metadata = {
   title: "Pikorafy — Game Key Price Comparison",
@@ -51,7 +55,7 @@ const FAQ_ITEMS = [
   ],
 ];
 
-export default function Home() {
+export default async function Home() {
   const comparisons = getAllComparisons().slice(0, 6);
   const articles = getAllArticles().slice(0, 4);
 
@@ -61,37 +65,44 @@ export default function Home() {
       <HeroSection />
 
       {/* ─── Top Deals ─── */}
-      <section className="section" id="deals">
+      <TopDealsSection />
+
+      {/* ─── Trending ─── */}
+      <TrendingSection />
+
+      {/* ─── New Releases ─── */}
+      <NewReleasesSection />
+
+      {/* ─── Upcoming ─── */}
+      <UpcomingSection />
+
+      {/* ─── Free This Week ─── */}
+      <FreeGamesSection />
+
+      {/* ─── Price Drop Alerts CTA ─── */}
+      <section className="section" style={{ borderTop: "1px solid var(--line)" }}>
         <div className="shell">
-          <div className="section-hd">
+          <div className="cta-band">
             <div>
-              <div className="eyebrow">Top deals · biggest discounts</div>
-              <h2 className="h2">
-                The <em>cheapest</em> moves<br />this hour.
-              </h2>
+              <div className="eyebrow">● Price drop alerts</div>
+              <h3>
+                Wait for the price to <em>break.</em><br />
+                We&rsquo;ll ping you the second it does.
+              </h3>
+              <p>
+                Set a target price on any title — Pikorafy emails you the moment any tracked store
+                drops below it. Average wait: 18 days. Average savings: 64% off MSRP.
+              </p>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <span style={{ fontFamily: "var(--ff-mono)", fontSize: 11, color: "var(--text-3)", letterSpacing: "0.12em", textTransform: "uppercase" }}>
-                Live · CheapShark
-              </span>
-              <Link href="/deals" className="btn btn-ghost">All deals →</Link>
-            </div>
+            <form className="cta-form" action="#">
+              <input type="email" placeholder="you@inbox.com" required />
+              <button type="submit">Track →</button>
+            </form>
           </div>
-          <p style={{ fontFamily: "var(--ff-mono)", fontSize: 11, color: "var(--text-3)", marginBottom: 20, letterSpacing: "0.08em" }}>
-            {AFFILIATE_DISCLOSURE_SHORT}
-          </p>
-          <DealsGrid
-            sortBy="Deal Rating"
-            pageSize={8}
-            metacritic={60}
-            columns="4"
-            showMetacritic={false}
-            showGetDeal={false}
-          />
         </div>
       </section>
 
-      {/* ─── Instant Gaming Banner ─── */}
+      {/* ─── Instant Gaming Partner Banner ─── */}
       <section style={{ paddingBottom: "var(--pad-sec)" }}>
         <div className="shell">
           <InstantGamingBanner />
@@ -99,7 +110,7 @@ export default function Home() {
       </section>
 
       {/* ─── Trusted Stores ─── */}
-      <section className="section">
+      <section className="section" style={{ borderTop: "1px solid var(--line)" }}>
         <div className="shell">
           <div className="section-hd">
             <div>
@@ -137,7 +148,7 @@ export default function Home() {
               <div>
                 <div className="eyebrow">Compare · side-by-side</div>
                 <h2 className="h2">
-                  Don't guess.<br /><em>Compare.</em>
+                  Don&rsquo;t guess.<br /><em>Compare.</em>
                 </h2>
               </div>
               <Link href="/vs" className="btn btn-ghost">All comparisons →</Link>
@@ -148,14 +159,9 @@ export default function Home() {
                   key={comp.frontmatter.slug}
                   href={`/vs/${comp.frontmatter.slug}`}
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 16,
-                    padding: "16px 18px",
-                    background: "var(--bg-elev)",
-                    border: "1px solid var(--line)",
-                    borderRadius: "var(--r)",
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    gap: 16, padding: "16px 18px", background: "var(--bg-elev)",
+                    border: "1px solid var(--line)", borderRadius: "var(--r)",
                     transition: "border-color .15s, transform .15s",
                   }}
                   className="comp-card"
@@ -175,29 +181,6 @@ export default function Home() {
           </div>
         </section>
       )}
-
-      {/* ─── CTA Band ─── */}
-      <section className="section">
-        <div className="shell">
-          <div className="cta-band">
-            <div>
-              <div className="eyebrow">● Price drop alerts</div>
-              <h3>
-                Wait for the price to <em>break.</em><br />
-                We'll ping you the second it does.
-              </h3>
-              <p>
-                Set a target price on any title — Pikorafy emails you the moment any tracked store
-                drops below it. Average wait: 18 days. Average savings: 64% off MSRP.
-              </p>
-            </div>
-            <form className="cta-form" action="#">
-              <input type="email" placeholder="you@inbox.com" required />
-              <button type="submit">Track →</button>
-            </form>
-          </div>
-        </div>
-      </section>
 
       {/* ─── Latest Articles ─── */}
       {articles.length > 0 && (
@@ -219,13 +202,9 @@ export default function Home() {
                   href={`/blog/${article.frontmatter.slug}`}
                   className="article-card"
                   style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 10,
-                    padding: "var(--pad-card)",
-                    background: "var(--bg-elev)",
-                    border: "1px solid var(--line)",
-                    borderRadius: "var(--r)",
+                    display: "flex", flexDirection: "column", gap: 10,
+                    padding: "var(--pad-card)", background: "var(--bg-elev)",
+                    border: "1px solid var(--line)", borderRadius: "var(--r)",
                     transition: "border-color .15s, transform .15s",
                   }}
                 >
@@ -239,8 +218,7 @@ export default function Home() {
                     </span>
                     <time style={{ fontFamily: "var(--ff-mono)", fontSize: 10, color: "var(--text-3)" }}>
                       {new Date(article.frontmatter.date).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
+                        month: "short", day: "numeric",
                       })}
                     </time>
                   </div>
@@ -271,7 +249,7 @@ export default function Home() {
             <div>
               <div className="eyebrow">The Drop · weekly digest</div>
               <h2 className="h2">
-                One email.<br />The week's <em>best 10</em> deals.
+                One email.<br />The week&rsquo;s <em>best 10</em> deals.
               </h2>
               <p className="sub" style={{ marginTop: 12 }}>
                 Every Friday, hand-curated. No spam, no affiliate-stuffing.
@@ -288,6 +266,9 @@ export default function Home() {
               </div>
             </div>
           </div>
+          <p style={{ fontFamily: "var(--ff-mono)", fontSize: 10, color: "var(--text-3)", marginTop: 20, letterSpacing: "0.06em" }}>
+            {AFFILIATE_DISCLOSURE_SHORT}
+          </p>
         </div>
       </section>
 
