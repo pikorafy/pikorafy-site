@@ -10,6 +10,7 @@ const NAV_LINKS = [
   { label: "Stores", href: "/stores" },
   { label: "Compare", href: "/vs" },
   { label: "Blog", href: "/blog" },
+  { label: "API", href: "/api-docs" },
 ];
 
 export default function PikorafyNavbar() {
