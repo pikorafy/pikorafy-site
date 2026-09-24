@@ -1,13 +1,13 @@
 -- Game catalog for programmatic SEO pages (/game/[slug], /deals/[genre], ...).
 --
 -- Data flow:
---   scripts/import-steam.ts  → games, game_prices, price_history, import_queue
+--   scripts/import-steam.mts → games, game_prices, price_history, import_queue
 --   (later) price joiners    → game_prices (cheapshark / itad / instant_gaming)
 --   (later) content job      → game_content
 --
 -- Pages only ever READ from these tables. Nothing calls Steam at request time.
--- The existing store_prices / store_partners tables (partner price API) are
--- left untouched; they join on steam_app_id (text) → games.steam_app_id::text.
+-- Note: src/app/api/v1/prices uses store_prices / store_partners, which were
+-- never created in this project. They are not part of this migration.
 
 -- ─── games ───────────────────────────────────────────────────────────────────
 -- One row per Steam app. Facts only — we keep Steam's description in `raw`
