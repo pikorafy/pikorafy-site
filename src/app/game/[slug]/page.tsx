@@ -10,10 +10,12 @@ import {
   getTopGameSlugs,
   type Game,
   type GamePrice,
+  type PricePoint,
 } from "@/lib/catalog";
 import { AFFILIATE_DISCLOSURE_SHORT } from "@/lib/affiliate";
 import GameDetailClient from "./GameDetailClient";
 import PriceChart from "./PriceChart";
+import TimeAgo from "./TimeAgo";
 
 // Catalog pages are prerendered for the most popular games and generated on
 // first visit for the rest; either way they refresh at most once an hour
@@ -104,7 +106,7 @@ export default async function GamePage({ params }: GamePageProps) {
   ]);
 
   const best = prices[0];
-  const historicalLow = history.length ? Math.min(...history.map((p) => p.price)) : null;
+  const low = lowestPrice(game, history, best, currency);
   const cover = `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.steam_app_id}/library_600x900.jpg`;
   const instantGamingUrl = `https://www.instant-gaming.com/en/search/?q=${encodeURIComponent(game.name)}&igr=pikorafy`;
 
@@ -135,11 +137,11 @@ export default async function GamePage({ params }: GamePageProps) {
               <Link href="/">Home</Link> / <Link href="/deals">Deals</Link> / <span style={{ color: "var(--text)" }}>{game.name}</span>
             </div>
             <h1>{game.name}</h1>
-            <p className="tagline">{heroLine(game, best, historicalLow)}</p>
+            <p className="tagline">{heroLine(game, best, low)}</p>
             <div className="stats">
               {best && <Stat value={money(best.price, best.currency)} label="Best price now" />}
               {best?.discount_pct ? <Stat value={`-${best.discount_pct}%`} label="Discount" accent /> : null}
-              {historicalLow !== null && <Stat value={money(historicalLow, currency)} label="Lowest we've tracked" />}
+              {low && <Stat value={money(low.price, currency)} label={low.allTime ? "All-time low" : "Lowest we've tracked"} />}
               {game.review_score_pct !== null && <Stat value={`${game.review_score_pct}%`} label="Positive Steam reviews" />}
               {game.metacritic !== null && <Stat value={String(game.metacritic)} label="Metacritic" />}
             </div>
@@ -171,8 +173,9 @@ export default async function GamePage({ params }: GamePageProps) {
             <div className="hd">
               <div>#</div>
               <div>Store</div>
-              <div>Regular price</div>
               <div>Price</div>
+              {/* 4th column is hidden on narrow screens by .offers CSS */}
+              <div>Regular price</div>
               <div>Discount</div>
               <div />
             </div>
@@ -183,16 +186,16 @@ export default async function GamePage({ params }: GamePageProps) {
                   <div className="store-logo">{p.store.slice(0, 3).toUpperCase()}</div>
                   <div>
                     <div className="sname">{p.store}</div>
-                    <div className="smeta">Updated {timeAgo(p.fetched_at)}</div>
+                    <div className="smeta">Updated <TimeAgo iso={p.fetched_at} /></div>
                   </div>
                 </div>
-                <div className="price-cell"><div className="pf" style={{ fontSize: 13 }}>{p.regular_price !== null ? money(p.regular_price, p.currency) : "—"}</div></div>
                 <div className="price-cell">
                   <div className="pp">{money(p.price, p.currency)}</div>
                   {i === 0
                     ? <div className="pf delta-zero">↓ cheapest right now</div>
                     : <div className="pf delta-pos">+{money(p.price - best.price, p.currency)} vs cheapest</div>}
                 </div>
+                <div className="price-cell"><div className="pf" style={{ fontSize: 13 }}>{p.regular_price !== null ? money(p.regular_price, p.currency) : "—"}</div></div>
                 <div className="price-cell"><div className="pf" style={{ fontSize: 13 }}>{p.discount_pct ? `-${p.discount_pct}%` : "—"}</div></div>
                 {p.url ? (
                   <a href={p.url} target="_blank" rel="noopener noreferrer" className="gobtn" style={{ textDecoration: "none", textAlign: "center" }}>Get →</a>
@@ -208,8 +211,8 @@ export default async function GamePage({ params }: GamePageProps) {
                   <div className="smeta">Steam keys · often below Steam</div>
                 </div>
               </div>
-              <div />
               <div className="price-cell"><div className="pf" style={{ fontSize: 13 }}>See current price</div></div>
+              <div />
               <div />
               <a href={instantGamingUrl} target="_blank" rel="noopener noreferrer sponsored" className="gobtn" style={{ textDecoration: "none", textAlign: "center" }}>Check →</a>
             </div>
@@ -343,15 +346,34 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 
 const KEY_CATEGORIES = new Set(["Single-player", "Multi-player", "Online Co-op", "Co-op", "PvP", "Steam Deck Verified"]);
 
-function heroLine(game: Game, best: GamePrice | undefined, low: number | null): string {
+interface Low { price: number; allTime: boolean }
+
+// Our own history only means something after a couple of weeks; before that we
+// rely on IsThereAnyDeal's all-time low, or show nothing.
+const MIN_OWN_HISTORY_DAYS = 14;
+
+function lowestPrice(game: Game, history: PricePoint[], best: GamePrice | undefined, currency: string): Low | null {
+  const ownLow = history.length ? Math.min(...history.map((p) => p.price)) : null;
+  const candidates = [ownLow, best?.price ?? null];
+  if (game.history_low_price !== null && game.history_low_currency === currency) {
+    return { price: Math.min(game.history_low_price, ...candidates.filter((n): n is number => n !== null)), allTime: true };
+  }
+  const days = history.length ? (Date.parse(history[history.length - 1].day) - Date.parse(history[0].day)) / 86_400_000 : 0;
+  if (ownLow === null || days < MIN_OWN_HISTORY_DAYS) return null;
+  return { price: ownLow, allTime: false };
+}
+
+function heroLine(game: Game, best: GamePrice | undefined, low: Low | null): string {
   if (game.is_free) return `${game.name} is free to play on Steam.`;
   if (!best) return `We're tracking ${game.name} and will show prices as soon as a store lists it.`;
   const now = money(best.price, best.currency);
+  const lowName = low?.allTime ? "its all-time low" : "the lowest price we've tracked";
   if (best.discount_pct) {
-    const atLow = low !== null && best.price <= low;
-    return `${now} at ${best.store}, ${best.discount_pct}% off the regular ${money(best.regular_price ?? best.price, best.currency)}${atLow ? " — the lowest price we've tracked" : ""}.`;
+    const atLow = low !== null && best.price <= low.price;
+    return `${now} at ${best.store}, ${best.discount_pct}% off the regular ${money(best.regular_price ?? best.price, best.currency)}${atLow ? ` — ${lowName}` : ""}.`;
   }
-  return `${now} at ${best.store}. It's at full price right now${low !== null && low < best.price ? `; we've seen it as low as ${money(low, best.currency)}` : ""}.`;
+  const seen = low !== null && low.price < best.price ? `; ${low.allTime ? "it has been" : "we've seen it"} as low as ${money(low.price, best.currency)}` : "";
+  return `${now} at ${best.store}. It's at full price right now${seen}.`;
 }
 
 function factsParagraph(game: Game): string {
@@ -411,13 +433,6 @@ function longDate(iso: string) {
 
 function shortDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
-}
-
-function timeAgo(iso: string) {
-  const hours = Math.round((Date.now() - Date.parse(iso)) / 3_600_000);
-  if (hours < 1) return "just now";
-  if (hours < 48) return `${hours}h ago`;
-  return `${Math.round(hours / 24)}d ago`;
 }
 
 function listJoin(items: string[]) {

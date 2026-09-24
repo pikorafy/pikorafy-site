@@ -24,6 +24,10 @@ export interface Game {
   header_image: string | null;
   popularity_rank: number | null;
   steam_fetched_at: string | null;
+  history_low_price: number | null;     // all-time low from IsThereAnyDeal
+  history_low_currency: string | null;
+  history_low_shop: string | null;
+  history_low_at: string | null;
 }
 
 export interface GamePrice {
@@ -59,7 +63,7 @@ export interface GameCard {
 }
 
 const GAME_COLUMNS =
-  "steam_app_id, slug, name, is_free, release_date, coming_soon, developers, publishers, genres, categories, platforms, metacritic, review_score_pct, review_count, review_label, header_image, popularity_rank, steam_fetched_at";
+  "steam_app_id, slug, name, is_free, release_date, coming_soon, developers, publishers, genres, categories, platforms, metacritic, review_score_pct, review_count, review_label, header_image, popularity_rank, steam_fetched_at, history_low_price, history_low_currency, history_low_shop, history_low_at";
 
 function db() {
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return null;
@@ -75,7 +79,9 @@ export async function getGameBySlug(slug: string): Promise<Game | null> {
     .eq("slug", slug)
     .eq("type", "game")
     .maybeSingle();
-  return (data as Game | null) ?? null;
+  if (!data) return null;
+  const game = data as Game;
+  return { ...game, history_low_price: game.history_low_price === null ? null : Number(game.history_low_price) };
 }
 
 /** Slugs of the most popular games, for generateStaticParams. */
