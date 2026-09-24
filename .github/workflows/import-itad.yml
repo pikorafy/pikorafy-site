@@ -1,0 +1,40 @@
+name: Import IsThereAnyDeal prices
+
+# Store prices (EUR, Spain) and all-time lows for games already in the catalog.
+# See scripts/import-itad.mts.
+
+on:
+  schedule:
+    - cron: "47 */6 * * *"   # every 6h, offset from the Steam import
+  workflow_dispatch:
+    inputs:
+      command:
+        description: "run | probe"
+        default: run
+      arg:
+        description: "Steam app id for probe (e.g. 730)"
+        default: ""
+
+concurrency:
+  group: import-itad
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Run importer
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ITAD_API_KEY: ${{ secrets.ITAD_API_KEY }}
+          CMD: ${{ inputs.command || 'run' }}
+          ARG: ${{ inputs.arg }}
+        run: node scripts/import-itad.mts "$CMD" $ARG

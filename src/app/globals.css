@@ -700,6 +700,7 @@ body::before {
 .detail-hero .stats .l { font-family:var(--ff-mono); font-size:10px; color:var(--text-3); letter-spacing:0.12em; text-transform:uppercase; }
 
 .detail-grid { display:grid; grid-template-columns:1.7fr 1fr; gap:40px; padding-top:48px; padding-bottom:48px; }
+.detail-grid > * { min-width:0; }
 
 .offers { border:1px solid var(--line); border-radius:var(--r); overflow:hidden; }
 .offers .hd, .offers .row { display:grid; grid-template-columns:38px 1.6fr 1fr 1fr 1fr 110px; gap:14px; align-items:center; padding:0 18px; min-height:60px; }
@@ -827,6 +828,12 @@ body::before {
 }
 @media (max-width:640px) {
   .ranking-explainer { grid-template-columns:1fr; }
+  /* Offers table on phones: # · store · price · button (4th and 5th columns hidden) */
+  .offers .hd, .offers .row { grid-template-columns:22px 1fr auto 64px; gap:10px; padding:0 12px; }
+  .offers .row.cheapest { padding-left:9px; }
+  .offers .hd > :nth-child(5), .offers .row > :nth-child(5) { display:none; }
+  .offers .store-logo { display:none; }
+  .offers .gobtn { padding:8px 6px; }
 }
 
 /* ─── shadcn accordion ───────────────────────────────────────────────── */
