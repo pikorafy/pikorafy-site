@@ -5,6 +5,7 @@ import {
   getGameBySlug,
   getGameContent,
   getGamePrices,
+  getPlayerHistory,
   getPriceHistory,
   getRelatedGames,
   getTopGameSlugs,
@@ -14,6 +15,7 @@ import {
 } from "@/lib/catalog";
 import { AFFILIATE_DISCLOSURE_SHORT } from "@/lib/affiliate";
 import GameDetailClient from "./GameDetailClient";
+import PlayersChart from "./PlayersChart";
 import PriceChart from "./PriceChart";
 import TimeAgo from "./TimeAgo";
 
@@ -99,10 +101,11 @@ export default async function GamePage({ params }: GamePageProps) {
 
   const prices = await getGamePrices(game.steam_app_id);
   const currency = prices[0]?.currency ?? "EUR";
-  const [history, content, related] = await Promise.all([
+  const [history, content, related, players] = await Promise.all([
     getPriceHistory(game.steam_app_id, currency),
     getGameContent(game.steam_app_id, "en"),
     getRelatedGames(game, 6),
+    getPlayerHistory(game.steam_app_id),
   ]);
 
   const best = prices[0];
@@ -142,6 +145,7 @@ export default async function GamePage({ params }: GamePageProps) {
               {best && <Stat value={money(best.price, best.currency)} label="Best price now" />}
               {best?.discount_pct ? <Stat value={`-${best.discount_pct}%`} label="Discount" accent /> : null}
               {low && <Stat value={money(low.price, currency)} label={low.allTime ? "All-time low" : "Lowest we've tracked"} />}
+              {game.current_players !== null && <Stat value={compact(game.current_players)} label="Playing now" />}
               {game.review_score_pct !== null && <Stat value={`${game.review_score_pct}%`} label="Positive Steam reviews" />}
               {game.metacritic !== null && <Stat value={String(game.metacritic)} label="Metacritic" />}
             </div>
@@ -285,6 +289,25 @@ export default async function GamePage({ params }: GamePageProps) {
             )}
           </div>
 
+          {game.current_players !== null && (
+            <div className="aside-card">
+              <h4>Players on Steam</h4>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
+                <MiniStat value={game.current_players} label="Now" />
+                {game.peak_players_24h !== null && <MiniStat value={game.peak_players_24h} label="24h peak" />}
+                {game.peak_players_30d !== null && <MiniStat value={game.peak_players_30d} label="30-day peak" />}
+              </div>
+              {players.length >= 2 && (
+                <>
+                  <div className="history-chart" style={{ height: 100 }}><PlayersChart points={players} /></div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontFamily: "var(--ff-mono)", fontSize: 10, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.12em" }}>
+                    <span>{shortDate(players[0].day)}</span><span>Daily peak</span><span>Today</span>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
           <div className="aside-card">
             <h4>Game info</h4>
             <dl style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "8px 16px", margin: 0, fontSize: 13 }}>
@@ -328,6 +351,15 @@ function Stat({ value, label, accent }: { value: string; label: string; accent?:
     <div>
       <div className="v" style={accent ? { color: "var(--accent)" } : undefined}>{value}</div>
       <div className="l">{label}</div>
+    </div>
+  );
+}
+
+function MiniStat({ value, label }: { value: number; label: string }) {
+  return (
+    <div>
+      <div style={{ fontFamily: "var(--ff-mono)", fontSize: 20, fontWeight: 700 }}>{value.toLocaleString("en")}</div>
+      <div style={{ fontFamily: "var(--ff-mono)", fontSize: 10, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.12em" }}>{label}</div>
     </div>
   );
 }
