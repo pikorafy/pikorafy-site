@@ -35,8 +35,6 @@ export default function GameMedia({
 
   if (items.length === 0) return null;
   const current = items[index];
-  // Trailer posters: Steam's own thumbnails are tiny, so use a full-size screenshot behind them.
-  const poster = screenshots[0]?.full ?? (current.kind === "trailer" ? current.trailer.thumb : "");
 
   return (
     <section aria-label={`${name} trailers and screenshots`} style={{ marginTop: 40 }}>
@@ -53,8 +51,7 @@ export default function GameMedia({
             <TrailerPlayer key={current.trailer.id} trailer={current.trailer} steamAppId={steamAppId} />
           ) : (
             <button type="button" className="media-play" onClick={() => setPlaying(true)} aria-label={`Play ${current.trailer.name}`}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={poster} alt="" />
+              <TrailerPoster key={current.trailer.id} thumb={current.trailer.thumb} />
               <span className="media-play-icon" aria-hidden>▶</span>
               <span className="media-caption">{current.trailer.name}</span>
             </button>
@@ -101,6 +98,19 @@ export default function GameMedia({
         />
       )}
     </section>
+  );
+}
+
+/**
+ * Each trailer's own poster. Steam's listed thumbnail is only 293x165, so try the
+ * full-size frame (movie_max.jpg, same folder) first and fall back to the small one.
+ */
+function TrailerPoster({ thumb }: { thumb: string }) {
+  const large = thumb.replace(/movie\.\d+x\d+\.jpg/, "movie_max.jpg");
+  const [src, setSrc] = useState(large);
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={src} alt="" onError={() => { if (src !== thumb) setSrc(thumb); }} />
   );
 }
 
