@@ -699,7 +699,7 @@ body::before {
 .detail-hero .stats .v { font-family:var(--ff-mono); font-size:22px; font-weight:700; color:var(--text); }
 .detail-hero .stats .l { font-family:var(--ff-mono); font-size:10px; color:var(--text-3); letter-spacing:0.12em; text-transform:uppercase; }
 
-.detail-grid { display:grid; grid-template-columns:1.7fr 1fr; gap:40px; padding:48px 0; }
+.detail-grid { display:grid; grid-template-columns:1.7fr 1fr; gap:40px; padding-top:48px; padding-bottom:48px; }
 
 .offers { border:1px solid var(--line); border-radius:var(--r); overflow:hidden; }
 .offers .hd, .offers .row { display:grid; grid-template-columns:38px 1.6fr 1fr 1fr 1fr 110px; gap:14px; align-items:center; padding:0 18px; min-height:60px; }

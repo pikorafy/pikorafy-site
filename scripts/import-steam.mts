@@ -88,9 +88,12 @@ async function getReviewSummary(appId: number): Promise<SteamReviewSummary | nul
 
 function slugify(name: string): string {
   return name
+    .replace(/[\u2122\u00ae\u00a9]/g, "")  // ™ ® © — strip before NFKD, which expands ™ into "TM"
+    .replace(/['\u2019]/g, "")            // "Garry's Mod" → "garrys-mod"
+    .replace(/(\d)[.,](?=\d)/g, "$1")                // "40,000" → "40000"
+    .replace(/(?<=\b[a-z])\.(?=[a-z]\b)/gi, "")      // "S.T.A.L.K.E.R." → "stalker" (not "BeamNG.drive")
     .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[™®©]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")      // drop accents: "Pokémon" → "pokemon"
     .toLowerCase()
     .replace(/&/g, " and ")
     .replace(/[^a-z0-9]+/g, "-")
