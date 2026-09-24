@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -13,7 +13,7 @@ async function authenticate(req: NextRequest) {
   const key = auth.startsWith("Bearer ") ? auth.slice(7).trim() : null;
   if (!key) return null;
 
-  const { data } = await supabaseAdmin
+  const { data } = await getSupabaseAdmin()
     .from("store_partners")
     .select("id, name, short, trust, active")
     .eq("api_key", key)
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
     return apiError("Missing required parameter: steamId", 400);
   }
 
-  let query = supabaseAdmin
+  let query = getSupabaseAdmin()
     .from("store_prices")
     .select(`
       id,
@@ -188,7 +188,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ accepted: 0, rejected: invalid.length, errors: invalid }, { status: 422 });
   }
 
-  const { error } = await supabaseAdmin
+  const { error } = await getSupabaseAdmin()
     .from("store_prices")
     .upsert(rows, { onConflict: "store_id,steam_app_id,edition,region" });
 
@@ -214,7 +214,7 @@ export async function DELETE(req: NextRequest) {
 
   const steamId = req.nextUrl.searchParams.get("steamId");
 
-  let query = supabaseAdmin
+  let query = getSupabaseAdmin()
     .from("store_prices")
     .delete()
     .eq("store_id", store.id);
