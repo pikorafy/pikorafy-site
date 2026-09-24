@@ -737,6 +737,35 @@ body::before {
 .tag-row { display:flex; gap:6px; flex-wrap:wrap; margin:16px 0; }
 .tag-row .t { font-family:var(--ff-mono); font-size:11px; padding:4px 10px; border:1px solid var(--line-2); border-radius:3px; color:var(--text-2); }
 
+/* ─── Game media (trailers + screenshots) ─────────────────────────────── */
+.media-stage { position:relative; aspect-ratio:16/9; background:#000; border:1px solid var(--line); border-radius:var(--r); overflow:hidden; outline:none; }
+.media-stage:focus-visible { box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 45%,transparent); }
+.media-stage video, .media-stage img { width:100%; height:100%; object-fit:cover; display:block; }
+.media-stage video { object-fit:contain; background:#000; }
+.media-play { all:unset; position:absolute; inset:0; cursor:pointer; display:block; }
+.media-play-icon { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:72px; height:72px; border-radius:50%; display:grid; place-items:center; background:color-mix(in srgb,var(--accent) 88%,transparent); color:var(--accent-fg); font-size:26px; padding-left:5px; box-shadow:0 10px 40px -8px rgba(0,0,0,.7); transition:transform .15s; }
+.media-play:hover .media-play-icon { transform:translate(-50%,-50%) scale(1.08); }
+.media-caption { position:absolute; left:0; right:0; bottom:0; padding:28px 16px 12px; background:linear-gradient(transparent,rgba(0,0,0,.75)); color:#fff; font-family:var(--ff-mono); font-size:11px; letter-spacing:0.08em; text-transform:uppercase; }
+.media-nav { position:absolute; top:50%; transform:translateY(-50%); width:40px; height:56px; border:0; border-radius:4px; background:rgba(0,0,0,.45); color:#fff; font-size:28px; line-height:1; cursor:pointer; opacity:.75; transition:opacity .15s; }
+.media-nav:hover { opacity:1; }
+.media-nav.prev { left:10px; }
+.media-nav.next { right:10px; }
+.media-strip { display:flex; gap:8px; overflow-x:auto; padding:10px 0 4px; scrollbar-width:thin; }
+.media-thumb { all:unset; position:relative; flex:0 0 120px; aspect-ratio:16/9; border-radius:4px; overflow:hidden; cursor:pointer; border:2px solid transparent; opacity:.65; transition:opacity .15s,border-color .15s; background:var(--bg-3); }
+.media-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+.media-thumb:hover, .media-thumb:focus-visible { opacity:1; }
+.media-thumb[aria-current="true"] { border-color:var(--accent); opacity:1; }
+.media-thumb-play { position:absolute; inset:0; display:grid; place-items:center; color:#fff; font-size:16px; text-shadow:0 1px 6px rgba(0,0,0,.8); }
+.media-fallback { position:absolute; inset:0; display:grid; place-content:center; justify-items:center; gap:12px; color:var(--text-2); text-align:center; }
+.media-lightbox { position:fixed; inset:0; z-index:100; background:rgba(0,0,0,.92); display:grid; place-items:center; padding:24px; }
+.media-lightbox img { max-width:100%; max-height:100%; object-fit:contain; border-radius:4px; }
+.media-close { position:absolute; top:16px; right:16px; width:40px; height:40px; border:0; border-radius:50%; background:rgba(255,255,255,.12); color:#fff; font-size:18px; cursor:pointer; }
+@media (max-width:640px) {
+  .media-thumb { flex-basis:92px; }
+  .media-nav { width:32px; height:44px; font-size:22px; }
+  .media-play-icon { width:56px; height:56px; font-size:20px; }
+}
+
 /* ─── Browse / Search page ───────────────────────────────────────────── */
 .searchbar { position:relative; display:grid; grid-template-columns:auto 1fr auto; align-items:center; background:var(--bg-elev); border:1px solid var(--line-2); border-radius:var(--r); padding:6px 6px 6px 18px; transition:border-color .15s,box-shadow .15s; }
 .searchbar:focus-within { border-color:var(--accent); box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 18%,transparent); }

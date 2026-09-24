@@ -33,6 +33,20 @@ export interface Game {
   peak_players_24h: number | null;
   peak_players_30d: number | null;
   steam_description: string | null;     // Steam's short description, shown with attribution
+  screenshots: SteamScreenshot[];
+  trailers: SteamTrailer[];
+}
+
+export interface SteamScreenshot {
+  thumb: string;   // 600x338
+  full: string;    // 1920x1080
+}
+
+export interface SteamTrailer {
+  id: number;
+  name: string;
+  thumb: string;
+  hls: string | null;   // Steam only serves adaptive streams (HLS/DASH), no MP4
 }
 
 export interface GamePrice {
@@ -68,7 +82,7 @@ export interface GameCard {
 }
 
 const GAME_COLUMNS =
-  "steam_app_id, slug, name, is_free, release_date, coming_soon, developers, publishers, genres, categories, platforms, metacritic, review_score_pct, review_count, review_label, header_image, popularity_rank, steam_fetched_at, history_low_price, history_low_currency, history_low_shop, history_low_at, current_players, current_players_at, peak_players_24h, peak_players_30d, steam_description:raw->>short_description";
+  "steam_app_id, slug, name, is_free, release_date, coming_soon, developers, publishers, genres, categories, platforms, metacritic, review_score_pct, review_count, review_label, header_image, popularity_rank, steam_fetched_at, history_low_price, history_low_currency, history_low_shop, history_low_at, current_players, current_players_at, peak_players_24h, peak_players_30d, steam_description:raw->>short_description, raw_screenshots:raw->screenshots, raw_movies:raw->movies";
 
 function db() {
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return null;
@@ -85,9 +99,11 @@ export async function getGameBySlug(slug: string): Promise<Game | null> {
     .eq("type", "game")
     .maybeSingle();
   if (!data) return null;
-  const game = data as Game;
+  const { raw_screenshots, raw_movies, ...game } = data as Game & { raw_screenshots: unknown; raw_movies: unknown };
   return {
     ...game,
+    screenshots: parseScreenshots(raw_screenshots),
+    trailers: parseTrailers(raw_movies),
     history_low_price: game.history_low_price === null ? null : Number(game.history_low_price),
     steam_description: game.steam_description ? decodeEntities(game.steam_description).trim() || null : null,
   };
@@ -311,4 +327,30 @@ function decodeEntities(text: string): string {
       const n = code[1].toLowerCase() === "x" ? parseInt(code.slice(2), 16) : parseInt(code.slice(1), 10);
       return Number.isFinite(n) ? String.fromCodePoint(n) : m;
     });
+}
+
+const MAX_SCREENSHOTS = 12;
+const MAX_TRAILERS = 4;
+
+function parseScreenshots(raw: unknown): SteamScreenshot[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((s) => typeof s?.path_thumbnail === "string" && typeof s?.path_full === "string")
+    .slice(0, MAX_SCREENSHOTS)
+    .map((s) => ({ thumb: s.path_thumbnail, full: s.path_full }));
+}
+
+/** Highlighted trailers first (Steam marks the main ones), capped. */
+function parseTrailers(raw: unknown): SteamTrailer[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((m) => typeof m?.id === "number" && typeof m?.thumbnail === "string")
+    .sort((a, b) => Number(Boolean(b.highlight)) - Number(Boolean(a.highlight)))
+    .slice(0, MAX_TRAILERS)
+    .map((m) => ({
+      id: m.id,
+      name: typeof m.name === "string" ? decodeEntities(m.name) : "Trailer",
+      thumb: m.thumbnail,
+      hls: typeof m.hls_h264 === "string" ? m.hls_h264 : null,
+    }));
 }

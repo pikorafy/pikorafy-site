@@ -15,6 +15,7 @@ import {
 } from "@/lib/catalog";
 import { AFFILIATE_DISCLOSURE_SHORT } from "@/lib/affiliate";
 import GameDetailClient from "./GameDetailClient";
+import GameMedia from "./GameMedia";
 import PlayersChart from "./PlayersChart";
 import PriceChart from "./PriceChart";
 import TimeAgo from "./TimeAgo";
@@ -239,16 +240,13 @@ export default async function GamePage({ params }: GamePageProps) {
             <p style={{ color: "var(--text-2)" }}>{game.name} is free to play on Steam. Offers above, if any, are for paid editions or bundles.</p>
           )}
 
-          <div className="detail-prose" style={{ marginTop: 40 }}>
-            {content?.summary ? (
+          <GameMedia name={game.name} steamAppId={game.steam_app_id} trailers={game.trailers} screenshots={game.screenshots} />
+
+          <div className="detail-prose" style={{ marginTop: 32 }}>
+            {content?.summary && (
               <>
                 <h3>What is {game.name}?</h3>
                 {content.summary.split(/\n{2,}/).map((para, i) => <p key={i}>{para}</p>)}
-              </>
-            ) : (
-              <>
-                <h3>About {game.name}</h3>
-                <p>{factsParagraph(game)}</p>
               </>
             )}
 
@@ -421,22 +419,6 @@ function heroLine(game: Game, best: GamePrice | undefined, low: Low | null): str
   return `${now} at ${best.store}. It's at full price right now${seen}.`;
 }
 
-function factsParagraph(game: Game): string {
-  const parts: string[] = [];
-  const genres = game.genres.filter((g) => g !== "Free To Play" && g !== "Early Access");
-  const by = game.developers[0] ? ` from ${game.developers[0]}` : "";
-  const kind = genres.length ? `${listJoin(genres.map((g) => g.toLowerCase()))} game` : "game";
-  const when = game.coming_soon ? ", not released yet" : game.release_date ? `, released ${longDate(game.release_date)}` : "";
-  parts.push(`${game.name} is ${/^[aeiou]/i.test(kind) ? "an" : "a"} ${kind}${by}${when}.`);
-  if (game.review_score_pct !== null && game.review_count) {
-    parts.push(`${game.review_score_pct}% of its ${compact(game.review_count)} Steam reviews are positive${game.review_label ? ` (${game.review_label})` : ""}.`);
-  }
-  if (game.metacritic !== null) parts.push(`It holds a Metacritic score of ${game.metacritic}.`);
-  const modes = game.categories.filter((c) => KEY_CATEGORIES.has(c) && c !== "Steam Deck Verified");
-  if (modes.length) parts.push(`Modes: ${listJoin(modes.map((m) => m.toLowerCase()))}.`);
-  return parts.join(" ");
-}
-
 function jsonLd(game: Game, best: GamePrice | undefined) {
   return {
     "@context": "https://schema.org",
@@ -478,10 +460,6 @@ function longDate(iso: string) {
 
 function shortDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
-}
-
-function listJoin(items: string[]) {
-  return items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
 }
 
 function platformName(p: string) {
