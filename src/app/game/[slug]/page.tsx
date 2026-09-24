@@ -173,6 +173,11 @@ export default async function GamePage({ params }: GamePageProps) {
                 </figcaption>
               </figure>
             )}
+            <div className="tag-row" style={{ marginTop: 20 }}>
+              {[...game.genres, ...game.categories.filter((c) => KEY_CATEGORIES.has(c))].map((tag) => (
+                <span key={tag} className="t">{tag}</span>
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -274,11 +279,6 @@ export default async function GamePage({ params }: GamePageProps) {
               </div>
             )}
 
-            <div className="tag-row">
-              {[...game.genres, ...game.categories.filter((c) => KEY_CATEGORIES.has(c))].map((tag) => (
-                <span key={tag} className="t">{tag}</span>
-              ))}
-            </div>
           </div>
         </div>
 
