@@ -28,6 +28,10 @@ export interface Game {
   history_low_currency: string | null;
   history_low_shop: string | null;
   history_low_at: string | null;
+  current_players: number | null;       // Steam concurrent players, refreshed hourly
+  current_players_at: string | null;
+  peak_players_24h: number | null;
+  peak_players_30d: number | null;
 }
 
 export interface GamePrice {
@@ -63,7 +67,7 @@ export interface GameCard {
 }
 
 const GAME_COLUMNS =
-  "steam_app_id, slug, name, is_free, release_date, coming_soon, developers, publishers, genres, categories, platforms, metacritic, review_score_pct, review_count, review_label, header_image, popularity_rank, steam_fetched_at, history_low_price, history_low_currency, history_low_shop, history_low_at";
+  "steam_app_id, slug, name, is_free, release_date, coming_soon, developers, publishers, genres, categories, platforms, metacritic, review_score_pct, review_count, review_label, header_image, popularity_rank, steam_fetched_at, history_low_price, history_low_currency, history_low_shop, history_low_at, current_players, current_players_at, peak_players_24h, peak_players_30d";
 
 function db() {
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return null;
@@ -133,6 +137,32 @@ export async function getPriceHistory(appId: number, currency: string): Promise<
     if (prev === undefined || price < prev) byDay.set(row.day, price);
   }
   return [...byDay].map(([day, price]) => ({ day, price }));
+}
+
+export interface PlayerPoint {
+  day: string;
+  peak: number;
+}
+
+/** Daily peak concurrent players over the last 30 days, oldest first. */
+export async function getPlayerHistory(appId: number): Promise<PlayerPoint[]> {
+  const client = db();
+  if (!client) return [];
+  const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
+  const { data } = await client
+    .from("player_counts")
+    .select("at, players")
+    .eq("steam_app_id", appId)
+    .gte("at", since)
+    .order("at", { ascending: true })
+    .limit(800);
+
+  const byDay = new Map<string, number>();
+  for (const row of data ?? []) {
+    const day = (row.at as string).slice(0, 10);
+    byDay.set(day, Math.max(byDay.get(day) ?? 0, row.players as number));
+  }
+  return [...byDay].map(([day, peak]) => ({ day, peak }));
 }
 
 /** Published editorial/LLM copy. Drafts are never shown. */
