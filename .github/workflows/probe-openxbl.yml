@@ -1,0 +1,21 @@
+name: Probe OpenXBL (one-off)
+
+# Prints what OpenXBL's marketplace endpoints return (shape, prices, rate
+# limits) to design the Xbox import. Read-only. See scripts/probe-openxbl.mts.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Probe
+        env:
+          OPENXBL_API_KEY: ${{ secrets.OPENXBL_API_KEY }}
+        run: node scripts/probe-openxbl.mts
