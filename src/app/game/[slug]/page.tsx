@@ -235,6 +235,19 @@ export default async function GamePage({ params }: GamePageProps) {
             ) : (
               <>
                 <h3>About {game.name}</h3>
+                {game.steam_description && (
+                  <figure style={{ margin: "0 0 16px" }}>
+                    <blockquote style={{ margin: 0, padding: "4px 0 4px 16px", borderLeft: "3px solid var(--line-2)", color: "var(--text-2)", lineHeight: 1.7 }}>
+                      {game.steam_description}
+                    </blockquote>
+                    <figcaption style={{ fontFamily: "var(--ff-mono)", fontSize: 11, color: "var(--text-3)", marginTop: 6, letterSpacing: "0.04em" }}>
+                      — From the{" "}
+                      <a href={`https://store.steampowered.com/app/${game.steam_app_id}/`} target="_blank" rel="noopener noreferrer" style={{ color: "inherit", textDecoration: "underline" }}>
+                        Steam store page
+                      </a>
+                    </figcaption>
+                  </figure>
+                )}
                 <p>{factsParagraph(game)}</p>
               </>
             )}
