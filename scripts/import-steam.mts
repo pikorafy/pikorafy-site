@@ -5,18 +5,20 @@
 //   node scripts/import-steam.mts seed [topN]        queue the top N games from SteamSpy (default 2000)
 //   node scripts/import-steam.mts seed-ids 730,570   queue specific app IDs at top priority
 //   node scripts/import-steam.mts run [maxGames]     import due games from the queue (default 120)
+//   node scripts/import-steam.mts backfill-trailers [max]  English trailers for games missing them
 //
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 //
 // Rate limits: Steam's store API allows ~200 requests / 5 min per IP. We make
-// 2 requests per game (appdetails + appreviews) and space every request by
-// REQUEST_GAP_MS, so a run of 120 games takes ~6.5 min and stays under the cap.
+// 3 requests per game (appdetails ES + appdetails US for trailers + appreviews) and space every request by
+// REQUEST_GAP_MS, so a run of 120 games takes ~10 min and stays under the cap.
 // On a 429/403 we stop the run instead of hammering; the queue resumes next time.
 
 import { createClient } from "@supabase/supabase-js";
 
 const REQUEST_GAP_MS = 1600;   // ≈187 req / 5 min
 const COUNTRY = "es";          // prices in EUR, as Spanish users see them
+const TRAILER_COUNTRY = "us";  // Steam picks trailers by region; "es" returns Spanish/PEGI cuts
 const TOP_REFRESH_RANK = 500;  // games ranked above this refresh daily, the rest weekly
 
 const supabase = createClient(
@@ -71,11 +73,18 @@ async function steamFetch<T>(url: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-async function getAppDetails(appId: number): Promise<SteamAppDetails | null> {
-  const url = `https://store.steampowered.com/api/appdetails?appids=${appId}&cc=${COUNTRY}&l=english`;
+async function getAppDetails(appId: number, country = COUNTRY): Promise<SteamAppDetails | null> {
+  const url = `https://store.steampowered.com/api/appdetails?appids=${appId}&cc=${country}&l=english`;
   const body = await steamFetch<Record<string, { success: boolean; data?: SteamAppDetails }>>(url);
   const entry = body?.[appId];
   return entry?.success && entry.data ? entry.data : null;
+}
+
+/** The trailer list as English-speaking regions see it (null if Steam returns none). */
+async function getEnglishTrailers(appId: number): Promise<unknown[] | null> {
+  const details = await getAppDetails(appId, TRAILER_COUNTRY);
+  const movies = (details as { movies?: unknown } | null)?.movies;
+  return Array.isArray(movies) && movies.length > 0 ? movies : null;
 }
 
 async function getReviewSummary(appId: number): Promise<SteamReviewSummary | null> {
@@ -125,6 +134,7 @@ async function importGame(appId: number, rank: number): Promise<"ok" | "skip"> {
   if (!details || details.type !== "game") return "skip";
 
   const reviews = await getReviewSummary(appId);
+  const trailersEn = await getEnglishTrailers(appId);
   const now = new Date().toISOString();
 
   const game = {
@@ -149,6 +159,7 @@ async function importGame(appId: number, rank: number): Promise<"ok" | "skip"> {
     header_image: details.header_image ?? null,
     popularity_rank: rank,
     raw: details,
+    trailers_en: trailersEn,
     steam_fetched_at: now,
   };
 
@@ -220,6 +231,33 @@ async function seed(topN: number) {
   await supabase.from("games").update({ popularity_rank: null }).not("popularity_rank", "is", null);
 
   await enqueue(apps.slice(0, topN).map((a, i) => ({ steam_app_id: a.id, priority: i + 1 })));
+}
+
+/** One-off: fetch English trailers for games imported before trailers_en existed. */
+async function backfillTrailers(max: number) {
+  const { data, error } = await supabase
+    .from("games")
+    .select("steam_app_id")
+    .is("trailers_en", null)
+    .not("popularity_rank", "is", null)
+    .order("popularity_rank", { ascending: true })
+    .limit(max);
+  if (error) throw new Error(`games select: ${error.message}`);
+
+  let updated = 0;
+  for (const { steam_app_id: appId } of data ?? []) {
+    try {
+      const movies = await getEnglishTrailers(appId);
+      // Store [] when Steam has none, so the game isn't retried on every backfill.
+      const { error: e } = await supabase.from("games").update({ trailers_en: movies ?? [] }).eq("steam_app_id", appId);
+      if (e) throw new Error(e.message);
+      updated++;
+    } catch (err) {
+      if (err instanceof RateLimited) { console.warn(`Rate limited, stopping: ${err.message}`); break; }
+      console.warn(`${appId}: ${String(err)}`);
+    }
+  }
+  console.log(`English trailers: ${updated}/${data?.length ?? 0} games updated.`);
 }
 
 async function seedIds(ids: number[]) {
@@ -296,7 +334,8 @@ switch (cmd) {
   case "seed":     await seed(Number(arg ?? 2000)); break;
   case "seed-ids": await seedIds((arg ?? "").split(",").map(Number).filter(Boolean)); break;
   case "run":      await run(Number(arg ?? 120)); break;
+  case "backfill-trailers": await backfillTrailers(Number(arg ?? 500)); break;
   default:
-    console.error("Usage: import-steam.mts seed [topN] | seed-ids <id,id> | run [maxGames]");
+    console.error("Usage: import-steam.mts seed [topN] | seed-ids <id,id> | run [maxGames] | backfill-trailers [max]");
     process.exit(1);
 }
