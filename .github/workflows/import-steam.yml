@@ -1,0 +1,47 @@
+name: Import Steam catalog
+
+# Runs outside Vercel on purpose: no function time limit, and it avoids the
+# 403s that CheapShark returns to Vercel's IPs. See scripts/import-steam.mts.
+
+on:
+  schedule:
+    - cron: "17 */3 * * *"   # every 3h: ~120 games per run, ~960/day
+    - cron: "40 4 * * 1"     # Mondays: refresh the top-2000 seed list from SteamSpy
+  workflow_dispatch:
+    inputs:
+      command:
+        description: "seed | seed-ids | run"
+        default: run
+      arg:
+        description: "topN / comma-separated IDs / maxGames"
+        default: ""
+
+concurrency:
+  group: import-steam
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Run importer
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CMD: ${{ inputs.command }}
+          ARG: ${{ inputs.arg }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            node scripts/import-steam.mts "$CMD" $ARG
+          elif [ "${{ github.event.schedule }}" = "40 4 * * 1" ]; then
+            node scripts/import-steam.mts seed 2000
+          else
+            node scripts/import-steam.mts run 120
+          fi
