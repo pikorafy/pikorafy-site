@@ -180,3 +180,88 @@ export async function getIndexableGames(): Promise<{ slug: string; updated_at: s
     updated_at: r.updated_at as string,
   }));
 }
+
+// ─── Listings (/games, /games/[genre]) ───────────────────────────────────────
+
+export interface ListingGame {
+  steam_app_id: number;
+  slug: string;
+  name: string;
+  header_image: string | null;
+  genres: string[];
+  is_free: boolean;
+  review_score_pct: number | null;
+  metacritic: number | null;
+  popularity_rank: number;
+  price: number | null;
+  regular_price: number | null;
+  discount_pct: number | null;
+  store: string | null;
+}
+
+/** Steam genre name ↔ URL segment. Only these get /games/<genre> pages. */
+export const GENRES: { slug: string; name: string }[] = [
+  { slug: "action", name: "Action" },
+  { slug: "adventure", name: "Adventure" },
+  { slug: "rpg", name: "RPG" },
+  { slug: "strategy", name: "Strategy" },
+  { slug: "simulation", name: "Simulation" },
+  { slug: "indie", name: "Indie" },
+  { slug: "casual", name: "Casual" },
+  { slug: "racing", name: "Racing" },
+  { slug: "sports", name: "Sports" },
+  { slug: "mmo", name: "Massively Multiplayer" },
+  { slug: "free-to-play", name: "Free To Play" },
+  { slug: "early-access", name: "Early Access" },
+];
+
+export type ListingSort = "popular" | "discount" | "price" | "reviews";
+
+const LISTING_COLUMNS =
+  "steam_app_id, slug, name, header_image, genres, is_free, review_score_pct, metacritic, popularity_rank, price, regular_price, discount_pct, store";
+
+export async function getListing(opts: {
+  genre?: string;
+  sort?: ListingSort;
+  onSale?: boolean;
+  limit: number;
+  offset?: number;
+}): Promise<{ games: ListingGame[]; total: number }> {
+  const client = db();
+  if (!client) return { games: [], total: 0 };
+
+  let q = client.from("game_listing").select(LISTING_COLUMNS, { count: "exact" });
+  if (opts.genre) q = q.contains("genres", [opts.genre]);
+  if (opts.onSale) q = q.gt("discount_pct", 0);
+
+  switch (opts.sort ?? "popular") {
+    case "discount":
+      q = q.order("discount_pct", { ascending: false, nullsFirst: false }).order("popularity_rank");
+      break;
+    case "price":
+      q = q.not("price", "is", null).order("price", { ascending: true }).order("popularity_rank");
+      break;
+    case "reviews":
+      q = q.order("review_score_pct", { ascending: false, nullsFirst: false }).order("popularity_rank");
+      break;
+    default:
+      q = q.order("popularity_rank", { ascending: true });
+  }
+
+  const from = opts.offset ?? 0;
+  const { data, count } = await q.range(from, from + opts.limit - 1);
+  const games = (data ?? []).map((g) => ({
+    ...g,
+    price: g.price === null ? null : Number(g.price),
+    regular_price: g.regular_price === null ? null : Number(g.regular_price),
+  })) as ListingGame[];
+  return { games, total: count ?? games.length };
+}
+
+/** Catalog slug for a Steam app, used to route old deal links to the new pages. */
+export async function getSlugForSteamApp(appId: number): Promise<string | null> {
+  const client = db();
+  if (!client) return null;
+  const { data } = await client.from("games").select("slug").eq("steam_app_id", appId).eq("type", "game").maybeSingle();
+  return (data?.slug as string | undefined) ?? null;
+}

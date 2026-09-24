@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { CheapSharkDeal } from "@/lib/cheapshark";
-import { getStoreName, getSteamCoverUrl } from "@/lib/cheapshark";
+import { getStoreName, getSteamCoverUrl, getGamePageUrl } from "@/lib/cheapshark";
 
 interface DealsGridProps {
   sortBy?: string;
@@ -85,7 +85,7 @@ export default function DealsGrid({
             key={deal.dealID}
             className="group relative flex flex-col rounded-lg border border-[#2a2e3a] bg-[#1a1d27] overflow-hidden transition-all hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-500/5 hover:-translate-y-0.5"
           >
-            <Link href={`/game/${deal.gameID}`} className="relative aspect-[460/215] w-full bg-[#0f1117] overflow-hidden block">
+            <Link href={getGamePageUrl(deal)} className="relative aspect-[460/215] w-full bg-[#0f1117] overflow-hidden block">
               {coverUrl ? (
                 <Image
                   src={coverUrl}
@@ -114,7 +114,7 @@ export default function DealsGrid({
               </span>
 
               <Link
-                href={`/game/${deal.gameID}`}
+                href={getGamePageUrl(deal)}
                 className="mt-1.5 text-sm font-semibold text-white group-hover:text-emerald-400 transition-colors leading-tight line-clamp-2"
               >
                 {deal.title}
