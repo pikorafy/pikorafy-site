@@ -155,3 +155,8 @@ export function getSteamCoverUrl(steamAppID: string | null): string | null {
   if (!steamAppID) return null;
   return `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppID}/header.jpg`;
 }
+
+/** Our game page for a deal: the catalog page (via Steam app id) when possible. */
+export function getGamePageUrl(deal: { gameID: string; steamAppID: string | null }): string {
+  return deal.steamAppID ? `/steam/${deal.steamAppID}?cs=${deal.gameID}` : `/game/${deal.gameID}`;
+}

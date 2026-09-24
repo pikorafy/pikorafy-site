@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import type { CheapSharkDeal } from "@/lib/cheapshark";
-import { getStoreName, getSteamCoverUrl } from "@/lib/cheapshark";
+import { getStoreName, getSteamCoverUrl, getGamePageUrl } from "@/lib/cheapshark";
 
 // ─── Types & helpers ─────────────────────────────────────────────────────────
 
@@ -42,7 +42,7 @@ function BoxartCard({ deal }: { deal: CheapSharkDeal }) {
   const mc = parseInt(deal.metacriticScore);
 
   return (
-    <Link href={`/game/${deal.gameID}`} className="card boxart" style={{ textDecoration: "none", color: "inherit" }}>
+    <Link href={getGamePageUrl(deal)} className="card boxart" style={{ textDecoration: "none", color: "inherit" }}>
       <div className="cover">
         {cover
           ? <Image src={cover} alt={deal.title} fill sizes="260px" unoptimized style={{ objectFit: "cover" }} />
@@ -77,7 +77,7 @@ function ListRow({ deal, idx }: { deal: CheapSharkDeal; idx: number }) {
   const savings = parseFloat(deal.savings);
   const cover = getSteamCoverUrl(deal.steamAppID);
   return (
-    <Link href={`/game/${deal.gameID}`} className={`lr ${idx === 0 ? "top1" : ""}`} style={{ textDecoration: "none", color: "inherit" }}>
+    <Link href={getGamePageUrl(deal)} className={`lr ${idx === 0 ? "top1" : ""}`} style={{ textDecoration: "none", color: "inherit" }}>
       <div className="rank">{String(idx + 1).padStart(2, "0")}</div>
       <div className="lcover">
         {cover
