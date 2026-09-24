@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getXboxCategories, getXboxListing, type XboxGame, type XboxSort } from "@/lib/xbox";
+import { getXboxCategories, getXboxListing, xboxHref, type XboxGame, type XboxSort } from "@/lib/xbox";
 
 const PAGE_SIZE = 48;
 
@@ -106,13 +106,7 @@ function XboxCard({ game }: { game: XboxGame }) {
   const money = (n: number) => new Intl.NumberFormat("en-IE", { style: "currency", currency: game.currency ?? "EUR" }).format(n);
 
   return (
-    <a
-      href={game.store_url ?? "#"}
-      target="_blank"
-      rel="noopener noreferrer nofollow"
-      className="card boxart"
-      style={{ textDecoration: "none", color: "inherit" }}
-    >
+    <Link href={xboxHref(game)} className="card boxart" style={{ textDecoration: "none", color: "inherit" }}>
       <div className="cover">
         {image
           // eslint-disable-next-line @next/next/no-img-element
@@ -133,9 +127,9 @@ function XboxCard({ game }: { game: XboxGame }) {
             {onSale && game.regular_price !== null && <div className="was">{money(game.regular_price)}</div>}
             <div className="now">{game.is_free ? "Free" : game.price !== null ? money(game.price) : "—"}</div>
           </div>
-          <div className="stores"><b>Xbox Store</b></div>
+          <div className="stores"><b>{game.game_slug ? "Xbox + PC" : "Xbox Store"}</b></div>
         </div>
       </div>
-    </a>
+    </Link>
   );
 }

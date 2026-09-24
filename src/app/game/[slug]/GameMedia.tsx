@@ -8,15 +8,16 @@ type Item =
   | { kind: "shot"; shot: SteamScreenshot };
 
 // Steam-style media viewer: a large stage plus a thumbnail strip. Trailers are
-// HLS streams from Steam's CDN; hls.js is only downloaded when one is played.
+// HLS streams (Steam's or the Xbox Store's CDN); hls.js is only downloaded when
+// one is played. `source` is where to send people when a stream can't play.
 export default function GameMedia({
   name,
-  steamAppId,
+  source,
   trailers,
   screenshots,
 }: {
   name: string;
-  steamAppId: number;
+  source: { label: string; url: string };
   trailers: SteamTrailer[];
   screenshots: SteamScreenshot[];
 }) {
@@ -48,7 +49,7 @@ export default function GameMedia({
       >
         {current.kind === "trailer" ? (
           playing ? (
-            <TrailerPlayer key={current.trailer.id} trailer={current.trailer} steamAppId={steamAppId} />
+            <TrailerPlayer key={current.trailer.id} trailer={current.trailer} source={source} />
           ) : (
             <button type="button" className="media-play" onClick={() => setPlaying(true)} aria-label={`Play ${current.trailer.name}`}>
               <TrailerPoster key={current.trailer.id} thumb={current.trailer.thumb} />
@@ -114,7 +115,7 @@ function TrailerPoster({ thumb }: { thumb: string }) {
   );
 }
 
-function TrailerPlayer({ trailer, steamAppId }: { trailer: SteamTrailer; steamAppId: number }) {
+function TrailerPlayer({ trailer, source }: { trailer: SteamTrailer; source: { label: string; url: string } }) {
   const ref = useRef<HTMLVideoElement>(null);
   const [failed, setFailed] = useState(!trailer.hls);
 
@@ -144,8 +145,8 @@ function TrailerPlayer({ trailer, steamAppId }: { trailer: SteamTrailer; steamAp
     return (
       <div className="media-fallback">
         <p>This trailer can’t play here.</p>
-        <a href={`https://store.steampowered.com/app/${steamAppId}/`} target="_blank" rel="noopener noreferrer" className="btn btn-ghost">
-          Watch on Steam →
+        <a href={source.url} target="_blank" rel="noopener noreferrer" className="btn btn-ghost">
+          Watch on {source.label} →
         </a>
       </div>
     );
