@@ -1,0 +1,36 @@
+name: Import Xbox catalog
+
+# Xbox / Microsoft Store games for /xbox. See scripts/import-xbox.mts.
+# OpenXBL free key allows 150 requests/hour; each run uses ~6 lists × pages.
+
+on:
+  schedule:
+    - cron: "23 */6 * * *"   # every 6h: refresh prices and pick up new games
+  workflow_dispatch:
+    inputs:
+      pages:
+        description: "Pages per list (25 games each)"
+        default: "4"
+
+concurrency:
+  group: import-xbox
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Run importer
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENXBL_API_KEY: ${{ secrets.OPENXBL_API_KEY }}
+          PAGES: ${{ inputs.pages || '4' }}
+        run: node scripts/import-xbox.mts run "$PAGES"
