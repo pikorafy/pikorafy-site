@@ -58,7 +58,7 @@ async function itad<T>(path: string, body: unknown): Promise<T> {
   lastRequestAt = Date.now();
 
   const sep = path.includes("?") ? "&" : "?";
-  const res = await fetch(`${API}${path}${sep}key=${KEY}`, {
+  const res = await fetch(`${API}${path}${sep}key=${encodeURIComponent(KEY)}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -211,7 +211,8 @@ async function probe(appId: number) {
 // ─── Entry ───────────────────────────────────────────────────────────────────
 
 function required(name: string): string {
-  const v = process.env[name];
+  // Trim: secrets pasted into GitHub often pick up a trailing space or newline.
+  const v = process.env[name]?.trim();
   if (!v) throw new Error(`Missing env var ${name}`);
   return v;
 }
