@@ -14,6 +14,8 @@ import {
   type PricePoint,
 } from "@/lib/catalog";
 import { AFFILIATE_DISCLOSURE_SHORT } from "@/lib/affiliate";
+import { getXboxForSteamApp } from "@/lib/xbox";
+import XboxOffers, { xboxPlatforms } from "@/components/XboxOffers";
 import GameDetailClient from "./GameDetailClient";
 import GameMedia from "./GameMedia";
 import PlayersChart from "./PlayersChart";
@@ -102,12 +104,14 @@ export default async function GamePage({ params }: GamePageProps) {
 
   const prices = await getGamePrices(game.steam_app_id);
   const currency = prices[0]?.currency ?? "EUR";
-  const [history, content, related, players] = await Promise.all([
+  const [history, content, related, players, xbox] = await Promise.all([
     getPriceHistory(game.steam_app_id, currency),
     getGameContent(game.steam_app_id, "en"),
     getRelatedGames(game, 6),
     getPlayerHistory(game.steam_app_id),
+    getXboxForSteamApp(game.steam_app_id),
   ]);
+  const xboxBest = xbox.find((x) => x.price !== null);
 
   const best = prices[0];
   const low = lowestPrice(game, history, best, currency);
@@ -119,7 +123,7 @@ export default async function GamePage({ params }: GamePageProps) {
       <script
         type="application/ld+json"
         // JSON-LD must be inline; escape "<" so names can't close the script tag.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd(game, best)).replace(/</g, "\\u003c") }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd(game, best, xbox.length > 0)).replace(/</g, "\\u003c") }}
       />
 
       {/* ─── Hero ─────────────────────────────────────────────────────── */}
@@ -146,6 +150,7 @@ export default async function GamePage({ params }: GamePageProps) {
               {best && <Stat value={money(best.price, best.currency)} label="Best price now" />}
               {best?.discount_pct ? <Stat value={`-${best.discount_pct}%`} label="Discount" accent /> : null}
               {low && <Stat value={money(low.price, currency)} label={low.allTime ? "All-time low" : "Lowest we've tracked"} />}
+              {xboxBest && <Stat value={xboxBest.is_free ? "Free" : money(xboxBest.price!, xboxBest.currency ?? "EUR")} label="On Xbox" />}
               {game.current_players !== null && <Stat value={compact(game.current_players)} label="Playing now" />}
               {game.review_score_pct !== null && <Stat value={`${game.review_score_pct}%`} label="Positive Steam reviews" />}
               {game.metacritic !== null && <Stat value={String(game.metacritic)} label="Metacritic" />}
@@ -159,6 +164,11 @@ export default async function GamePage({ params }: GamePageProps) {
               <a href={instantGamingUrl} target="_blank" rel="noopener noreferrer sponsored" className="btn btn-ghost" style={{ padding: "14px 22px" }}>
                 Check Instant Gaming →
               </a>
+              {xboxBest?.store_url && (
+                <a href={xboxBest.store_url} target="_blank" rel="noopener noreferrer" className="btn btn-ghost" style={{ padding: "14px 22px" }}>
+                  Xbox Store{xboxBest.is_free ? "" : ` · ${money(xboxBest.price!, xboxBest.currency ?? "EUR")}`} →
+                </a>
+              )}
             </div>
             {game.steam_description && !content?.summary && (
               <figure style={{ margin: "28px 0 0", maxWidth: "62ch" }}>
@@ -187,7 +197,7 @@ export default async function GamePage({ params }: GamePageProps) {
         <div>
           <div className="section-hd" style={{ marginBottom: 16 }}>
             <div>
-              <div className="eyebrow">Current offers · prices in {currency}</div>
+              <div className="eyebrow">{xbox.length ? "PC offers" : "Current offers"} · prices in {currency}</div>
               <h2 className="h2" style={{ fontSize: "clamp(24px,4vw,32px)" }}>Where to buy {game.name}</h2>
             </div>
           </div>
@@ -245,7 +255,14 @@ export default async function GamePage({ params }: GamePageProps) {
             <p style={{ color: "var(--text-2)" }}>{game.name} is free to play on Steam. Offers above, if any, are for paid editions or bundles.</p>
           )}
 
-          <GameMedia name={game.name} steamAppId={game.steam_app_id} trailers={game.trailers} screenshots={game.screenshots} />
+          {xbox.length > 0 && <XboxOffers name={game.name} products={xbox} />}
+
+          <GameMedia
+            name={game.name}
+            source={{ label: "Steam", url: `https://store.steampowered.com/app/${game.steam_app_id}/` }}
+            trailers={game.trailers}
+            screenshots={game.screenshots}
+          />
 
           <div className="detail-prose" style={{ marginTop: 32 }}>
             {content?.summary && (
@@ -326,7 +343,7 @@ export default async function GamePage({ params }: GamePageProps) {
               <InfoRow label="Publisher" value={game.publishers.join(", ")} />
               <InfoRow label="Released" value={game.coming_soon ? "Coming soon" : game.release_date ? longDate(game.release_date) : ""} />
               <InfoRow label="Reviews" value={game.review_label ? `${game.review_label} (${compact(game.review_count ?? 0)})` : ""} />
-              <InfoRow label="Platforms" value={game.platforms.map(platformName).join(", ")} />
+              <InfoRow label="Platforms" value={[...game.platforms.map(platformName), ...xboxPlatforms(xbox)].join(", ")} />
             </dl>
             <a href={`https://store.steampowered.com/app/${game.steam_app_id}/`} target="_blank" rel="noopener noreferrer" className="btn btn-ghost" style={{ justifyContent: "center", width: "100%", marginTop: 16 }}>
               View on Steam →
@@ -419,7 +436,7 @@ function heroLine(game: Game, best: GamePrice | undefined, low: Low | null): str
   return `${now} at ${best.store}. It's at full price right now${seen}.`;
 }
 
-function jsonLd(game: Game, best: GamePrice | undefined) {
+function jsonLd(game: Game, best: GamePrice | undefined, onXbox: boolean) {
   return {
     "@context": "https://schema.org",
     "@type": "VideoGame",
@@ -430,7 +447,7 @@ function jsonLd(game: Game, best: GamePrice | undefined) {
     author: game.developers.map((name) => ({ "@type": "Organization", name })),
     publisher: game.publishers.map((name) => ({ "@type": "Organization", name })),
     datePublished: game.release_date ?? undefined,
-    gamePlatform: game.platforms.map(platformName),
+    gamePlatform: [...game.platforms.map(platformName), ...(onXbox ? ["Xbox"] : [])],
     offers: best
       ? {
           "@type": "Offer",

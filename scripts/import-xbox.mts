@@ -15,6 +15,7 @@
 import { createClient } from "@supabase/supabase-js";
 
 const MARKET = "ES";
+const CURRENCY = "EUR";
 const LANGUAGE = "en-us";            // English text for the English site
 const LISTS = ["most-played", "top-paid", "best-rated", "deals", "new", "coming-soon"] as const;
 const DETAILS_BATCH = 20;
@@ -166,6 +167,8 @@ interface CatalogProduct {
     Sku?: { Properties?: { IsTrial?: boolean } };
     Availabilities?: {
       Actions?: string[];
+      Remediations?: { Type?: string }[] | null;
+      Properties?: { MerchandisingTags?: string[] };
       Conditions?: { ClientConditions?: { AllowedPlatforms?: { PlatformName?: string }[] } };
       OrderManagementData?: { Price?: { ListPrice?: number; MSRP?: number; CurrencyCode?: string } };
     }[];
@@ -202,9 +205,15 @@ function mapProduct(p: CatalogProduct, d: Discovered | undefined) {
   const mp = p.MarketProperties?.[0];
   const usage = mp?.UsageData?.find((u) => u.AggregateTimeSpan === "AllTime") ?? mp?.UsageData?.[0];
 
-  // Cheapest purchasable availability of the first non-trial SKU.
+  // Cheapest public purchasable availability of the first non-trial SKU. Subscription
+  // entitlements (Game Pass / EA Play: €0 with an "Upsell" remediation, or tagged
+  // "LegacyVault" / "LegacyDiscount…") are member-only prices, not the store price.
   const sku = p.DisplaySkuAvailabilities?.find((s) => !s.Sku?.Properties?.IsTrial) ?? p.DisplaySkuAvailabilities?.[0];
-  const purchasable = (sku?.Availabilities ?? []).filter((a) => a.Actions?.includes("Purchase") && a.OrderManagementData?.Price);
+  const purchasable = (sku?.Availabilities ?? []).filter((a) =>
+    a.Actions?.includes("Purchase") &&
+    a.OrderManagementData?.Price?.CurrencyCode === CURRENCY &&
+    !a.Remediations?.length &&
+    !a.Properties?.MerchandisingTags?.some((t) => t.startsWith("Legacy")));
   const offer = purchasable.sort((a, b) => (a.OrderManagementData!.Price!.ListPrice ?? 0) - (b.OrderManagementData!.Price!.ListPrice ?? 0))[0];
   const price = offer?.OrderManagementData?.Price;
   const list = price?.ListPrice ?? null;
@@ -320,7 +329,11 @@ async function run(pagesPerList: number, perStoreList: number) {
     }
   }
 
-  console.log(`Saved ${saved} Xbox games (${withPrice} with a price), ${failedBatches} catalog batches failed, ${xblSpent} OpenXBL requests used.`);
+  // Match Xbox products to Steam games by normalized title (one merged game page).
+  const { data: linked, error: linkError } = await supabase.rpc("link_xbox_games");
+  if (linkError) console.warn(`link_xbox_games: ${linkError.message}`);
+
+  console.log(`Saved ${saved} Xbox games (${withPrice} with a price), ${failedBatches} catalog batches failed, ${xblSpent} OpenXBL requests used, ${linked ?? "?"} linked to Steam.`);
   if (saved === 0) process.exit(1);
 }
 
