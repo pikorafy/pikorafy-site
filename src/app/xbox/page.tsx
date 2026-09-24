@@ -96,10 +96,13 @@ export default async function XboxPage({ searchParams }: { searchParams: Promise
   );
 }
 
-const PLATFORM_LABEL: Record<string, string> = { XboxSeriesX: "Series X|S", XboxOne: "One", PC: "PC", Xbox: "Xbox" };
+// Store platform codes → card labels; anything not listed (e.g. "Handheld") is hidden.
+const PLATFORM_LABEL: Record<string, string> = { XboxSeriesX: "Series X|S", XboxOne: "One", PC: "PC", Xbox: "Xbox", XCloud: "Cloud" };
 
 function XboxCard({ game }: { game: XboxGame }) {
   const onSale = (game.discount_pct ?? 0) > 0;
+  const gamePass = game.lists.some((l) => l.startsWith("game-pass"));
+  const platforms = game.platforms.filter((p) => PLATFORM_LABEL[p]);
   const image = game.hero_art ?? game.box_art;
   const money = (n: number) => new Intl.NumberFormat("en-IE", { style: "currency", currency: game.currency ?? "EUR" }).format(n);
 
@@ -117,11 +120,16 @@ function XboxCard({ game }: { game: XboxGame }) {
           ? <img src={`${image}?w=640`} alt={game.title} loading="lazy" style={{ width: "100%", height: "100%", objectFit: game.hero_art ? "cover" : "contain", background: "var(--bg-3)" }} />
           : <div style={{ background: "var(--bg-3)", width: "100%", height: "100%" }} />}
         {onSale && <div className="disc-tag">-{game.discount_pct}%</div>}
+        {gamePass && (
+          <div style={{ position: "absolute", left: 10, top: 10, background: "#107c10", color: "#fff", fontFamily: "var(--ff-mono)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", padding: "3px 7px", borderRadius: 3 }}>
+            GAME PASS
+          </div>
+        )}
       </div>
       <div className="body">
         <div className="meta">
-          {game.platforms.length > 0 && (
-            <span className="plat">{game.platforms.map((p) => <span key={p}>{PLATFORM_LABEL[p] ?? p}</span>)}</span>
+          {platforms.length > 0 && (
+            <span className="plat">{platforms.map((p) => <span key={p}>{PLATFORM_LABEL[p]}</span>)}</span>
           )}
           {game.rating !== null && (game.rating_count ?? 0) > 0 && <span>★ {game.rating.toFixed(1)}</span>}
         </div>
