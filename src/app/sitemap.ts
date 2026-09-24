@@ -2,11 +2,14 @@ import type { MetadataRoute } from "next";
 import { getAllArticles } from "@/lib/articles";
 import { getAllComparisons } from "@/lib/comparisons";
 import { getAllAlternatives } from "@/lib/alternatives";
+import { getIndexableGames } from "@/lib/catalog";
 
 const BASE_URL = "https://pikorafy.com";
 
+// Game pages come from the database, so rebuild the sitemap daily.
+export const revalidate = 86400;
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const articles = getAllArticles();
   const comparisons = getAllComparisons();
   const alternatives = getAllAlternatives();
@@ -100,11 +103,20 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.6,
   }));
 
+  // Only games with published written content; price-only pages are noindex.
+  const gamePages: MetadataRoute.Sitemap = (await getIndexableGames()).map((g) => ({
+    url: `${BASE_URL}/game/${g.slug}`,
+    lastModified: new Date(g.updated_at),
+    changeFrequency: "daily" as const,
+    priority: 0.7,
+  }));
+
   return [
     ...staticPages,
     ...articlePages,
     ...comparisonPages,
     ...alternativePages,
     ...categoryPages,
+    ...gamePages,
   ];
 }
