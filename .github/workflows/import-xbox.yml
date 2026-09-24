@@ -1,7 +1,8 @@
 name: Import Xbox catalog
 
 # Xbox / Microsoft Store games for /xbox. See scripts/import-xbox.mts.
-# OpenXBL free key allows 150 requests/hour; each run uses ~6 lists × pages.
+# Discovery: Microsoft Store lists + Game Pass catalog (public), plus OpenXBL
+# lists (free key: 150 requests/hour; ~12 per run).
 
 on:
   schedule:
@@ -9,8 +10,11 @@ on:
   workflow_dispatch:
     inputs:
       pages:
-        description: "Pages per list (25 games each)"
-        default: "4"
+        description: "OpenXBL pages per list (25 each; extra source)"
+        default: "2"
+      per_store_list:
+        description: "Games per Microsoft Store list (Most played, Top paid, …)"
+        default: "400"
 
 concurrency:
   group: import-xbox
@@ -32,5 +36,6 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           OPENXBL_API_KEY: ${{ secrets.OPENXBL_API_KEY }}
-          PAGES: ${{ inputs.pages || '4' }}
-        run: node scripts/import-xbox.mts run "$PAGES"
+          PAGES: ${{ inputs.pages || '2' }}
+          PER_LIST: ${{ inputs.per_store_list || '400' }}
+        run: node scripts/import-xbox.mts run "$PAGES" "$PER_LIST"

@@ -20,12 +20,13 @@ export interface XboxGame {
   is_free: boolean;
   popularity_rank: number | null;
   store_url: string | null;
+  lists: string[];
 }
 
 export type XboxSort = "popular" | "discount" | "price" | "rating";
 
 const COLUMNS =
-  "product_id, slug, title, categories, platforms, rating, rating_count, box_art, hero_art, price, regular_price, discount_pct, currency, is_free, popularity_rank, store_url";
+  "product_id, slug, title, categories, platforms, rating, rating_count, box_art, hero_art, price, regular_price, discount_pct, currency, is_free, popularity_rank, store_url, lists";
 
 function db() {
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return null;

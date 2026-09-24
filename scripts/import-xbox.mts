@@ -1,7 +1,7 @@
 // Xbox / Microsoft Store → Supabase (`xbox_games`), listed on /xbox.
 //
 // Usage (Node ≥ 23.6 runs .mts directly):
-//   node scripts/import-xbox.mts run [pagesPerList]   discover games + refresh details/prices (default 4)
+//   node scripts/import-xbox.mts run [openXblPages] [perStoreList]   (defaults 2, 400)
 //
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, OPENXBL_API_KEY
 //
@@ -54,9 +54,75 @@ interface XblListPage {
   };
 }
 
-async function discover(pagesPerList: number): Promise<Map<string, Discovered>> {
-  const found = new Map<string, Discovered>();
-  let order = 0;
+// ─── Microsoft Store lists + Game Pass (primary discovery) ────────────────────
+//
+// OpenXBL's list endpoints all return the same 25 products and ignore paging, so
+// the main source is the Store's own public recommendation lists (as used by
+// xbox.com), which page up to 200 items. Game Pass comes from the public catalog.
+
+const RECO_LISTS = ["MostPlayed", "TopPaid", "TopFree", "BestRated", "New", "Deal"] as const;
+const GAME_PASS_LISTS = {
+  "game-pass-console": "f6f1f99f-9b49-4ccd-b3bf-4d9767a77f5e",
+  "game-pass-pc": "fdd9e2a7-0fee-49f6-ad69-4354098401ff",
+} as const;
+
+class Discovery {
+  found = new Map<string, Discovered>();
+  private order = 0;
+
+  add(id: string, list: string, title?: string, availableOn: string[] = []) {
+    const existing = this.found.get(id);
+    if (existing) {
+      existing.lists.add(list);
+      if (!existing.availableOn.length && availableOn.length) existing.availableOn = availableOn;
+      return false;
+    }
+    this.found.set(id, { productId: id, title: title ?? id, lists: new Set([list]), firstSeen: this.order++, availableOn });
+    return true;
+  }
+}
+
+async function discoverStoreLists(d: Discovery, perList: number) {
+  for (const list of RECO_LISTS) {
+    let added = 0, seen = 0;
+    try {
+      for (let skip = 0; skip < perList; skip += 200) {
+        const count = Math.min(200, perList - skip);
+        const url = `https://reco-public.rec.mp.microsoft.com/channels/Reco/V8.0/Lists/Computed/${list}?Market=${MARKET}&Language=EN&ItemTypes=Game&deviceFamily=Windows.Xbox&count=${count}&skipitems=${skip}`;
+        const res = await fetch(url, { headers: { Accept: "application/json" } });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const body = (await res.json()) as { Items?: { Id?: string }[]; PagingInfo?: { TotalItems?: number } };
+        const items = (body.Items ?? []).map((i) => i.Id).filter((id): id is string => !!id);
+        seen += items.length;
+        for (const id of items) if (d.add(id, list.toLowerCase())) added++;
+        if (items.length < count || skip + count >= (body.PagingInfo?.TotalItems ?? Infinity)) break;
+      }
+      console.log(`Store ${list}: ${seen} products, ${added} new`);
+    } catch (err) {
+      console.warn(`Store ${list}: failed (${String(err)})`);
+    }
+  }
+}
+
+async function discoverGamePass(d: Discovery) {
+  for (const [list, sigl] of Object.entries(GAME_PASS_LISTS)) {
+    try {
+      const url = `https://catalog.gamepass.com/sigls/v2?id=${sigl}&language=en-us&market=${MARKET}`;
+      const res = await fetch(url, { headers: { Accept: "application/json" } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const body = (await res.json()) as { id?: string; siglId?: string }[];
+      const ids = body.map((e) => e.id).filter((id): id is string => !!id);    // first entry is the list header
+      let added = 0;
+      for (const id of ids) if (d.add(id, list)) added++;
+      console.log(`${list}: ${ids.length} products, ${added} new`);
+    } catch (err) {
+      console.warn(`${list}: failed (${String(err)})`);
+    }
+  }
+}
+
+async function discover(pagesPerList: number, d = new Discovery()): Promise<Map<string, Discovered>> {
+  const found = d.found;
 
   for (const list of LISTS) {
     let token: string | undefined;
@@ -70,10 +136,7 @@ async function discover(pagesPerList: number): Promise<Map<string, Discovered>> 
       let fresh = 0;
       for (const id of ids) {
         const s = summaries.get(id);
-        const existing = found.get(id);
-        if (existing) { existing.lists.add(list); continue; }
-        fresh++;
-        found.set(id, { productId: id, title: s?.title ?? id, lists: new Set([list]), firstSeen: order++, availableOn: s?.availableOn ?? [] });
+        if (d.add(id, list, s?.title, s?.availableOn ?? [])) fresh++;
       }
       console.log(`${list} page ${page + 1}: ${ids.length} products, ${fresh} new`);
 
@@ -82,7 +145,7 @@ async function discover(pagesPerList: number): Promise<Map<string, Discovered>> 
       token = channel.encodedCT;
     }
   }
-  console.log(`Discovered ${found.size} products using ${xblSpent} OpenXBL requests.`);
+  console.log(`OpenXBL lists done (${xblSpent} requests). Total discovered: ${found.size}.`);
   return found;
 }
 
@@ -202,8 +265,11 @@ function slugify(name: string): string {
 
 // ─── Run ─────────────────────────────────────────────────────────────────────
 
-async function run(pagesPerList: number) {
-  const found = await discover(pagesPerList);
+async function run(pagesPerList: number, perStoreList: number) {
+  const d = new Discovery();
+  await discoverStoreLists(d, perStoreList);
+  await discoverGamePass(d);
+  const found = await discover(pagesPerList, d);
   const ids = [...found.keys()];
 
   const { data: existing } = await supabase.from("xbox_games").select("product_id, slug");
@@ -263,8 +329,8 @@ function required(name: string): string {
 
 const [cmd, arg] = process.argv.slice(2);
 switch (cmd) {
-  case "run": await run(Number(arg ?? 4)); break;
+  case "run": await run(Number(arg ?? 2), Number(process.argv[4] ?? 400)); break;
   default:
-    console.error("Usage: import-xbox.mts run [pagesPerList]");
+    console.error("Usage: import-xbox.mts run [openXblPages] [perStoreList]");
     process.exit(1);
 }
