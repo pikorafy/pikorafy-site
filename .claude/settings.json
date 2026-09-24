@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git fetch *)",
+      "Bash(git pull *)",
+      "Bash(git checkout *)",
+      "Bash(git switch *)",
+      "Bash(git merge *)",
+      "Bash(git rebase *)",
+      "Bash(git push *)"
+    ]
+  },
+  "autoMode": {
+    "allow": [
+      "$defaults",
+      "The repository owner has authorized Claude to merge its own work branches into main and push main to origin (github.com/pikorafy/pikorafy-site) without a separate pull-request review. This deploys to production via Vercel; that is intended."
+    ]
+  }
+}
