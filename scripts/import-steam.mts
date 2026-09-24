@@ -17,6 +17,7 @@
 import { createClient } from "@supabase/supabase-js";
 
 const REQUEST_GAP_MS = 1600;   // ≈187 req / 5 min
+const THROTTLE_PAUSE_MS = 30_000;
 const COUNTRY = "es";          // prices in EUR, as Spanish users see them
 const TRAILER_COUNTRY = "us";  // Steam picks trailers by region; "es" returns Spanish/PEGI cuts
 const TOP_REFRESH_RANK = 500;  // games ranked above this refresh daily, the rest weekly
@@ -73,10 +74,22 @@ async function steamFetch<T>(url: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+/**
+ * appdetails signals throttling with HTTP 200 and a `null` body (not a 429), so an
+ * empty body must never be read as "this app doesn't exist". Retry once after a
+ * pause; if Steam is still throttling, stop the run and let the queue resume later.
+ * Returns null only when Steam explicitly says success:false (delisted/region-locked).
+ */
 async function getAppDetails(appId: number, country = COUNTRY): Promise<SteamAppDetails | null> {
   const url = `https://store.steampowered.com/api/appdetails?appids=${appId}&cc=${country}&l=english`;
-  const body = await steamFetch<Record<string, { success: boolean; data?: SteamAppDetails }>>(url);
-  const entry = body?.[appId];
+  type Body = Record<string, { success: boolean; data?: SteamAppDetails }> | null;
+  let body = await steamFetch<Body>(url);
+  if (!body?.[appId]) {
+    await sleep(THROTTLE_PAUSE_MS);
+    body = await steamFetch<Body>(url);
+    if (!body?.[appId]) throw new RateLimited(`empty appdetails body for ${appId} (throttled)`);
+  }
+  const entry = body[appId];
   return entry?.success && entry.data ? entry.data : null;
 }
 
