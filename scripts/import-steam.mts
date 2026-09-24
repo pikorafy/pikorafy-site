@@ -188,22 +188,35 @@ async function importGame(appId: number, rank: number): Promise<"ok" | "skip"> {
 
 // ─── Commands ────────────────────────────────────────────────────────────────
 
-/** SteamSpy's `all` endpoint returns 1000 apps per page ordered by owners; it allows 1 call/min. */
+/**
+ * SteamSpy's `all` endpoint returns 1000 apps per page and allows 1 call/min.
+ * Its JSON is keyed by app ID, and JS objects iterate integer keys in ascending
+ * order, so the server's ordering is lost — we rank by review volume ourselves.
+ */
 async function seed(topN: number) {
-  const rows: { steam_app_id: number; priority: number }[] = [];
-  for (let page = 0; rows.length < topN; page++) {
+  const pages = Math.ceil(topN / 1000) + 1;  // fetch a buffer page so the cut-off is meaningful
+  const apps: { id: number; score: number }[] = [];
+  for (let page = 0; page < pages; page++) {
     if (page > 0) await sleep(61_000);
     console.log(`SteamSpy page ${page}…`);
     const res = await fetch(`https://steamspy.com/api.php?request=all&page=${page}`);
     if (!res.ok) throw new Error(`SteamSpy HTTP ${res.status}`);
-    const apps = Object.keys((await res.json()) as Record<string, unknown>);
-    if (apps.length === 0) break;
-    for (const id of apps) {
-      if (rows.length >= topN) break;
-      rows.push({ steam_app_id: Number(id), priority: rows.length + 1 });
+    const body = (await res.json()) as Record<string, { positive?: number; negative?: number }>;
+    const entries = Object.entries(body);
+    if (entries.length === 0) break;
+    for (const [id, app] of entries) {
+      apps.push({ id: Number(id), score: (app.positive ?? 0) + (app.negative ?? 0) });
     }
   }
-  await enqueue(rows);
+  apps.sort((a, b) => b.score - a.score);
+
+  // Demote everything from the previous seed (manual seed-ids keep priority 0),
+  // so games that fell out of the top N don't keep their old rank.
+  const { error } = await supabase.from("import_queue").update({ priority: 100_000 }).gt("priority", 0);
+  if (error) throw new Error(`import_queue reset: ${error.message}`);
+  await supabase.from("games").update({ popularity_rank: null }).not("popularity_rank", "is", null);
+
+  await enqueue(apps.slice(0, topN).map((a, i) => ({ steam_app_id: a.id, priority: i + 1 })));
 }
 
 async function seedIds(ids: number[]) {
