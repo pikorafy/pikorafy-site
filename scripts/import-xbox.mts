@@ -1,7 +1,7 @@
 // Xbox / Microsoft Store → Supabase (`xbox_games`), listed on /xbox.
 //
 // Usage (Node ≥ 23.6 runs .mts directly):
-//   node scripts/import-xbox.mts run [openXblPages] [perStoreList]   (defaults 2, 400)
+//   node scripts/import-xbox.mts run [openXblPages] [perStoreList]   (defaults 2, 0 = skip Store lists)
 //
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, OPENXBL_API_KEY
 //
@@ -266,10 +266,13 @@ function slugify(name: string): string {
 // ─── Run ─────────────────────────────────────────────────────────────────────
 
 async function run(pagesPerList: number, perStoreList: number) {
+  // Order matters: popularity_rank = discovery order. OpenXBL's lists are the only
+  // real popularity signal, so they go first; Game Pass adds breadth after them.
+  // (The Store reco lists are unreachable from GitHub runners, so they're opt-in.)
   const d = new Discovery();
-  await discoverStoreLists(d, perStoreList);
-  await discoverGamePass(d);
   const found = await discover(pagesPerList, d);
+  if (perStoreList > 0) await discoverStoreLists(d, perStoreList);
+  await discoverGamePass(d);
   const ids = [...found.keys()];
 
   const { data: existing } = await supabase.from("xbox_games").select("product_id, slug");
@@ -329,7 +332,7 @@ function required(name: string): string {
 
 const [cmd, arg] = process.argv.slice(2);
 switch (cmd) {
-  case "run": await run(Number(arg ?? 2), Number(process.argv[4] ?? 400)); break;
+  case "run": await run(Number(arg ?? 2), Number(process.argv[4] ?? 0)); break;
   default:
     console.error("Usage: import-xbox.mts run [openXblPages] [perStoreList]");
     process.exit(1);
