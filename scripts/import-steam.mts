@@ -281,7 +281,8 @@ async function run(maxGames: number) {
 // ─── Entry ───────────────────────────────────────────────────────────────────
 
 function required(name: string): string {
-  const v = process.env[name];
+  // Trim: secrets pasted into GitHub often pick up a trailing space or newline.
+  const v = process.env[name]?.trim();
   if (!v) throw new Error(`Missing env var ${name}`);
   return v;
 }
