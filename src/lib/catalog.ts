@@ -82,7 +82,7 @@ export interface GameCard {
 }
 
 const GAME_COLUMNS =
-  "steam_app_id, slug, name, is_free, release_date, coming_soon, developers, publishers, genres, categories, platforms, metacritic, review_score_pct, review_count, review_label, header_image, popularity_rank, steam_fetched_at, history_low_price, history_low_currency, history_low_shop, history_low_at, current_players, current_players_at, peak_players_24h, peak_players_30d, steam_description:raw->>short_description, raw_screenshots:raw->screenshots, raw_movies:raw->movies";
+  "steam_app_id, slug, name, is_free, release_date, coming_soon, developers, publishers, genres, categories, platforms, metacritic, review_score_pct, review_count, review_label, header_image, popularity_rank, steam_fetched_at, history_low_price, history_low_currency, history_low_shop, history_low_at, current_players, current_players_at, peak_players_24h, peak_players_30d, steam_description:raw->>short_description, raw_screenshots:raw->screenshots, raw_movies:raw->movies, trailers_en";
 
 function db() {
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return null;
@@ -99,11 +99,13 @@ export async function getGameBySlug(slug: string): Promise<Game | null> {
     .eq("type", "game")
     .maybeSingle();
   if (!data) return null;
-  const { raw_screenshots, raw_movies, ...game } = data as Game & { raw_screenshots: unknown; raw_movies: unknown };
+  const { raw_screenshots, raw_movies, trailers_en, ...game } =
+    data as Game & { raw_screenshots: unknown; raw_movies: unknown; trailers_en: unknown };
   return {
     ...game,
     screenshots: parseScreenshots(raw_screenshots),
-    trailers: parseTrailers(raw_movies),
+    // English-region trailers when we have them; the import's own (Spanish-region) list otherwise.
+    trailers: parseTrailers(Array.isArray(trailers_en) && trailers_en.length > 0 ? trailers_en : raw_movies),
     history_low_price: game.history_low_price === null ? null : Number(game.history_low_price),
     steam_description: game.steam_description ? decodeEntities(game.steam_description).trim() || null : null,
   };
