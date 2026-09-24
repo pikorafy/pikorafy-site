@@ -32,6 +32,7 @@ export interface Game {
   current_players_at: string | null;
   peak_players_24h: number | null;
   peak_players_30d: number | null;
+  steam_description: string | null;     // Steam's short description, shown with attribution
 }
 
 export interface GamePrice {
@@ -67,7 +68,7 @@ export interface GameCard {
 }
 
 const GAME_COLUMNS =
-  "steam_app_id, slug, name, is_free, release_date, coming_soon, developers, publishers, genres, categories, platforms, metacritic, review_score_pct, review_count, review_label, header_image, popularity_rank, steam_fetched_at, history_low_price, history_low_currency, history_low_shop, history_low_at, current_players, current_players_at, peak_players_24h, peak_players_30d";
+  "steam_app_id, slug, name, is_free, release_date, coming_soon, developers, publishers, genres, categories, platforms, metacritic, review_score_pct, review_count, review_label, header_image, popularity_rank, steam_fetched_at, history_low_price, history_low_currency, history_low_shop, history_low_at, current_players, current_players_at, peak_players_24h, peak_players_30d, steam_description:raw->>short_description";
 
 function db() {
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return null;
@@ -85,7 +86,11 @@ export async function getGameBySlug(slug: string): Promise<Game | null> {
     .maybeSingle();
   if (!data) return null;
   const game = data as Game;
-  return { ...game, history_low_price: game.history_low_price === null ? null : Number(game.history_low_price) };
+  return {
+    ...game,
+    history_low_price: game.history_low_price === null ? null : Number(game.history_low_price),
+    steam_description: game.steam_description ? decodeEntities(game.steam_description).trim() || null : null,
+  };
 }
 
 /** Slugs of the most popular games, for generateStaticParams. */
@@ -294,4 +299,16 @@ export async function getSlugForSteamApp(appId: number): Promise<string | null> 
   if (!client) return null;
   const { data } = await client.from("games").select("slug").eq("steam_app_id", appId).eq("type", "game").maybeSingle();
   return (data?.slug as string | undefined) ?? null;
+}
+
+/** Steam text is HTML-escaped ("&quot;", "&amp;"); tags are stripped defensively. */
+function decodeEntities(text: string): string {
+  const named: Record<string, string> = { amp: "&", quot: '"', apos: "'", lt: "<", gt: ">", nbsp: " " };
+  return text
+    .replace(/<[^>]*>/g, "")
+    .replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, code: string) => {
+      if (code[0] !== "#") return named[code.toLowerCase()] ?? m;
+      const n = code[1].toLowerCase() === "x" ? parseInt(code.slice(2), 16) : parseInt(code.slice(1), 10);
+      return Number.isFinite(n) ? String.fromCodePoint(n) : m;
+    });
 }
