@@ -251,12 +251,17 @@ async function seed(topN: number) {
   apps.sort((a, b) => b.score - a.score);
 
   // Demote everything from the previous seed (manual seed-ids keep priority 0),
-  // so games that fell out of the top N don't keep their old rank.
+  // so games that fell out of the top N sink to the bottom instead of keeping their rank.
   const { error } = await supabase.from("import_queue").update({ priority: 100_000 }).gt("priority", 0);
   if (error) throw new Error(`import_queue reset: ${error.message}`);
-  await supabase.from("games").update({ popularity_rank: null }).not("popularity_rank", "is", null);
 
   await enqueue(apps.slice(0, topN).map((a, i) => ({ steam_app_id: a.id, priority: i + 1 })));
+
+  // Re-rank games we already have right away. (Clearing ranks and waiting for each
+  // game's next refresh would hide most of the catalog for up to a day.)
+  const { data: ranked, error: rankError } = await supabase.rpc("apply_seed_ranks");
+  if (rankError) throw new Error(`apply_seed_ranks: ${rankError.message}`);
+  console.log(`Re-ranked ${ranked} games.`);
 }
 
 /** One-off: fetch English trailers for games imported before trailers_en existed. */
