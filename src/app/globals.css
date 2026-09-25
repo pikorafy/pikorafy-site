@@ -313,6 +313,47 @@ body::before {
 .sd-row .ttl { font-weight: 500; font-size: 13px; }
 .sd-row .meta { font-family: var(--ff-mono); font-size: 11px; color: var(--text-3); }
 .sd-row .price { font-family: var(--ff-mono); font-weight: 600; color: var(--accent); }
+.sd-row.sd-game { grid-template-columns: 72px 1fr auto; text-decoration: none; color: inherit; }
+.sd-row .sd-thumb { width: 72px; height: 34px; border-radius: 3px; object-fit: cover; background: var(--bg-3); display: block; }
+.sd-row .ttl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sd-row .sd-disc { margin-left: 6px; padding: 1px 5px; border-radius: 3px; background: var(--accent); color: var(--accent-fg); font-size: 10px; }
+.search-dropdown { max-height: min(70vh, 560px); overflow-y: auto; }
+
+/* ─── Home: top-10 lists and genre top-5s ─────────────────────────────── */
+.toplists { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
+.toplist { background: var(--bg-elev); border: 1px solid var(--line); border-radius: var(--r); padding: 18px 18px 10px; min-width: 0; }
+.toplist-hd { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.toplist-hd h3 { font-family: var(--ff-display); font-weight: 700; font-size: 22px; letter-spacing: -0.02em; margin: 4px 0 0; }
+.toplist-hd a { font-family: var(--ff-mono); font-size: 11px; color: var(--text-2); text-transform: uppercase; letter-spacing: .1em; white-space: nowrap; }
+.toplist-hd a:hover { color: var(--accent); }
+.toplist ol { list-style: none; margin: 0; padding: 0; }
+.toprow { display: grid; grid-template-columns: 30px 120px 1fr auto; gap: 12px; align-items: center; padding: 8px 6px; border-top: 1px solid var(--line); border-radius: 4px; text-decoration: none; color: inherit; transition: background .15s; }
+.toplist li:first-child .toprow { border-top: 0; }
+.toprow:hover { background: var(--bg-3); }
+.toprow .rk { font-family: var(--ff-mono); font-size: 18px; font-weight: 700; color: var(--text-3); text-align: center; }
+.toplist li:nth-child(-n+3) .toprow .rk { color: var(--accent); }
+.toprow img, .toprow .ph { width: 120px; height: 56px; border-radius: 4px; object-fit: cover; background: var(--bg-3); display: block; }
+.toprow .nm { min-width: 0; }
+.toprow .nm b { display: block; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.toprow .nm span { display: block; margin-top: 3px; font-family: var(--ff-mono); font-size: 10.5px; color: var(--text-3); text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.toprow .pr { text-align: right; font-family: var(--ff-mono); }
+.toprow .pr .now { font-weight: 700; font-size: 14px; }
+.toprow .pr .off { display: inline-block; margin-top: 3px; padding: 1px 6px; border-radius: 3px; background: var(--accent); color: var(--accent-fg); font-size: 10.5px; font-weight: 700; }
+.genre-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--gap); }
+.genre-grid .toprow { grid-template-columns: 22px 92px 1fr auto; gap: 10px; padding: 7px 4px; }
+.genre-grid .toprow img, .genre-grid .toprow .ph { width: 92px; height: 43px; }
+.genre-grid .toprow .rk { font-size: 14px; }
+.genre-grid .toplist-hd h3 { font-size: 19px; }
+@media (max-width: 1100px) {
+  .toplists { grid-template-columns: 1fr; }
+  .genre-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .genre-grid { grid-template-columns: 1fr; }
+  .toprow { grid-template-columns: 24px 88px 1fr auto; gap: 10px; }
+  .toprow img, .toprow .ph { width: 88px; height: 41px; }
+  .toplist { padding: 14px 12px 6px; }
+}
 
 /* Hero featured card */
 .hero-r {

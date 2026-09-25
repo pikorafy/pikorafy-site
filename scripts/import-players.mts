@@ -32,15 +32,21 @@ async function currentPlayers(appId: number): Promise<number | null> {
 }
 
 async function main() {
-  const { data, error } = await supabase
-    .from("games")
-    .select("steam_app_id")
-    .eq("type", "game")
-    .not("popularity_rank", "is", null)
-    .order("popularity_rank", { ascending: true });
-  if (error) throw new Error(`games select: ${error.message}`);
-
-  const ids = (data ?? []).map((r) => r.steam_app_id as number);
+  // PostgREST returns at most 1000 rows per request: page through the whole catalog.
+  const ids: number[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase
+      .from("games")
+      .select("steam_app_id")
+      .eq("type", "game")
+      .not("popularity_rank", "is", null)
+      .order("popularity_rank", { ascending: true })
+      .order("steam_app_id", { ascending: true })
+      .range(from, from + 999);
+    if (error) throw new Error(`games select: ${error.message}`);
+    ids.push(...(data ?? []).map((r) => r.steam_app_id as number));
+    if (!data || data.length < 1000) break;
+  }
   const hour = new Date();
   hour.setUTCMinutes(0, 0, 0);
   const at = hour.toISOString();

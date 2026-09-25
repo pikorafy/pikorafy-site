@@ -25,6 +25,7 @@ export default function GameListing({
   title,
   intro,
   activeGenre,
+  query,
   sort,
   page,
   pageSize,
@@ -36,6 +37,8 @@ export default function GameListing({
   title: React.ReactNode;
   intro: string;
   activeGenre?: string;
+  /** Current search text (only /games supports it). */
+  query?: string;
   sort: ListingSort;
   page: number;
   pageSize: number;
@@ -45,6 +48,7 @@ export default function GameListing({
   const pages = Math.max(1, Math.ceil(total / pageSize));
   const href = (s: ListingSort, p: number) => {
     const params = new URLSearchParams();
+    if (query) params.set("q", query);
     if (s !== "popular") params.set("sort", s);
     if (p > 1) params.set("page", String(p));
     const qs = params.toString();
@@ -61,6 +65,22 @@ export default function GameListing({
       </div>
       <p style={{ color: "var(--text-2)", maxWidth: "70ch", lineHeight: 1.6, margin: "0 0 24px" }}>{intro}</p>
 
+      {query !== undefined && (
+        <form action={basePath} method="get" role="search" className="filterbar" style={{ marginBottom: 12 }}>
+          <span className="lbl">Search</span>
+          <input
+            type="search"
+            name="q"
+            defaultValue={query}
+            placeholder="Game title…"
+            aria-label="Search games"
+            style={{ flex: 1, minWidth: 0, background: "transparent", border: 0, outline: 0, color: "var(--text)", fontSize: 14 }}
+          />
+          {sort !== "popular" && <input type="hidden" name="sort" value={sort} />}
+          <button type="submit" className="chip">Search</button>
+          {query && <Link href={basePath} className="chip" rel="nofollow">Clear</Link>}
+        </form>
+      )}
       <nav aria-label="Genres" className="filterbar" style={{ marginBottom: 12, flexWrap: "wrap" }}>
         <span className="lbl">Genre</span>
         <Link href="/games" className="chip" aria-pressed={!activeGenre}>All</Link>

@@ -1,16 +1,22 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-const TRENDING = [
-  { title: "Elden Ring", genre: "RPG · PC / PS5 / XBX", price: "$19.99" },
-  { title: "Baldur's Gate 3", genre: "RPG · PC / PS5", price: "$29.99" },
-  { title: "Cyberpunk 2077", genre: "Action · PC / PS5 / XBX", price: "$14.99" },
-  { title: "Hogwarts Legacy", genre: "Adventure · PC / PS5", price: "$24.99" },
-  { title: "The Witcher 3", genre: "RPG · PC / PS5 / XBX", price: "$7.49" },
-  { title: "Red Dead Redemption 2", genre: "Action · PC", price: "$17.99" },
-];
+interface SearchResult {
+  href: string;
+  name: string;
+  image: string | null;
+  platform: "PC" | "Xbox";
+  price: number | null;
+  regularPrice: number | null;
+  discountPct: number | null;
+  isFree: boolean;
+  genres: string[];
+}
+
+const money = (n: number) => new Intl.NumberFormat("en-IE", { style: "currency", currency: "EUR" }).format(n);
 
 const STATS = [
   { num: "11,482", lbl: "Games tracked" },
@@ -23,7 +29,27 @@ export default function HeroSection() {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [searchedFor, setSearchedFor] = useState<string | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+
+  // Live results from the catalog (debounced); an empty box shows the most popular games.
+  useEffect(() => {
+    if (!open) return;
+    const q = query.trim();
+    const ctrl = new AbortController();
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/games/search?q=${encodeURIComponent(q)}`, { signal: ctrl.signal });
+        const body = (await res.json()) as { results: SearchResult[] };
+        setResults(body.results);
+        setSearchedFor(q);
+      } catch {
+        /* aborted or offline: keep the previous results */
+      }
+    }, q ? 180 : 0);
+    return () => { clearTimeout(t); ctrl.abort(); };
+  }, [query, open]);
 
   useEffect(() => {
     const fn = (e: MouseEvent) => {
@@ -35,14 +61,11 @@ export default function HeroSection() {
     return () => document.removeEventListener("mousedown", fn);
   }, []);
 
-  const matches = query.trim()
-    ? TRENDING.filter((g) => g.title.toLowerCase().includes(query.toLowerCase()))
-    : TRENDING.slice(0, 4);
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (query.trim()) {
-      router.push(`/deals?q=${encodeURIComponent(query.trim())}`);
+      setOpen(false);
+      router.push(`/games?q=${encodeURIComponent(query.trim())}`);
     }
   };
 
@@ -83,38 +106,43 @@ export default function HeroSection() {
 
               {open && (
                 <div className="search-dropdown">
-                  <div className="sd-section">{query ? "matches" : "trending now"}</div>
-                  {matches.map((g) => (
-                    <a
-                      key={g.title}
-                      className="sd-row"
-                      href={`/deals?q=${encodeURIComponent(g.title)}`}
-                      onClick={() => setOpen(false)}
-                    >
-                      <div>
-                        <div className="ttl">{g.title}</div>
-                        <div className="meta">{g.genre}</div>
+                  <div className="sd-section">{query.trim() ? "matches" : "most popular"}</div>
+                  {results.map((g) => (
+                    <Link key={g.href} className="sd-row sd-game" href={g.href} onClick={() => setOpen(false)}>
+                      {g.image
+                        // eslint-disable-next-line @next/next/no-img-element
+                        ? <img src={g.image} alt="" className="sd-thumb" loading="lazy" />
+                        : <span className="sd-thumb" />}
+                      <div style={{ minWidth: 0 }}>
+                        <div className="ttl">{g.name}</div>
+                        <div className="meta">{[g.platform === "Xbox" ? "Xbox" : "PC", ...g.genres].join(" · ")}</div>
                       </div>
-                      <div className="price">{g.price}</div>
-                    </a>
+                      <div className="price">
+                        {g.isFree ? "Free" : g.price !== null ? money(g.price) : "—"}
+                        {(g.discountPct ?? 0) > 0 && <span className="sd-disc">-{g.discountPct}%</span>}
+                      </div>
+                    </Link>
                   ))}
-                  {!query && (
-                    <>
-                      <div className="sd-section" style={{ marginTop: 4 }}>jump to</div>
-                      <a
-                        className="sd-row"
-                        href="/deals?sort=savings"
-                        onClick={() => setOpen(false)}
-                        style={{ gridTemplateColumns: "1fr auto" }}
-                      >
-                        <div>
-                          <span style={{ fontFamily: "var(--ff-mono)", fontSize: 12, fontWeight: 600 }}>biggest-discounts</span>
-                          {" "}<span className="meta">— all deals sorted by savings</span>
-                        </div>
-                        <div className="meta">→</div>
-                      </a>
-                    </>
+                  {query.trim() && searchedFor === query.trim() && results.length === 0 && (
+                    <div className="sd-row" style={{ gridTemplateColumns: "1fr" }}>
+                      <span className="meta">No games match “{query.trim()}”.</span>
+                    </div>
                   )}
+                  <div className="sd-section" style={{ marginTop: 4 }}>jump to</div>
+                  <Link
+                    className="sd-row"
+                    href={query.trim() ? `/games?q=${encodeURIComponent(query.trim())}` : "/games?sort=discount"}
+                    onClick={() => setOpen(false)}
+                    style={{ gridTemplateColumns: "1fr auto" }}
+                  >
+                    <div>
+                      <span style={{ fontFamily: "var(--ff-mono)", fontSize: 12, fontWeight: 600 }}>
+                        {query.trim() ? "all-results" : "biggest-discounts"}
+                      </span>
+                      {" "}<span className="meta">— {query.trim() ? `every game matching “${query.trim()}”` : "all games sorted by discount"}</span>
+                    </div>
+                    <div className="meta">→</div>
+                  </Link>
                 </div>
               )}
             </div>

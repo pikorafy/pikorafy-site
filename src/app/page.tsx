@@ -5,12 +5,11 @@ import { getAllComparisons } from "@/lib/comparisons";
 import { AFFILIATE_DISCLOSURE_SHORT } from "@/lib/affiliate";
 import ToolLogo from "@/components/ToolLogo";
 import HeroSection from "@/components/HeroSection";
-import TopDealsSection from "@/components/TopDealsSection";
-import TrendingSection from "@/components/TrendingSection";
-import NewReleasesSection from "@/components/NewReleasesSection";
-import UpcomingSection from "@/components/UpcomingSection";
-import FreeGamesSection from "@/components/FreeGamesSection";
+import HomeTopLists from "@/components/HomeTopLists";
 import InstantGamingBanner from "@/components/InstantGamingBanner";
+
+// Top lists come from the catalog; refresh at most hourly (the importers run hourly).
+export const revalidate = 3600;
 
 export const metadata: Metadata = {
   title: "Pikorafy — Game Key Price Comparison",
@@ -64,20 +63,8 @@ export default async function Home() {
       {/* ─── Hero ─── */}
       <HeroSection />
 
-      {/* ─── Top Deals ─── */}
-      <TopDealsSection />
-
-      {/* ─── Trending ─── */}
-      <TrendingSection />
-
-      {/* ─── New Releases ─── */}
-      <NewReleasesSection />
-
-      {/* ─── Upcoming ─── */}
-      <UpcomingSection />
-
-      {/* ─── Free This Week ─── */}
-      <FreeGamesSection />
+      {/* ─── Top 10s (most played, recent releases) and genre top 5s ─── */}
+      <HomeTopLists />
 
       {/* ─── Price Drop Alerts CTA ─── */}
       <section className="section" style={{ borderTop: "1px solid var(--line)" }}>

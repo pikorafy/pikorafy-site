@@ -199,6 +199,19 @@ export function cleanXboxTitle(title: string): string {
   return cleaned || title;
 }
 
+/** Xbox-only titles (not on Steam) whose normalized title contains `text` (see normalizeQuery). */
+export async function searchXboxOnly(text: string, limit: number): Promise<XboxGame[]> {
+  const client = db();
+  if (!client || !text) return [];
+  const { data } = await client.from("xbox_games").select(COLUMNS)
+    .eq("is_primary", true)
+    .is("steam_app_id", null)
+    .ilike("group_key", `%${text}%`)
+    .order("group_rank", { ascending: true, nullsFirst: false })
+    .limit(limit);
+  return (data ?? []).map(normalize<XboxGame>);
+}
+
 /** Popular Xbox games in the same Store category, for the sidebar. */
 export async function getRelatedXbox(game: XboxGame, limit: number): Promise<XboxGame[]> {
   const client = db();
