@@ -100,14 +100,14 @@ export default async function XboxGamePage({ params }: XboxPageProps) {
         <div className="scrim" />
         <div className="shell inner">
           <div>
-            {trailers.length + screenshots.length > 0 ? (
-              <GameMedia name={title} source={{ label: "Xbox", url: storeUrl }} trailers={trailers} screenshots={screenshots} inHero />
-            ) : (game.hero_art ?? game.box_art) ? (
-              <div className="hero-cover">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={`${game.hero_art ?? game.box_art}?w=1280`} alt={`${title} art`} />
-              </div>
-            ) : null}
+            <GameMedia
+              name={title}
+              source={{ label: "Xbox", url: storeUrl }}
+              keyArt={game.key_art}
+              trailers={trailers}
+              screenshots={screenshots}
+              inHero
+            />
           </div>
           <div className="hero-info">
             <div className="crumbs">
