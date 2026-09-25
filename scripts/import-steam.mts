@@ -2,7 +2,7 @@
 // Schema: supabase/migrations/20260924000000_game_catalog.sql
 //
 // Usage (Node ≥ 23.6 runs .mts directly; on Node 22 add --experimental-strip-types):
-//   node scripts/import-steam.mts seed [topN]        queue the top N games by Steam reviews + charts (default 20000)
+//   node scripts/import-steam.mts seed [topN]        rank all Steam games by reviews (+ charts), queue the top N (default 20000)
 //   node scripts/import-steam.mts discover           add today's most played / trending, prune the rest
 //   node scripts/import-steam.mts seed-ids 730,570   queue specific app IDs at top priority
 //   node scripts/import-steam.mts run [maxGames]     import due games via GetItems, new first (default: all due)
@@ -232,16 +232,14 @@ async function importGame(appId: number, rank: number): Promise<"ok" | "skip"> {
 // ─── Popularity lists (Steam Web API, needs STEAM_API_KEY) ──────────────────
 
 const STEAM_API = "https://api.steampowered.com";
-const QUERY_PAGE = 1000;         // IStoreQueryService/Query max page size
-const SEED_POOL_FACTOR = 1.5;    // candidates fetched per seeded game, re-ranked by review count
 
 let steamKey = "";
 function key(): string {
   return (steamKey ||= required("STEAM_API_KEY"));
 }
 
-async function steamApi<T>(path: string, input?: unknown): Promise<T> {
-  const qs = [`key=${key()}`];
+async function steamApi<T>(path: string, input?: unknown, params: Record<string, string> = {}): Promise<T> {
+  const qs = [`key=${key()}`, ...Object.entries(params).map(([k, v]) => `${k}=${encodeURIComponent(v)}`)];
   if (input !== undefined) qs.push(`input_json=${encodeURIComponent(JSON.stringify(input))}`);
   for (let attempt = 0; ; attempt++) {
     const res = await fetch(`${STEAM_API}/${path}?${qs.join("&")}`, { headers: { Accept: "application/json" } });
@@ -255,21 +253,31 @@ async function steamApi<T>(path: string, input?: unknown): Promise<T> {
 const appIdsOf = (list?: { appid?: number; id?: number; item_id?: number }[]) =>
   (list ?? []).map((r) => r.appid ?? r.id ?? r.item_id ?? 0).filter((id) => id > 0);
 
-/** Released games from the Steam store search, in Steam's review-sorted order. */
-async function storeQueryReleased(max: number): Promise<number[]> {
+/** Every game on Steam (IStoreService/GetAppList, 50k per page, games only). */
+async function allSteamGames(): Promise<number[]> {
   const ids: number[] = [];
-  for (let start = 0; start < max; start += QUERY_PAGE) {
-    const res = await steamApi<{ ids?: { appid?: number }[]; metadata?: { total_matching_records?: number } }>(
-      "IStoreQueryService/Query/v1/",
-      {
-        query: { start, count: QUERY_PAGE, sort: 10, filters: { released_only: true, type_filters: { include_games: true } } },
-        context: { language: "english", country_code: "ES" },
-      },
-    );
-    const page = appIdsOf(res.ids);
-    ids.push(...page);
-    if (page.length < QUERY_PAGE) break;
-    await sleep(500);
+  let lastAppid = 0;
+  for (let page = 0; page < 10; page++) {
+    const res = await steamApi<{ apps?: { appid?: number }[]; have_more_results?: boolean; last_appid?: number }>(
+      "IStoreService/GetAppList/v1/", undefined, {
+        include_games: "true", include_dlc: "false", include_software: "false", include_videos: "false",
+        include_hardware: "false", max_results: "50000", last_appid: String(lastAppid),
+      });
+    ids.push(...appIdsOf(res.apps));
+    if (!res.have_more_results || !res.last_appid) break;
+    lastAppid = res.last_appid;
+  }
+  return ids;
+}
+
+/** App IDs already in the import queue (the previous ranking, manual seeds, trending). */
+async function queuedApps(): Promise<number[]> {
+  const ids: number[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase.from("import_queue").select("steam_app_id").order("steam_app_id").range(from, from + 999);
+    if (error) throw new Error(`import_queue read: ${error.message}`);
+    ids.push(...(data ?? []).map((r) => r.steam_app_id as number));
+    if (!data || data.length < 1000) break;
   }
   return ids;
 }
@@ -331,32 +339,33 @@ async function reviewCounts(appIds: number[]): Promise<Map<number, number>> {
       if (attempt >= 3) throw new Error(`GetItems HTTP ${res.status}`);
       await sleep(10_000 * 2 ** attempt);
     }
-    if ((i / ITEMS_BATCH) % 50 === 49) console.log(`Review counts: ${Math.min(i + ITEMS_BATCH, appIds.length)}/${appIds.length}`);
-    await sleep(250);
+    if ((i / ITEMS_BATCH) % 200 === 199) console.log(`Review counts: ${Math.min(i + ITEMS_BATCH, appIds.length)}/${appIds.length}`);
+    await sleep(100);
   }
   return counts;
 }
 
 /**
- * Weekly: rank the catalog from Steam itself. Candidates are the store search's
- * released games (review-sorted, with a buffer) plus Steam's charts; each is then
- * ranked by its actual review count, so the order never depends on Steam's sort.
- * Games on the charts (most played, top sellers…) are always kept.
+ * Weekly: rank the catalog from Steam itself. Every game on Steam (GetAppList), plus
+ * what's already queued and Steam's charts, is ranked by its review count (GetItems,
+ * ~3000 calls, ~20 min). Games on the charts (most played, top sellers…) are always kept.
+ * (The store search's "sort by reviews" turned out to miss big games like Skyrim.)
  */
 async function seed(topN: number) {
-  const pool = await storeQueryReleased(Math.ceil(topN * SEED_POOL_FACTOR));
-  console.log(`Store search: ${pool.length} released games.`);
-  if (pool.length < Math.min(topN, 1000)) throw new Error(`Store search returned only ${pool.length} games; keeping the current ranking.`);
+  const all = await allSteamGames();
+  console.log(`Steam app list: ${all.length} games.`);
+  if (all.length < 50_000) throw new Error(`App list returned only ${all.length} games; keeping the current ranking.`);
+  const queued = await queuedApps();
   const charts = [...(await chartApps()).values()].flat();
 
-  const candidates = [...new Set([...pool, ...charts])];
+  const candidates = [...new Set([...all, ...queued, ...charts])];
   const counts = await reviewCounts(candidates);
   console.log(`Review counts for ${counts.size}/${candidates.length} apps.`);
+  if (counts.size < all.length / 2) throw new Error(`Too few review counts (${counts.size}); keeping the current ranking.`);
 
   const onCharts = new Set(charts.filter((id) => counts.has(id)));
-  const byReviews = [...counts].sort((a, b) => b[1] - a[1]).map(([id]) => id);
-  const top = byReviews.slice(0, Math.max(0, topN - onCharts.size));
-  const ranked = [...new Set([...top, ...onCharts])]
+  const byReviews = [...counts].filter(([id]) => !onCharts.has(id)).sort((a, b) => b[1] - a[1]).map(([id]) => id);
+  const ranked = [...byReviews.slice(0, Math.max(0, topN - onCharts.size)), ...onCharts]
     .sort((a, b) => (counts.get(b) ?? 0) - (counts.get(a) ?? 0));
   console.log(`Seeding ${ranked.length} games (${onCharts.size} from charts); #${ranked.length} has ${counts.get(ranked.at(-1)!) ?? 0} reviews.`);
 
