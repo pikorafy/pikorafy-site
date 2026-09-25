@@ -164,10 +164,10 @@ export default function GamingDealsPage() {
               </p>
             </div>
             <Link
-              href="/gaming"
+              href="/games"
               className="text-sm font-medium text-emerald-400 hover:text-emerald-300 transition-colors"
             >
-              &larr; Gaming Hub
+              All games &rarr;
             </Link>
           </div>
 

@@ -2,41 +2,41 @@ import Link from "next/link";
 
 const COLS = [
   {
-    label: "Browse",
+    label: "Games",
     links: [
+      { name: "All Games", href: "/games" },
+      { name: "Biggest Discounts", href: "/games?sort=discount" },
+      { name: "Best Reviewed", href: "/games?sort=reviews" },
+      { name: "Free to Play", href: "/games/free-to-play" },
+      { name: "Early Access", href: "/games/early-access" },
+    ],
+  },
+  {
+    label: "Genres",
+    links: [
+      { name: "Action", href: "/games/action" },
+      { name: "RPG", href: "/games/rpg" },
+      { name: "Strategy", href: "/games/strategy" },
+      { name: "Adventure", href: "/games/adventure" },
+      { name: "Simulation", href: "/games/simulation" },
+    ],
+  },
+  {
+    label: "Xbox & Deals",
+    links: [
+      { name: "Xbox Games", href: "/xbox" },
+      { name: "Xbox on Sale", href: "/xbox?sort=discount" },
+      { name: "In Game Pass", href: "/xbox?gamepass=1" },
       { name: "All Deals", href: "/deals" },
-      { name: "Top Discounts", href: "/deals?sort=savings" },
-      { name: "New Releases", href: "/gaming#new" },
-      { name: "Upcoming", href: "/gaming#upcoming" },
-      { name: "Free Games", href: "/gaming#free" },
-    ],
-  },
-  {
-    label: "Compare",
-    links: [
-      { name: "All Comparisons", href: "/vs" },
-      { name: "Alternatives", href: "/alternatives" },
-      { name: "Game Pass vs PS Plus", href: "/vs/xbox-game-pass-vs-ps-plus" },
-      { name: "DLSS vs FSR", href: "/vs/dlss-4-vs-fsr-4" },
-      { name: "Key Stores", href: "/vs/eneba-vs-g2a-vs-kinguin" },
-    ],
-  },
-  {
-    label: "Content",
-    links: [
-      { name: "Blog", href: "/blog" },
-      { name: "Gaming Hub", href: "/gaming" },
-      { name: "AI Quiz", href: "/quiz" },
-      { name: "Cloud Gaming", href: "/blog/best-game-streaming-services-2026" },
-      { name: "Gaming VPNs", href: "/blog/best-gaming-vpns-2026" },
+      { name: "Browse Deals", href: "/browse" },
     ],
   },
   {
     label: "Pikorafy",
     links: [
       { name: "Stores", href: "/stores" },
+      { name: "API", href: "/api-docs" },
       { name: "About", href: "#" },
-      { name: "Press Kit", href: "#" },
       { name: "Contact", href: "#" },
       { name: "Report a Deal", href: "#" },
     ],
