@@ -286,6 +286,23 @@ export interface ListingGame {
   regular_price: number | null;
   discount_pct: number | null;
   store: string | null;
+  current_players?: number | null;
+  release_date?: string | null;
+}
+
+/**
+ * Search text in the form of games.title_key / xbox_games.group_key (lowercase,
+ * no ™/®/accents/punctuation), so "assassins creed" finds "Assassin's Creed®".
+ */
+export function normalizeQuery(q: string): string {
+  return q
+    .replace(/[™®©]/g, "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .slice(0, 80);
 }
 
 /** Steam genre name ↔ URL segment. Only these get /games/<genre> pages. */
@@ -311,6 +328,8 @@ const LISTING_COLUMNS =
 
 export async function getListing(opts: {
   genre?: string;
+  /** Free-text search on the (normalized) title. */
+  query?: string;
   sort?: ListingSort;
   onSale?: boolean;
   limit: number;
@@ -322,6 +341,8 @@ export async function getListing(opts: {
   let q = client.from("game_listing").select(LISTING_COLUMNS, { count: "exact" });
   if (opts.genre) q = q.contains("genres", [opts.genre]);
   if (opts.onSale) q = q.gt("discount_pct", 0);
+  const text = opts.query ? normalizeQuery(opts.query) : "";
+  if (text) q = q.ilike("title_key", `%${text}%`);
 
   switch (opts.sort ?? "popular") {
     case "discount":
@@ -345,6 +366,56 @@ export async function getListing(opts: {
     regular_price: g.regular_price === null ? null : Number(g.regular_price),
   })) as ListingGame[];
   return { games, total: count ?? games.length };
+}
+
+// ─── Home page blocks ────────────────────────────────────────────────────────
+
+const HOME_COLUMNS = `${LISTING_COLUMNS}, current_players, release_date`;
+
+function toListing(rows: Record<string, unknown>[] | null): ListingGame[] {
+  return (rows ?? []).map((g) => ({
+    ...g,
+    price: g.price === null ? null : Number(g.price),
+    regular_price: g.regular_price === null ? null : Number(g.regular_price),
+  })) as unknown as ListingGame[];
+}
+
+/** Games with the most concurrent Steam players right now. */
+export async function getMostPlayed(limit: number): Promise<ListingGame[]> {
+  const client = db();
+  if (!client) return [];
+  const { data } = await client.from("game_listing").select(HOME_COLUMNS)
+    .not("current_players", "is", null)
+    .order("current_players", { ascending: false })
+    .limit(limit);
+  return toListing(data);
+}
+
+/**
+ * Latest releases (including 1.0 launches out of Early Access), limited to games
+ * with some traction so the list isn't filled with obscure titles.
+ */
+export async function getRecentReleases(limit: number): Promise<ListingGame[]> {
+  const client = db();
+  if (!client) return [];
+  const { data } = await client.from("game_listing").select(HOME_COLUMNS)
+    .lte("release_date", new Date().toISOString().slice(0, 10))
+    .eq("coming_soon", false)
+    .gte("review_count", 500)
+    .order("release_date", { ascending: false })
+    .limit(limit);
+  return toListing(data);
+}
+
+/** Most popular games in a genre. */
+export async function getGenreTop(genre: string, limit: number): Promise<ListingGame[]> {
+  const client = db();
+  if (!client) return [];
+  const { data } = await client.from("game_listing").select(HOME_COLUMNS)
+    .contains("genres", [genre])
+    .order("popularity_rank", { ascending: true })
+    .limit(limit);
+  return toListing(data);
 }
 
 /** Catalog slug for a Steam app, used to route old deal links to the new pages. */
