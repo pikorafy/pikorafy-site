@@ -2,7 +2,8 @@
 // Schema: supabase/migrations/20260924000000_game_catalog.sql
 //
 // Usage (Node ≥ 23.6 runs .mts directly; on Node 22 add --experimental-strip-types):
-//   node scripts/import-steam.mts seed [topN]        queue the top N games from SteamSpy (default 2000)
+//   node scripts/import-steam.mts seed [topN]        queue the top N games from SteamSpy (default 20000)
+//   node scripts/import-steam.mts discover           add today's most played / trending, prune the rest
 //   node scripts/import-steam.mts seed-ids 730,570   queue specific app IDs at top priority
 //   node scripts/import-steam.mts run [maxGames]     import due games via GetItems, new first (default: all due)
 //   node scripts/import-steam.mts run-appdetails [n] legacy per-game appdetails import (blocked from GitHub)
@@ -348,6 +349,41 @@ async function backfillArt(max: number) {
   console.log(`Art: ${updated}/${ids.length} games. Asset keys seen: ${[...keys].map(([k, n]) => `${k}(${n})`).join(", ") || "none"}`);
 }
 
+/**
+ * Daily: add what's hot right now — Steam's most played (ISteamChartsService) and
+ * SteamSpy's top 100 of the last two weeks — then drop games that fell out of both
+ * the weekly top N and these lists (prune_catalog), keeping the catalog in budget.
+ */
+async function discover() {
+  const ids = new Set<number>();
+  try {
+    const res = await fetch("https://api.steampowered.com/ISteamChartsService/GetMostPlayedGames/v1/");
+    const body = (await res.json()) as { response?: { ranks?: { appid?: number }[] } };
+    const ranks = (body.response?.ranks ?? []).map((r) => r.appid).filter((id): id is number => !!id);
+    ranks.forEach((id) => ids.add(id));
+    console.log(`Steam most played: ${ranks.length}`);
+  } catch (err) {
+    console.warn(`GetMostPlayedGames: ${String(err)}`);
+  }
+  try {
+    const res = await fetch("https://steamspy.com/api.php?request=top100in2weeks");
+    const body = (await res.json()) as Record<string, unknown>;
+    const top = Object.keys(body).map(Number).filter(Boolean);
+    top.forEach((id) => ids.add(id));
+    console.log(`SteamSpy top 100 (2 weeks): ${top.length}`);
+  } catch (err) {
+    console.warn(`SteamSpy top100in2weeks: ${String(err)}`);
+  }
+  if (!ids.size) throw new Error("No trending apps found; not pruning.");
+
+  const { data: marked, error } = await supabase.rpc("mark_trending", { ids: [...ids] });
+  if (error) throw new Error(`mark_trending: ${error.message}`);
+  const { data: pruned, error: pruneError } = await supabase.rpc("prune_catalog");
+  if (pruneError) throw new Error(`prune_catalog: ${pruneError.message}`);
+  const { data: sizeMb } = await supabase.rpc("db_size_mb");
+  console.log(`Trending: ${ids.size} apps (${marked} queued/updated). Pruned ${pruned} games. Database: ${sizeMb} MB.`);
+}
+
 async function seedIds(ids: number[]) {
   await enqueue(ids.map((id) => ({ steam_app_id: id, priority: 0 })));
 }
@@ -421,6 +457,14 @@ async function runAppdetails(maxGames: number) {
 const STORE_ASSETS = "https://shared.akamai.steamstatic.com/store_item_assets/";
 const STORE_TRAILERS = "https://video.akamai.steamstatic.com/store_trailers/";
 const ITEMS_BATCH = 50;
+const MAX_STORED_TRAILERS = 8;
+const MAX_STORED_SCREENSHOTS = 16;
+// Database budget (free plan: 500 MB; we cap ourselves at 400 MB): above this, runs
+// only refresh games we already have and add no new ones.
+const DB_BUDGET_MB = 380;
+// Games per hourly run (keeps a run well inside the workflow timeout; the first fill
+// of a large seed takes a few runs).
+const MAX_PER_RUN = 4000;
 
 // Steam genre ids as appdetails reports them; GetItems only has tags, whose names match.
 const GENRES: Record<string, { id: string; description: string }> = {
@@ -537,6 +581,7 @@ function toAppdetails(item: StoreItem, tagNames: Map<number, string>) {
   const screenshots = (item.screenshots?.all_ages_screenshots ?? [])
     .filter((s) => s.filename)
     .sort((a, b) => (a.ordinal ?? 0) - (b.ordinal ?? 0))
+    .slice(0, MAX_STORED_SCREENSHOTS)
     .map((s, id) => {
       const [path, query = ""] = s.filename!.split("?");
       const sized = (size: string) => `${STORE_ASSETS}${path.replace(/\.jpg$/, `.${size}.jpg`)}${query ? `?${query}` : ""}`;
@@ -549,10 +594,11 @@ function toAppdetails(item: StoreItem, tagNames: Map<number, string>) {
     const thumb = thumbFile && t.trailer_url_format ? STORE_ASSETS + t.trailer_url_format.replace("${FILENAME}", thumbFile) : null;
     return { id: t.trailer_base_id, name: t.trailer_name ?? "Trailer", thumbnail: thumb, hls_h264: hls ? STORE_TRAILERS + hls : null, highlight };
   };
+  // Capped: pages show at most a handful, and every stored byte counts against the DB budget.
   const movies = [
     ...(item.trailers?.highlights ?? []).map((t) => trailer(t, true)),
     ...(item.trailers?.other_trailers ?? []).map((t) => trailer(t, false)),
-  ].filter((m) => typeof m.id === "number" && m.thumbnail);
+  ].filter((m) => typeof m.id === "number" && m.thumbnail).slice(0, MAX_STORED_TRAILERS);
 
   const release = item.release?.steam_release_date ?? item.release?.original_release_date;
   const comingSoon = item.release?.is_coming_soon ?? (!release || release * 1000 > Date.now());
@@ -587,14 +633,21 @@ function toAppdetails(item: StoreItem, tagNames: Map<number, string>) {
 async function run(maxGames: number) {
   const tagNames = await loadTagNames();
 
+  const { data: sizeMb } = await supabase.rpc("db_size_mb");
+  const overBudget = typeof sizeMb === "number" && sizeMb > DB_BUDGET_MB;
+  if (overBudget) console.warn(`Database is ${sizeMb} MB (budget ${DB_BUDGET_MB} MB): refreshing existing games only.`);
+  else console.log(`Database: ${sizeMb ?? "?"} MB of ${DB_BUDGET_MB} MB budget.`);
+
   // PostgREST caps responses at 1000 rows: page through the due queue.
   const due: { steam_app_id: number; priority: number; attempts: number }[] = [];
   for (let from = 0; due.length < maxGames; from += 1000) {
-    const { data, error } = await supabase
+    let query = supabase
       .from("import_queue")
       .select("steam_app_id, priority, attempts")
       .eq("skip", false)
-      .lte("next_fetch_at", new Date().toISOString())
+      .lte("next_fetch_at", new Date().toISOString());
+    if (overBudget) query = query.not("imported_at", "is", null);
+    const { data, error } = await query
       .order("imported_at", { ascending: true, nullsFirst: true })
       .order("priority", { ascending: true })
       .order("steam_app_id", { ascending: true })
@@ -626,11 +679,6 @@ async function run(maxGames: number) {
       console.warn(`US trailers batch ${i / ITEMS_BATCH + 1}: ${String(err)} — using Spain's`);
     }
     const now = new Date().toISOString();
-
-    const stored = items.filter((it) => it.appid && it.success === 1);
-    if (stored.length) {
-      await supabase.from("steam_store_items").upsert(stored.map((item) => ({ steam_app_id: item.appid, item, fetched_at: now })));
-    }
 
     for (const q of batch) {
       const item = byId.get(q.steam_app_id);
@@ -741,13 +789,14 @@ function sleep(ms: number) {
 
 const [cmd, arg] = process.argv.slice(2);
 switch (cmd) {
-  case "seed":     await seed(Number(arg ?? 2000)); break;
+  case "seed":     await seed(Number(arg ?? 20000)); break;
+  case "discover": await discover(); break;
   case "seed-ids": await seedIds((arg ?? "").split(",").map(Number).filter(Boolean)); break;
-  case "run":      await run(Number(arg ?? 5000)); break;
+  case "run":      await run(Number(arg ?? MAX_PER_RUN)); break;
   case "run-appdetails": await runAppdetails(Number(arg ?? 60)); break;
   case "backfill-trailers": await backfillTrailers(Number(arg ?? 500)); break;
   case "art":      await backfillArt(Number(arg ?? 2000)); break;
   default:
-    console.error("Usage: import-steam.mts seed [topN] | seed-ids <id,id> | run [maxGames] | run-appdetails [maxGames] | backfill-trailers [max] | art [max]");
+    console.error("Usage: import-steam.mts seed [topN] | seed-ids <id,id> | run [maxGames] | run-appdetails [maxGames] | discover | backfill-trailers [max] | art [max]");
     process.exit(1);
 }

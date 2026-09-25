@@ -11,6 +11,7 @@
 import { createClient } from "@supabase/supabase-js";
 
 const CONCURRENCY = 8;
+const MAX_GAMES = 5000;
 
 const supabase = createClient(
   required("SUPABASE_URL"),
@@ -33,8 +34,10 @@ async function currentPlayers(appId: number): Promise<number | null> {
 
 async function main() {
   // PostgREST returns at most 1000 rows per request: page through the whole catalog.
+  // Top games only: counting ~20k small games every hour would outrun the job, and
+  // their player counts are near zero anyway.
   const ids: number[] = [];
-  for (let from = 0; ; from += 1000) {
+  for (let from = 0; from < MAX_GAMES; from += 1000) {
     const { data, error } = await supabase
       .from("games")
       .select("steam_app_id")
