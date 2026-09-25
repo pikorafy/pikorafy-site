@@ -14,6 +14,7 @@ import {
   type PricePoint,
 } from "@/lib/catalog";
 import { AFFILIATE_DISCLOSURE_SHORT } from "@/lib/affiliate";
+import { LOW_TONE, priceTone } from "@/lib/price-tone";
 import { cleanXboxTitle, getSubscriptionNames, getXboxForSteamApp, subscriptionLabels, type XboxGame } from "@/lib/xbox";
 import { xboxPlatforms } from "@/components/XboxOffers";
 import GameDetailClient from "./GameDetailClient";
@@ -118,6 +119,10 @@ export default async function GamePage({ params }: GamePageProps) {
 
   const best = prices[0];
   const low = lowestPrice(game, history, best, currency);
+  // Best PC price coloured by where it sits between its all-time low and its highest price.
+  const bestTone = best
+    ? priceTone(best.price, low?.price ?? null, Math.max(best.regular_price ?? best.price, ...history.map((h) => h.price)), best.discount_pct)
+    : undefined;
   const instantGamingUrl = `https://www.instant-gaming.com/en/search/?q=${encodeURIComponent(game.name)}&igr=pikorafy`;
 
   return (
@@ -154,15 +159,20 @@ export default async function GamePage({ params }: GamePageProps) {
             </div>
             <h1>{game.name}</h1>
             <p className="tagline">{heroLine(game, best, low)}</p>
-            <div className="stats">
-              {best && <Stat value={money(best.price, best.currency)} label="Best PC price" />}
+            {/* Prices first; ratings and players on their own line below. */}
+            <div className="stats stats-prices">
+              {best && <Stat value={money(best.price, best.currency)} label="Best PC price" pill={bestTone} />}
               {best?.discount_pct ? <Stat value={`-${best.discount_pct}%`} label="Discount" accent /> : null}
-              {low && <Stat value={money(low.price, currency)} label={low.allTime ? "All-time low" : "Lowest we've tracked"} />}
+              {low && <Stat value={money(low.price, currency)} label={low.allTime ? "All-time low" : "Lowest we've tracked"} pill={LOW_TONE} />}
               {xboxBest && <Stat value={xboxBest.is_free ? "Free" : money(xboxBest.price!, xboxBest.currency ?? "EUR")} label="On Xbox" />}
-              {game.current_players !== null && <Stat value={compact(game.current_players)} label="Playing now" />}
-              {game.review_score_pct !== null && <Stat value={`${game.review_score_pct}%`} label="Positive reviews" />}
-              {game.metacritic !== null && <Stat value={String(game.metacritic)} label="Metacritic" />}
             </div>
+            {(game.current_players !== null || game.review_score_pct !== null || game.metacritic !== null) && (
+              <div className="stats stats-meta">
+                {game.current_players !== null && <Stat value={compact(game.current_players)} label="Playing now" />}
+                {game.review_score_pct !== null && <Stat value={`${game.review_score_pct}%`} label="Positive reviews" />}
+                {game.metacritic !== null && <Stat value={String(game.metacritic)} label="Metacritic" />}
+              </div>
+            )}
             <div className="hero-buttons">
               {best?.url && (
                 <a href={best.url} target="_blank" rel="noopener noreferrer" className="btn btn-primary">
@@ -441,10 +451,12 @@ function buildOffers(prices: GamePrice[], xbox: XboxGame[], name: string): Offer
   return [...pc, ...console_].sort((a, b) => (a.price === null ? 1 : 0) - (b.price === null ? 1 : 0) || (a.price ?? 0) - (b.price ?? 0));
 }
 
-function Stat({ value, label, accent }: { value: string; label: string; accent?: boolean }) {
+function Stat({ value, label, accent, pill }: { value: string; label: string; accent?: boolean; pill?: string }) {
   return (
     <div>
-      <div className="v" style={accent ? { color: "var(--accent)" } : undefined}>{value}</div>
+      <div className="v" style={accent ? { color: "var(--accent)" } : undefined}>
+        {pill ? <span className="price-pill" style={{ background: pill }}>{value}</span> : value}
+      </div>
       <div className="l">{label}</div>
     </div>
   );
