@@ -264,9 +264,9 @@ async function seed(topN: number) {
 
   // Re-rank games we already have right away. (Clearing ranks and waiting for each
   // game's next refresh would hide most of the catalog for up to a day.)
-  const { data: ranked, error: rankError } = await supabase.rpc("apply_seed_ranks");
+  const { data: reranked, error: rankError } = await supabase.rpc("apply_seed_ranks");
   if (rankError) throw new Error(`apply_seed_ranks: ${rankError.message}`);
-  console.log(`Re-ranked ${ranked} games.`);
+  console.log(`Re-ranked ${reranked} games.`);
 }
 
 /** One-off: fetch English trailers for games imported before trailers_en existed. */
