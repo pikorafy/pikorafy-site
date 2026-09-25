@@ -5,7 +5,7 @@ name: Import Steam catalog
 
 on:
   schedule:
-    - cron: "17 */3 * * *"   # every 3h: ~120 games per run, ~960/day
+    - cron: "17 * * * *"     # hourly: up to 60 games per run (new games first), ~1400/day
     - cron: "40 4 * * 1"     # Mondays: refresh the top-2000 seed list from SteamSpy
   workflow_dispatch:
     inputs:
@@ -43,5 +43,5 @@ jobs:
           elif [ "${{ github.event.schedule }}" = "40 4 * * 1" ]; then
             node scripts/import-steam.mts seed 2000
           else
-            node scripts/import-steam.mts run 120
+            node scripts/import-steam.mts run 60
           fi

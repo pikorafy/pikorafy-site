@@ -4,21 +4,23 @@
 // Usage (Node ≥ 23.6 runs .mts directly; on Node 22 add --experimental-strip-types):
 //   node scripts/import-steam.mts seed [topN]        queue the top N games from SteamSpy (default 2000)
 //   node scripts/import-steam.mts seed-ids 730,570   queue specific app IDs at top priority
-//   node scripts/import-steam.mts run [maxGames]     import due games from the queue (default 120)
+//   node scripts/import-steam.mts run [maxGames]     import due games from the queue (default 60)
 //   node scripts/import-steam.mts backfill-trailers [max]  English trailers for games missing them
 //   node scripts/import-steam.mts art [max]                key-art assets (also topped up after every run)
 //
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 //
-// Rate limits: Steam's store API allows ~200 requests / 5 min per IP. We make
-// 3 requests per game (appdetails ES + appdetails US for trailers + appreviews) and space every request by
-// REQUEST_GAP_MS, so a run of 120 games takes ~10 min and stays under the cap.
-// On a 429/403 we stop the run instead of hammering; the queue resumes next time.
+// Rate limits: Steam's store API allows ~200 requests / 5 min per IP, and GitHub's
+// shared runner IPs are often already throttled. We make 2 requests per game
+// (appdetails ES + appreviews; English trailers only for games that don't have them
+// yet), space every request by REQUEST_GAP_MS, and when Steam throttles we back off
+// 1 → 2 → 4 → 8 min before giving up; the queue resumes on the next hourly run.
+// Games never imported go before refreshes of games we already have.
 
 import { createClient } from "@supabase/supabase-js";
 
 const REQUEST_GAP_MS = 1600;   // ≈187 req / 5 min
-const THROTTLE_PAUSE_MS = 30_000;
+const THROTTLE_BACKOFF_MS = [60_000, 120_000, 240_000, 480_000];
 const COUNTRY = "es";          // prices in EUR, as Spanish users see them
 const TRAILER_COUNTRY = "us";  // Steam picks trailers by region; "es" returns Spanish/PEGI cuts
 const TOP_REFRESH_RANK = 500;  // games ranked above this refresh daily, the rest weekly
@@ -76,22 +78,28 @@ async function steamFetch<T>(url: string): Promise<T> {
 }
 
 /**
- * appdetails signals throttling with HTTP 200 and a `null` body (not a 429), so an
- * empty body must never be read as "this app doesn't exist". Retry once after a
- * pause; if Steam is still throttling, stop the run and let the queue resume later.
+ * appdetails signals throttling with HTTP 200 and a `null` body (or a 429/403), so an
+ * empty body must never be read as "this app doesn't exist". Back off and retry with
+ * growing pauses; if Steam is still throttling after ~15 min, stop the run and let
+ * the queue resume on the next one.
  * Returns null only when Steam explicitly says success:false (delisted/region-locked).
  */
 async function getAppDetails(appId: number, country = COUNTRY): Promise<SteamAppDetails | null> {
   const url = `https://store.steampowered.com/api/appdetails?appids=${appId}&cc=${country}&l=english`;
   type Body = Record<string, { success: boolean; data?: SteamAppDetails }> | null;
-  let body = await steamFetch<Body>(url);
-  if (!body?.[appId]) {
-    await sleep(THROTTLE_PAUSE_MS);
-    body = await steamFetch<Body>(url);
-    if (!body?.[appId]) throw new RateLimited(`empty appdetails body for ${appId} (throttled)`);
+  for (let attempt = 0; ; attempt++) {
+    let body: Body = null;
+    try {
+      body = await steamFetch<Body>(url);
+    } catch (err) {
+      if (!(err instanceof RateLimited)) throw err;
+    }
+    const entry = body?.[appId];
+    if (entry) return entry.success && entry.data ? entry.data : null;
+    if (attempt >= THROTTLE_BACKOFF_MS.length) throw new RateLimited(`appdetails still throttled for ${appId} after backing off`);
+    console.warn(`Steam throttling (app ${appId}); waiting ${THROTTLE_BACKOFF_MS[attempt] / 60_000} min`);
+    await sleep(THROTTLE_BACKOFF_MS[attempt]);
   }
-  const entry = body[appId];
-  return entry?.success && entry.data ? entry.data : null;
 }
 
 /** The trailer list as English-speaking regions see it (null if Steam returns none). */
@@ -148,7 +156,10 @@ async function importGame(appId: number, rank: number): Promise<"ok" | "skip"> {
   if (!details || details.type !== "game") return "skip";
 
   const reviews = await getReviewSummary(appId);
-  const trailersEn = await getEnglishTrailers(appId);
+  // English trailers rarely change: fetch them once per game (saves a third of the requests).
+  const { data: existing } = await supabase.from("games").select("trailers_en").eq("steam_app_id", appId).maybeSingle();
+  const hasTrailers = existing?.trailers_en !== null && existing?.trailers_en !== undefined;
+  const trailersEn = hasTrailers ? undefined : ((await getEnglishTrailers(appId)) ?? []);
   const now = new Date().toISOString();
 
   const game = {
@@ -173,7 +184,7 @@ async function importGame(appId: number, rank: number): Promise<"ok" | "skip"> {
     header_image: details.header_image ?? null,
     popularity_rank: rank,
     raw: details,
-    trailers_en: trailersEn,
+    ...(trailersEn !== undefined && { trailers_en: trailersEn }),
     steam_fetched_at: now,
   };
 
@@ -352,6 +363,7 @@ async function run(maxGames: number) {
     .select("steam_app_id, priority, attempts")
     .eq("skip", false)
     .lte("next_fetch_at", new Date().toISOString())
+    .order("imported_at", { ascending: true, nullsFirst: true })   // never-imported games first
     .order("priority", { ascending: true })
     .limit(maxGames);
   if (error) throw new Error(`import_queue select: ${error.message}`);
@@ -363,6 +375,7 @@ async function run(maxGames: number) {
       const days = item.priority <= TOP_REFRESH_RANK ? 1 : 7;
       await supabase.from("import_queue").update({
         next_fetch_at: new Date(Date.now() + days * 86_400_000).toISOString(),
+        ...(result === "ok" && { imported_at: new Date().toISOString() }),
         attempts: 0,
         last_error: null,
         skip: result === "skip",
@@ -407,7 +420,7 @@ const [cmd, arg] = process.argv.slice(2);
 switch (cmd) {
   case "seed":     await seed(Number(arg ?? 2000)); break;
   case "seed-ids": await seedIds((arg ?? "").split(",").map(Number).filter(Boolean)); break;
-  case "run":      await run(Number(arg ?? 120)); break;
+  case "run":      await run(Number(arg ?? 60)); break;
   case "backfill-trailers": await backfillTrailers(Number(arg ?? 500)); break;
   case "art":      await backfillArt(Number(arg ?? 2000)); break;
   default:
