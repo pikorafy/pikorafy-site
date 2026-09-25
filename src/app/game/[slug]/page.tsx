@@ -15,6 +15,7 @@ import {
 } from "@/lib/catalog";
 import { AFFILIATE_DISCLOSURE_SHORT } from "@/lib/affiliate";
 import { LOW_TONE, priceTone } from "@/lib/price-tone";
+import { MetaStat, MetaStats, PriceTile, PriceTiles } from "@/components/HeroStats";
 import { cleanXboxTitle, getSubscriptionNames, getXboxForSteamApp, subscriptionLabels, type XboxGame } from "@/lib/xbox";
 import { xboxPlatforms } from "@/components/XboxOffers";
 import GameDetailClient from "./GameDetailClient";
@@ -159,19 +160,25 @@ export default async function GamePage({ params }: GamePageProps) {
             </div>
             <h1>{game.name}</h1>
             <p className="tagline">{heroLine(game, best, low)}</p>
-            {/* Prices first; ratings and players on their own line below. */}
-            <div className="stats stats-prices">
-              {best && <Stat value={money(best.price, best.currency)} label="Best PC price" pill={bestTone} />}
-              {best?.discount_pct ? <Stat value={`-${best.discount_pct}%`} label="Discount" accent /> : null}
-              {low && <Stat value={money(low.price, currency)} label={low.allTime ? "All-time low" : "Lowest we've tracked"} pill={LOW_TONE} />}
-              {xboxBest && <Stat value={xboxBest.is_free ? "Free" : money(xboxBest.price!, xboxBest.currency ?? "EUR")} label="On Xbox" />}
-            </div>
+            {/* Two price tiles side by side; ratings and players in three columns below.
+                The Xbox price is on the Xbox Store button and in the offers table. */}
+            {best && (
+              <PriceTiles>
+                <PriceTile
+                  label="Best PC price"
+                  value={money(best.price, best.currency)}
+                  tone={bestTone}
+                  badge={best.discount_pct ? `-${best.discount_pct}%` : undefined}
+                />
+                {low && <PriceTile label={low.allTime ? "All-time low" : "Lowest we've tracked"} value={money(low.price, currency)} tone={LOW_TONE} />}
+              </PriceTiles>
+            )}
             {(game.current_players !== null || game.review_score_pct !== null || game.metacritic !== null) && (
-              <div className="stats stats-meta">
-                {game.current_players !== null && <Stat value={compact(game.current_players)} label="Playing now" />}
-                {game.review_score_pct !== null && <Stat value={`${game.review_score_pct}%`} label="Positive reviews" />}
-                {game.metacritic !== null && <Stat value={String(game.metacritic)} label="Metacritic" />}
-              </div>
+              <MetaStats>
+                {game.current_players !== null && <MetaStat value={compact(game.current_players)} label="Playing now" />}
+                {game.review_score_pct !== null && <MetaStat value={`${game.review_score_pct}%`} label="Positive reviews" />}
+                {game.metacritic !== null && <MetaStat value={String(game.metacritic)} label="Metacritic" />}
+              </MetaStats>
             )}
             <div className="hero-buttons">
               {best?.url && (
@@ -449,17 +456,6 @@ function buildOffers(prices: GamePrice[], xbox: XboxGame[], name: string): Offer
     };
   });
   return [...pc, ...console_].sort((a, b) => (a.price === null ? 1 : 0) - (b.price === null ? 1 : 0) || (a.price ?? 0) - (b.price ?? 0));
-}
-
-function Stat({ value, label, accent, pill }: { value: string; label: string; accent?: boolean; pill?: string }) {
-  return (
-    <div>
-      <div className="v" style={accent ? { color: "var(--accent)" } : undefined}>
-        {pill ? <span className="price-pill" style={{ background: pill }}>{value}</span> : value}
-      </div>
-      <div className="l">{label}</div>
-    </div>
-  );
 }
 
 function MiniStat({ value, label }: { value: number; label: string }) {
