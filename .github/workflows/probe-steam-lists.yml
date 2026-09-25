@@ -1,0 +1,21 @@
+name: Probe Steam lists
+
+# Read-only: checks which Steam Web API lists could rank the catalog.
+# See scripts/probe-steam-lists.mts. Run manually from the Actions tab.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Probe
+        env:
+          STEAM_API_KEY: ${{ secrets.STEAM_API_KEY }}
+        run: node scripts/probe-steam-lists.mts
