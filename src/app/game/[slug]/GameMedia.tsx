@@ -15,8 +15,11 @@ export default function GameMedia({
   source,
   trailers,
   screenshots,
+  inHero = false,
 }: {
   name: string;
+  /** Rendered inside the page hero (no top margin). */
+  inHero?: boolean;
   source: { label: string; url: string };
   trailers: SteamTrailer[];
   screenshots: SteamScreenshot[];
@@ -38,7 +41,7 @@ export default function GameMedia({
   const current = items[index];
 
   return (
-    <section aria-label={`${name} trailers and screenshots`} style={{ marginTop: 40 }}>
+    <section aria-label={`${name} trailers and screenshots`} style={{ marginTop: inHero ? 0 : 40 }}>
       <div
         className="media-stage"
         tabIndex={0}

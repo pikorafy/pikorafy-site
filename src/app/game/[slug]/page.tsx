@@ -14,8 +14,8 @@ import {
   type PricePoint,
 } from "@/lib/catalog";
 import { AFFILIATE_DISCLOSURE_SHORT } from "@/lib/affiliate";
-import { getSubscriptionNames, getXboxForSteamApp, subscriptionLabels } from "@/lib/xbox";
-import XboxOffers, { xboxPlatforms } from "@/components/XboxOffers";
+import { cleanXboxTitle, getSubscriptionNames, getXboxForSteamApp, subscriptionLabels, type XboxGame } from "@/lib/xbox";
+import { xboxPlatforms } from "@/components/XboxOffers";
 import GameDetailClient from "./GameDetailClient";
 import GameMedia from "./GameMedia";
 import PlayersChart from "./PlayersChart";
@@ -113,10 +113,11 @@ export default async function GamePage({ params }: GamePageProps) {
     getSubscriptionNames(),
   ]);
   const xboxBest = xbox.find((x) => x.price !== null);
+  const xboxIncluded = subscriptionLabels(xbox, subNames);
+  const offers = buildOffers(prices, xbox, game.name);
 
   const best = prices[0];
   const low = lowestPrice(game, history, best, currency);
-  const cover = `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.steam_app_id}/library_600x900.jpg`;
   const instantGamingUrl = `https://www.instant-gaming.com/en/search/?q=${encodeURIComponent(game.name)}&igr=pikorafy`;
 
   return (
@@ -127,8 +128,8 @@ export default async function GamePage({ params }: GamePageProps) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd(game, best, xbox.length > 0)).replace(/</g, "\\u003c") }}
       />
 
-      {/* ─── Hero ─────────────────────────────────────────────────────── */}
-      <section className="detail-hero">
+      {/* ─── Hero: media on the left, title / price / buy on the right ── */}
+      <section className="detail-hero media-hero">
         {game.header_image && (
           <div className="bg">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -137,43 +138,55 @@ export default async function GamePage({ params }: GamePageProps) {
         )}
         <div className="scrim" />
         <div className="shell inner">
-          <div className="cover">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={cover} alt={`${game.name} cover art`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-          </div>
           <div>
+            {game.trailers.length + game.screenshots.length > 0 ? (
+              <GameMedia
+                name={game.name}
+                source={{ label: "Steam", url: `https://store.steampowered.com/app/${game.steam_app_id}/` }}
+                trailers={game.trailers}
+                screenshots={game.screenshots}
+                inHero
+              />
+            ) : game.header_image ? (
+              <div className="hero-cover">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={game.header_image} alt={`${game.name} header art`} />
+              </div>
+            ) : null}
+          </div>
+          <div className="hero-info">
             <div className="crumbs">
-              <Link href="/">Home</Link> / <Link href="/deals">Deals</Link> / <span style={{ color: "var(--text)" }}>{game.name}</span>
+              <Link href="/">Home</Link> / <Link href="/games">Games</Link> / <span style={{ color: "var(--text)" }}>{game.name}</span>
             </div>
             <h1>{game.name}</h1>
             <p className="tagline">{heroLine(game, best, low)}</p>
             <div className="stats">
-              {best && <Stat value={money(best.price, best.currency)} label="Best price now" />}
+              {best && <Stat value={money(best.price, best.currency)} label="Best PC price" />}
               {best?.discount_pct ? <Stat value={`-${best.discount_pct}%`} label="Discount" accent /> : null}
               {low && <Stat value={money(low.price, currency)} label={low.allTime ? "All-time low" : "Lowest we've tracked"} />}
               {xboxBest && <Stat value={xboxBest.is_free ? "Free" : money(xboxBest.price!, xboxBest.currency ?? "EUR")} label="On Xbox" />}
               {game.current_players !== null && <Stat value={compact(game.current_players)} label="Playing now" />}
-              {game.review_score_pct !== null && <Stat value={`${game.review_score_pct}%`} label="Positive Steam reviews" />}
+              {game.review_score_pct !== null && <Stat value={`${game.review_score_pct}%`} label="Positive reviews" />}
               {game.metacritic !== null && <Stat value={String(game.metacritic)} label="Metacritic" />}
             </div>
-            <div style={{ display: "flex", gap: 10, marginTop: 24, flexWrap: "wrap" }}>
+            <div className="hero-buttons">
               {best?.url && (
-                <a href={best.url} target="_blank" rel="noopener noreferrer" className="btn btn-primary" style={{ padding: "14px 22px" }}>
+                <a href={best.url} target="_blank" rel="noopener noreferrer" className="btn btn-primary">
                   Buy on {best.store} for {money(best.price, best.currency)} →
                 </a>
               )}
-              <a href={instantGamingUrl} target="_blank" rel="noopener noreferrer sponsored" className="btn btn-ghost" style={{ padding: "14px 22px" }}>
+              <a href={instantGamingUrl} target="_blank" rel="noopener noreferrer sponsored" className="btn btn-ghost">
                 Check Instant Gaming →
               </a>
               {xboxBest?.store_url && (
-                <a href={xboxBest.store_url} target="_blank" rel="noopener noreferrer" className="btn btn-ghost" style={{ padding: "14px 22px" }}>
+                <a href={xboxBest.store_url} target="_blank" rel="noopener noreferrer" className="btn btn-ghost">
                   Xbox Store{xboxBest.is_free ? "" : ` · ${money(xboxBest.price!, xboxBest.currency ?? "EUR")}`} →
                 </a>
               )}
             </div>
             {game.steam_description && !content?.summary && (
-              <figure style={{ margin: "28px 0 0", maxWidth: "62ch" }}>
-                <blockquote style={{ margin: 0, color: "var(--text-2)", fontSize: 15, lineHeight: 1.7 }}>
+              <figure style={{ margin: "22px 0 0" }}>
+                <blockquote style={{ margin: 0, color: "var(--text-2)", fontSize: 14, lineHeight: 1.65 }}>
                   {game.steam_description}
                 </blockquote>
                 <figcaption style={{ fontFamily: "var(--ff-mono)", fontSize: 10, color: "var(--text-3)", marginTop: 8, letterSpacing: "0.12em", textTransform: "uppercase" }}>
@@ -184,7 +197,7 @@ export default async function GamePage({ params }: GamePageProps) {
                 </figcaption>
               </figure>
             )}
-            <div className="tag-row" style={{ marginTop: 20 }}>
+            <div className="tag-row" style={{ marginTop: 18 }}>
               {[...game.genres, ...game.categories.filter((c) => KEY_CATEGORIES.has(c))].map((tag) => (
                 <span key={tag} className="t">{tag}</span>
               ))}
@@ -198,7 +211,7 @@ export default async function GamePage({ params }: GamePageProps) {
         <div>
           <div className="section-hd" style={{ marginBottom: 16 }}>
             <div>
-              <div className="eyebrow">{xbox.length ? "PC offers" : "Current offers"} · prices in {currency}</div>
+              <div className="eyebrow">Current offers{xbox.length ? " · PC & Xbox" : ""} · prices in {currency}</div>
               <h2 className="h2" style={{ fontSize: "clamp(24px,4vw,32px)" }}>Where to buy {game.name}</h2>
             </div>
           </div>
@@ -213,36 +226,46 @@ export default async function GamePage({ params }: GamePageProps) {
               <div>Discount</div>
               <div />
             </div>
-            {prices.map((p, i) => (
-              <div key={`${p.source}-${p.store}`} className={`row ${i === 0 ? "cheapest" : ""}`}>
-                <div className="rank">{String(i + 1).padStart(2, "0")}</div>
-                <div className="store-block">
-                  <div className="store-logo">{p.store.slice(0, 3).toUpperCase()}</div>
-                  <div>
-                    <div className="sname">{p.store}</div>
-                    <div className="smeta">Updated <TimeAgo iso={p.fetched_at} /></div>
+            {offers.map((o, i) => {
+              const cheapest = offers[0];
+              return (
+                <div key={o.key} className={`row ${i === 0 && o.price !== null ? "cheapest" : ""}`}>
+                  <div className="rank">{String(i + 1).padStart(2, "0")}</div>
+                  <div className="store-block">
+                    <div className="store-logo">{o.logo}</div>
+                    <div>
+                      <div className="sname">{o.store}</div>
+                      <div className="smeta">
+                        {xbox.length > 0 && <><span className={`plat ${o.platform === "Xbox" ? "xbox" : ""}`}>{o.platform}</span> · </>}
+                        {o.meta}
+                      </div>
+                    </div>
                   </div>
+                  <div className="price-cell">
+                    <div className="pp">{o.free ? "Free" : o.price !== null ? money(o.price, o.currency) : "—"}</div>
+                    {o.price === null
+                      ? <div className="pf">See the store</div>
+                      : i === 0
+                        ? <div className="pf delta-zero">↓ cheapest right now</div>
+                        : cheapest.price !== null && cheapest.currency === o.currency
+                          ? <div className="pf delta-pos">+{money(o.price - cheapest.price, o.currency)} vs cheapest</div>
+                          : null}
+                  </div>
+                  <div className="price-cell"><div className="pf" style={{ fontSize: 13 }}>{o.regular_price ? money(o.regular_price, o.currency) : "—"}</div></div>
+                  <div className="price-cell"><div className="pf" style={{ fontSize: 13 }}>{o.discount_pct ? `-${o.discount_pct}%` : "—"}</div></div>
+                  {o.url ? (
+                    <a href={o.url} target="_blank" rel="noopener noreferrer" className="gobtn" style={{ textDecoration: "none", textAlign: "center" }}>Get →</a>
+                  ) : <div />}
                 </div>
-                <div className="price-cell">
-                  <div className="pp">{money(p.price, p.currency)}</div>
-                  {i === 0
-                    ? <div className="pf delta-zero">↓ cheapest right now</div>
-                    : <div className="pf delta-pos">+{money(p.price - best.price, p.currency)} vs cheapest</div>}
-                </div>
-                <div className="price-cell"><div className="pf" style={{ fontSize: 13 }}>{p.regular_price !== null ? money(p.regular_price, p.currency) : "—"}</div></div>
-                <div className="price-cell"><div className="pf" style={{ fontSize: 13 }}>{p.discount_pct ? `-${p.discount_pct}%` : "—"}</div></div>
-                {p.url ? (
-                  <a href={p.url} target="_blank" rel="noopener noreferrer" className="gobtn" style={{ textDecoration: "none", textAlign: "center" }}>Get →</a>
-                ) : <div />}
-              </div>
-            ))}
+              );
+            })}
             <div className="row">
               <div className="rank">··</div>
               <div className="store-block">
                 <div className="store-logo">IG</div>
                 <div>
                   <div className="sname">Instant Gaming</div>
-                  <div className="smeta">Steam keys · often below Steam</div>
+                  <div className="smeta">{xbox.length > 0 && <><span className="plat">PC</span> · </>}Steam keys · often below Steam</div>
                 </div>
               </div>
               <div className="price-cell"><div className="pf" style={{ fontSize: 13 }}>See current price</div></div>
@@ -251,19 +274,15 @@ export default async function GamePage({ params }: GamePageProps) {
               <a href={instantGamingUrl} target="_blank" rel="noopener noreferrer sponsored" className="gobtn" style={{ textDecoration: "none", textAlign: "center" }}>Check →</a>
             </div>
           </div>
+          {xboxIncluded.length > 0 && (
+            <p className="xbox-included" style={{ margin: "12px 0 0" }}>
+              <span aria-hidden>✓</span> On Xbox, included with {xboxIncluded.join(", ")}
+            </p>
+          )}
           <p style={{ fontSize: 12, color: "var(--text-3)", marginTop: 10 }}>{AFFILIATE_DISCLOSURE_SHORT}</p>
           {game.is_free && (
             <p style={{ color: "var(--text-2)" }}>{game.name} is free to play on Steam. Offers above, if any, are for paid editions or bundles.</p>
           )}
-
-          {xbox.length > 0 && <XboxOffers name={game.name} products={xbox} included={subscriptionLabels(xbox, subNames)} />}
-
-          <GameMedia
-            name={game.name}
-            source={{ label: "Steam", url: `https://store.steampowered.com/app/${game.steam_app_id}/` }}
-            trailers={game.trailers}
-            screenshots={game.screenshots}
-          />
 
           <div className="detail-prose" style={{ marginTop: 32 }}>
             {content?.summary && (
@@ -374,6 +393,59 @@ export default async function GamePage({ params }: GamePageProps) {
 }
 
 // ─── Pieces ──────────────────────────────────────────────────────────────────
+
+interface OfferRow {
+  key: string;
+  store: string;
+  logo: string;
+  platform: "PC" | "Xbox";
+  meta: React.ReactNode;
+  price: number | null;
+  free: boolean;
+  currency: string;
+  regular_price: number | null;
+  discount_pct: number | null;
+  url: string | null;
+}
+
+/** PC store offers and Xbox Store editions in one list, cheapest first. */
+function buildOffers(prices: GamePrice[], xbox: XboxGame[], name: string): OfferRow[] {
+  const pc: OfferRow[] = prices.map((p) => ({
+    key: `${p.source}-${p.store}`,
+    store: p.store,
+    logo: p.store.slice(0, 3).toUpperCase(),
+    platform: "PC",
+    meta: <>Updated <TimeAgo iso={p.fetched_at} /></>,
+    price: p.price,
+    free: false,
+    currency: p.currency,
+    regular_price: p.regular_price,
+    discount_pct: p.discount_pct,
+    url: p.url,
+  }));
+  // Unpriced Xbox products are usually delisted editions; keep one only if nothing is sold.
+  const sold = xbox.filter((x) => x.price !== null);
+  const console_: OfferRow[] = (sold.length ? sold : xbox.slice(0, 1)).map((x) => {
+    const edition = cleanXboxTitle(x.title);
+    return {
+      key: `xbox-${x.product_id}`,
+      store: "Xbox Store",
+      logo: "XBX",
+      platform: "Xbox",
+      meta: [
+        edition.toLowerCase() !== name.toLowerCase() ? edition : "",
+        xboxPlatforms([x]).map((pl) => pl.replace(/^Xbox (?=Series|One)/, "")).join(" · "),
+      ].filter(Boolean).join(" · "),
+      price: x.price,
+      free: x.is_free,
+      currency: x.currency ?? "EUR",
+      regular_price: x.regular_price,
+      discount_pct: x.discount_pct,
+      url: x.store_url,
+    };
+  });
+  return [...pc, ...console_].sort((a, b) => (a.price === null ? 1 : 0) - (b.price === null ? 1 : 0) || (a.price ?? 0) - (b.price ?? 0));
+}
 
 function Stat({ value, label, accent }: { value: string; label: string; accent?: boolean }) {
   return (

@@ -89,8 +89,8 @@ export default async function XboxGamePage({ params }: XboxPageProps) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd(game, title, storeUrl, platforms)).replace(/</g, "\\u003c") }}
       />
 
-      {/* ─── Hero ─────────────────────────────────────────────────────── */}
-      <section className="detail-hero">
+      {/* ─── Hero: media on the left, title / price / buy on the right ── */}
+      <section className="detail-hero media-hero">
         {game.hero_art && (
           <div className="bg">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -99,13 +99,17 @@ export default async function XboxGamePage({ params }: XboxPageProps) {
         )}
         <div className="scrim" />
         <div className="shell inner">
-          <div className="cover">
-            {game.box_art && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={`${game.box_art}?w=600`} alt={`${title} box art`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            )}
-          </div>
           <div>
+            {trailers.length + screenshots.length > 0 ? (
+              <GameMedia name={title} source={{ label: "Xbox", url: storeUrl }} trailers={trailers} screenshots={screenshots} inHero />
+            ) : (game.hero_art ?? game.box_art) ? (
+              <div className="hero-cover">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={`${game.hero_art ?? game.box_art}?w=1280`} alt={`${title} art`} />
+              </div>
+            ) : null}
+          </div>
+          <div className="hero-info">
             <div className="crumbs">
               <Link href="/">Home</Link> / <Link href="/xbox">Xbox</Link> / <span style={{ color: "var(--text)" }}>{title}</span>
             </div>
@@ -119,14 +123,14 @@ export default async function XboxGamePage({ params }: XboxPageProps) {
                 <Stat value={`★ ${game.rating.toFixed(1)}`} label={`${compact(game.rating_count!)} ratings`} />
               )}
             </div>
-            <div style={{ display: "flex", gap: 10, marginTop: 24, flexWrap: "wrap" }}>
-              <a href={storeUrl} target="_blank" rel="noopener noreferrer" className="btn btn-primary" style={{ padding: "14px 22px" }}>
+            <div className="hero-buttons">
+              <a href={storeUrl} target="_blank" rel="noopener noreferrer" className="btn btn-primary">
                 {game.is_free ? "Play free on Xbox" : game.price !== null ? `Buy on Xbox Store for ${money(game.price, cur)}` : "View on Xbox Store"} →
               </a>
             </div>
             {game.short_description && (
-              <figure style={{ margin: "28px 0 0", maxWidth: "62ch" }}>
-                <blockquote style={{ margin: 0, color: "var(--text-2)", fontSize: 15, lineHeight: 1.7, whiteSpace: "pre-line" }}>
+              <figure style={{ margin: "22px 0 0" }}>
+                <blockquote style={{ margin: 0, color: "var(--text-2)", fontSize: 14, lineHeight: 1.65, whiteSpace: "pre-line" }}>
                   {game.short_description}
                 </blockquote>
                 <figcaption style={{ fontFamily: "var(--ff-mono)", fontSize: 10, color: "var(--text-3)", marginTop: 8, letterSpacing: "0.12em", textTransform: "uppercase" }}>
@@ -137,7 +141,7 @@ export default async function XboxGamePage({ params }: XboxPageProps) {
                 </figcaption>
               </figure>
             )}
-            <div className="tag-row" style={{ marginTop: 20 }}>
+            <div className="tag-row" style={{ marginTop: 18 }}>
               {[...game.categories, ...platforms].map((tag) => <span key={tag} className="t">{tag}</span>)}
             </div>
           </div>
@@ -148,13 +152,6 @@ export default async function XboxGamePage({ params }: XboxPageProps) {
       <div className="shell detail-grid">
         <div>
           <XboxOffers name={title} products={editions} included={included} first />
-
-          <GameMedia
-            name={title}
-            source={{ label: "Xbox", url: storeUrl }}
-            trailers={trailers}
-            screenshots={screenshots}
-          />
         </div>
 
         {/* Aside */}
