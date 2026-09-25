@@ -36,16 +36,16 @@ export default function GameMedia({
   ];
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [lightboxAt, setLightboxAt] = useState<number | null>(null);   // screenshot index
+  const [lightboxAt, setLightboxAt] = useState<number | null>(null);   // item index
 
   const select = useCallback((i: number) => {
     setIndex((i + items.length) % items.length);
     setPlaying(false);
   }, [items.length]);
+  const openLightbox = (i: number) => { setPlaying(false); setLightboxAt(i); };
 
   if (items.length === 0) return null;
   const current = items[index];
-  const shotOffset = (keyArt ? 1 : 0) + trailers.length;
 
   return (
     <section aria-label={`${name} trailers and screenshots`} style={{ marginTop: inHero ? 0 : 40 }}>
@@ -57,9 +57,7 @@ export default function GameMedia({
           if (e.key === "ArrowLeft") select(index - 1);
         }}
       >
-        {current.kind === "art" ? (
-          <KeyArtSlide art={current.art} name={name} />
-        ) : current.kind === "trailer" ? (
+        {current.kind === "trailer" ? (
           playing ? (
             <TrailerPlayer key={current.trailer.id} trailer={current.trailer} source={source} />
           ) : (
@@ -70,11 +68,14 @@ export default function GameMedia({
             </button>
           )
         ) : (
-          <button type="button" className="media-play" onClick={() => setLightboxAt(index - shotOffset)} aria-label="View screenshot full size">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={current.shot.full} alt={`${name} screenshot ${index - shotOffset + 1}`} />
+          <button type="button" className="media-play" onClick={() => openLightbox(index)} aria-label="View full screen">
+            {current.kind === "art"
+              ? <KeyArtSlide art={current.art} name={name} />
+              // eslint-disable-next-line @next/next/no-img-element
+              : <img src={current.shot.full} alt={labelOf(items, index, name)} />}
           </button>
         )}
+        <button type="button" className="media-expand" onClick={() => openLightbox(index)} aria-label="Open full screen" title="Full screen">⤢</button>
         {items.length > 1 && (
           <>
             <button type="button" className="media-nav prev" onClick={() => select(index - 1)} aria-label="Previous">‹</button>
@@ -86,16 +87,16 @@ export default function GameMedia({
       <div className="media-strip" role="list">
         {items.map((item, i) => (
           <button
-            key={item.kind === "trailer" ? `t${item.trailer.id}` : `${item.kind}${i}`}
+            key={keyOf(item, i)}
             type="button"
             role="listitem"
             className="media-thumb"
             aria-current={i === index}
-            aria-label={item.kind === "art" ? `${name} key art` : item.kind === "trailer" ? item.trailer.name : `Screenshot ${i - shotOffset + 1}`}
+            aria-label={labelOf(items, i, name)}
             onClick={() => select(i)}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={item.kind === "art" ? thumbFor(item.art) : item.kind === "trailer" ? item.trailer.thumb : item.shot.thumb} alt="" loading="lazy" />
+            <img src={thumbOf(item)} alt="" loading="lazy" />
             {item.kind === "trailer" && <span className="media-thumb-play" aria-hidden>▶</span>}
           </button>
         ))}
@@ -103,14 +104,30 @@ export default function GameMedia({
 
       {lightboxAt !== null && (
         <Lightbox
-          images={screenshots}
+          items={items}
           start={lightboxAt}
           name={name}
-          onClose={(last) => { setLightboxAt(null); select(shotOffset + last); }}
+          source={source}
+          onClose={(last) => { setLightboxAt(null); select(last); }}
         />
       )}
     </section>
   );
+}
+
+const keyOf = (item: Item, i: number) => (item.kind === "trailer" ? `t${item.trailer.id}` : `${item.kind}${i}`);
+
+function thumbOf(item: Item): string {
+  return item.kind === "art" ? thumbFor(item.art) : item.kind === "trailer" ? item.trailer.thumb : item.shot.thumb;
+}
+
+/** "ELDEN RING key art", the trailer's name, or "Screenshot 3". */
+function labelOf(items: Item[], i: number, name: string): string {
+  const item = items[i];
+  if (item.kind === "art") return `${name} key art`;
+  if (item.kind === "trailer") return item.trailer.name;
+  const firstShot = items.findIndex((it) => it.kind === "shot");
+  return `${name} screenshot ${i - firstShot + 1}`;
 }
 
 /** Smallest title art for the thumbnail strip (the header is last in the chain). */
@@ -204,24 +221,30 @@ function TrailerPlayer({ trailer, source }: { trailer: SteamTrailer; source: { l
 }
 
 /**
- * Full-screen screenshot viewer. Rendered into <body> through a portal so no
- * ancestor's stacking context, overflow or transform can clip it or paint over it.
+ * Full-screen viewer for the whole gallery: key art, trailers (played in place)
+ * and screenshots. Rendered into <body> through a portal so no ancestor's stacking
+ * context, overflow or transform can clip it or paint over it.
  */
-function Lightbox({ images, start, name, onClose }: {
-  images: SteamScreenshot[];
+function Lightbox({ items, start, name, source, onClose }: {
+  items: Item[];
   start: number;
   name: string;
+  source: { label: string; url: string };
   onClose: (last: number) => void;
 }) {
   const [i, setI] = useState(start);
+  // Opening full screen on a trailer means "watch it": start playing straight away.
+  const [playing, setPlaying] = useState(items[start].kind === "trailer");
   const touchX = useRef<number | null>(null);
-  const count = images.length;
-  const go = useCallback((d: number) => setI((n) => (n + d + count) % count), [count]);
+  const count = items.length;
+  const item = items[i];
+  const go = useCallback((d: number) => { setI((n) => (n + d + count) % count); setPlaying(false); }, [count]);
   const close = useCallback(() => onClose(i), [onClose, i]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
+      if (e.key === "Escape") return close();
+      if (e.target instanceof HTMLVideoElement) return;    // let the player seek with the arrows
       if (e.key === "ArrowLeft") go(-1);
       if (e.key === "ArrowRight") go(1);
     };
@@ -234,17 +257,22 @@ function Lightbox({ images, start, name, onClose }: {
     };
   }, [close, go]);
 
-  // Warm the cache for the neighbours so paging feels instant.
+  // Warm the cache for neighbouring screenshots so paging feels instant.
   useEffect(() => {
-    for (const d of [-1, 1]) new Image().src = images[(i + d + count) % count].full;
-  }, [i, images, count]);
+    for (const d of [-1, 1]) {
+      const n = items[(i + d + count) % count];
+      if (n.kind === "shot") new Image().src = n.shot.full;
+    }
+  }, [i, items, count]);
+
+  const stop = (e: React.SyntheticEvent) => e.stopPropagation();
 
   return createPortal(
     <div
       className="media-lightbox"
       role="dialog"
       aria-modal="true"
-      aria-label={`${name} screenshots`}
+      aria-label={`${name} media`}
       onClick={close}
       onTouchStart={(e) => { touchX.current = e.touches[0].clientX; }}
       onTouchEnd={(e) => {
@@ -254,29 +282,45 @@ function Lightbox({ images, start, name, onClose }: {
         if (Math.abs(dx) > 50) go(dx < 0 ? 1 : -1);
       }}
     >
-      <div className="lb-top" onClick={(e) => e.stopPropagation()}>
+      <div className="lb-top" onClick={stop}>
         <span className="lb-count">{i + 1} / {count}</span>
-        <span className="lb-title">{name}</span>
+        <span className="lb-title">{item.kind === "trailer" ? `${name} · ${item.trailer.name}` : name}</span>
         <button type="button" className="lb-close" onClick={close} aria-label="Close">✕</button>
       </div>
 
       <div className="lb-stage">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img key={images[i].full} src={images[i].full} alt={`${name} screenshot ${i + 1} of ${count}`} onClick={(e) => e.stopPropagation()} />
+        {item.kind === "shot" ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img key={item.shot.full} className="lb-image" src={item.shot.full} alt={labelOf(items, i, name)} onClick={stop} />
+        ) : (
+          <div className="media-stage lb-media" onClick={stop}>
+            {item.kind === "art" ? (
+              <KeyArtSlide art={item.art} name={name} />
+            ) : playing ? (
+              <TrailerPlayer key={item.trailer.id} trailer={item.trailer} source={source} />
+            ) : (
+              <button type="button" className="media-play" onClick={() => setPlaying(true)} aria-label={`Play ${item.trailer.name}`}>
+                <TrailerPoster key={item.trailer.id} thumb={item.trailer.thumb} />
+                <span className="media-play-icon" aria-hidden>▶</span>
+              </button>
+            )}
+          </div>
+        )}
         {count > 1 && (
           <>
-            <button type="button" className="lb-nav prev" onClick={(e) => { e.stopPropagation(); go(-1); }} aria-label="Previous screenshot">‹</button>
-            <button type="button" className="lb-nav next" onClick={(e) => { e.stopPropagation(); go(1); }} aria-label="Next screenshot">›</button>
+            <button type="button" className="lb-nav prev" onClick={(e) => { stop(e); go(-1); }} aria-label="Previous">‹</button>
+            <button type="button" className="lb-nav next" onClick={(e) => { stop(e); go(1); }} aria-label="Next">›</button>
           </>
         )}
       </div>
 
       {count > 1 && (
-        <div className="lb-strip" onClick={(e) => e.stopPropagation()}>
-          {images.map((img, n) => (
-            <button key={img.full} type="button" className="lb-thumb" aria-current={n === i} aria-label={`Screenshot ${n + 1}`} onClick={() => setI(n)}>
+        <div className="lb-strip" onClick={stop}>
+          {items.map((it, n) => (
+            <button key={keyOf(it, n)} type="button" className="lb-thumb" aria-current={n === i} aria-label={labelOf(items, n, name)} onClick={() => { setI(n); setPlaying(false); }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={img.thumb} alt="" loading="lazy" />
+              <img src={thumbOf(it)} alt="" loading="lazy" />
+              {it.kind === "trailer" && <span className="media-thumb-play" aria-hidden>▶</span>}
             </button>
           ))}
         </div>

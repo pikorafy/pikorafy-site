@@ -767,11 +767,11 @@ body::before {
 .media-nav.prev { left:10px; }
 .media-nav.next { right:10px; }
 .media-keyart { position:absolute; inset:0; overflow:hidden; background:#000; }
-.media-stage .media-keyart img { position:absolute; inset:0; width:100%; height:100%; }
-.media-stage .media-keyart .blur { object-fit:cover; filter:blur(24px) brightness(.55); transform:scale(1.15); }
-.media-stage .media-keyart .fg { object-fit:contain; }
-.media-stage .media-keyart.hero .bg { object-fit:cover; object-position:center 30%; }
-.media-stage .media-keyart.hero .logo { inset:auto auto 7% 5%; width:auto; height:auto; max-width:46%; max-height:38%; object-fit:contain; filter:drop-shadow(0 6px 24px rgba(0,0,0,.6)); }
+.media-keyart img { position:absolute; inset:0; width:100%; height:100%; }
+.media-keyart .blur { object-fit:cover; filter:blur(24px) brightness(.55); transform:scale(1.15); }
+.media-keyart .fg { object-fit:contain; }
+.media-keyart.hero .bg { object-fit:cover; object-position:center 30%; }
+.media-keyart.hero .logo { inset:auto auto 7% 5%; width:auto; height:auto; max-width:46%; max-height:38%; object-fit:contain; filter:drop-shadow(0 6px 24px rgba(0,0,0,.6)); }
 .media-strip { display:flex; gap:8px; overflow-x:auto; padding:10px 0 4px; scrollbar-width:thin; }
 .media-thumb { all:unset; position:relative; flex:0 0 120px; aspect-ratio:16/9; border-radius:4px; overflow:hidden; cursor:pointer; border:2px solid transparent; opacity:.65; transition:opacity .15s,border-color .15s; background:var(--bg-3); }
 .media-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
@@ -787,7 +787,11 @@ body::before {
 .media-lightbox .lb-close { width:40px; height:40px; border:0; border-radius:50%; background:rgba(255,255,255,.12); color:#fff; font-size:16px; cursor:pointer; flex-shrink:0; }
 .media-lightbox .lb-close:hover { background:rgba(255,255,255,.22); }
 .media-lightbox .lb-stage { position:relative; flex:1; min-height:0; display:flex; align-items:center; justify-content:center; padding:0 72px; }
-.media-lightbox .lb-stage img { max-width:100%; max-height:100%; width:auto; height:auto; object-fit:contain; border-radius:4px; box-shadow:0 20px 80px rgba(0,0,0,.6); }
+.media-lightbox .lb-image { max-width:100%; max-height:100%; width:auto; height:auto; object-fit:contain; border-radius:4px; box-shadow:0 20px 80px rgba(0,0,0,.6); }
+.media-lightbox .lb-media { width:min(100%, calc((100dvh - 190px) * 16 / 9)); border-color:rgba(255,255,255,.08); box-shadow:0 20px 80px rgba(0,0,0,.6); }
+.media-lightbox .lb-thumb { position:relative; }
+.media-expand { position:absolute; top:10px; right:10px; z-index:2; width:36px; height:36px; border:0; border-radius:4px; background:rgba(0,0,0,.5); color:#fff; font-size:18px; line-height:1; cursor:pointer; opacity:.7; transition:opacity .15s; }
+.media-expand:hover { opacity:1; }
 .media-lightbox .lb-nav { position:absolute; top:50%; transform:translateY(-50%); width:48px; height:72px; border:0; border-radius:6px; background:rgba(255,255,255,.08); color:#fff; font-size:34px; line-height:1; cursor:pointer; }
 .media-lightbox .lb-nav:hover { background:rgba(255,255,255,.18); }
 .media-lightbox .lb-nav.prev { left:14px; }
