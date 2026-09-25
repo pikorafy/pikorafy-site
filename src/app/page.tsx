@@ -1,9 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getAllArticles } from "@/lib/articles";
-import { getAllComparisons } from "@/lib/comparisons";
 import { AFFILIATE_DISCLOSURE_SHORT } from "@/lib/affiliate";
-import ToolLogo from "@/components/ToolLogo";
 import HeroSection from "@/components/HeroSection";
 import HomeTopLists from "@/components/HomeTopLists";
 import InstantGamingBanner from "@/components/InstantGamingBanner";
@@ -48,16 +45,9 @@ const FAQ_ITEMS = [
     "Do you make money from this?",
     "A small affiliate commission on some retailers, fully disclosed. Affiliate status never affects ranking — the cheapest legit price always shows first.",
   ],
-  [
-    "Can I compare subscriptions too?",
-    "Yes — our /vs section lets you compare Xbox Game Pass vs PS Plus, key store pricing, and more. Use it to find the best value for your setup.",
-  ],
 ];
 
 export default async function Home() {
-  const comparisons = getAllComparisons().slice(0, 6);
-  const articles = getAllArticles().slice(0, 4);
-
   return (
     <div className="flex flex-col min-h-full">
       {/* ─── Hero ─── */}
@@ -126,108 +116,6 @@ export default async function Home() {
           </div>
         </div>
       </section>
-
-      {/* ─── Comparisons ─── */}
-      {comparisons.length > 0 && (
-        <section className="section" style={{ borderTop: "1px solid var(--line)" }}>
-          <div className="shell">
-            <div className="section-hd">
-              <div>
-                <div className="eyebrow">Compare · side-by-side</div>
-                <h2 className="h2">
-                  Don&rsquo;t guess.<br /><em>Compare.</em>
-                </h2>
-              </div>
-              <Link href="/vs" className="btn btn-ghost">All comparisons →</Link>
-            </div>
-            <div style={{ display: "grid", gap: "var(--gap)", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))" }}>
-              {comparisons.map((comp) => (
-                <Link
-                  key={comp.frontmatter.slug}
-                  href={`/vs/${comp.frontmatter.slug}`}
-                  style={{
-                    display: "flex", alignItems: "center", justifyContent: "space-between",
-                    gap: 16, padding: "16px 18px", background: "var(--bg-elev)",
-                    border: "1px solid var(--line)", borderRadius: "var(--r)",
-                    transition: "border-color .15s, transform .15s",
-                  }}
-                  className="comp-card"
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <ToolLogo name={comp.frontmatter.toolA} size={22} />
-                    <span style={{ fontFamily: "var(--ff-mono)", fontSize: 10, color: "var(--text-3)" }}>vs</span>
-                    <ToolLogo name={comp.frontmatter.toolB} size={22} />
-                  </div>
-                  <span style={{ fontFamily: "var(--ff-display)", fontWeight: 600, fontSize: 14, flex: 1 }}>
-                    {comp.frontmatter.toolA} vs {comp.frontmatter.toolB}
-                  </span>
-                  <span style={{ fontFamily: "var(--ff-mono)", fontSize: 12, color: "var(--accent)" }}>→</span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ─── Latest Articles ─── */}
-      {articles.length > 0 && (
-        <section className="section" style={{ borderTop: "1px solid var(--line)" }}>
-          <div className="shell">
-            <div className="section-hd">
-              <div>
-                <div className="eyebrow">Articles · latest from the blog</div>
-                <h2 className="h2">
-                  Read before<br />you <em>buy</em>.
-                </h2>
-              </div>
-              <Link href="/blog" className="btn btn-ghost">All articles →</Link>
-            </div>
-            <div style={{ display: "grid", gap: "var(--gap)", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
-              {articles.map((article) => (
-                <Link
-                  key={article.frontmatter.slug}
-                  href={`/blog/${article.frontmatter.slug}`}
-                  className="article-card"
-                  style={{
-                    display: "flex", flexDirection: "column", gap: 10,
-                    padding: "var(--pad-card)", background: "var(--bg-elev)",
-                    border: "1px solid var(--line)", borderRadius: "var(--r)",
-                    transition: "border-color .15s, transform .15s",
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{
-                      fontFamily: "var(--ff-mono)", fontSize: 10, color: "var(--accent)",
-                      textTransform: "uppercase", letterSpacing: "0.12em",
-                      padding: "2px 6px", border: "1px solid var(--accent)", borderRadius: 3,
-                    }}>
-                      {article.frontmatter.category}
-                    </span>
-                    <time style={{ fontFamily: "var(--ff-mono)", fontSize: 10, color: "var(--text-3)" }}>
-                      {new Date(article.frontmatter.date).toLocaleDateString("en-US", {
-                        month: "short", day: "numeric",
-                      })}
-                    </time>
-                  </div>
-                  <h3 style={{
-                    fontFamily: "var(--ff-display)", fontWeight: 600, fontSize: 15,
-                    letterSpacing: "-0.01em", margin: 0, lineHeight: 1.3,
-                    display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
-                  }}>
-                    {article.frontmatter.title}
-                  </h3>
-                  <span style={{
-                    marginTop: "auto", fontFamily: "var(--ff-mono)", fontSize: 11,
-                    color: "var(--accent)", letterSpacing: "0.08em",
-                  }}>
-                    Read more →
-                  </span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
 
       {/* ─── Newsletter ─── */}
       <section className="section" style={{ borderTop: "1px solid var(--line)" }}>

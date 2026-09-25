@@ -194,7 +194,7 @@ export default function BrowsePage() {
           </div>
           <div className="facet">
             <h5>Quick links</h5>
-            {[["Best deals today", "/deals"], ["Store trust rankings", "/stores"], ["Price comparisons", "/vs"]].map(([label, href]) => (
+            {[["Best deals today", "/deals"], ["Store trust rankings", "/stores"], ["All games", "/games"]].map(([label, href]) => (
               <Link key={href} href={href} style={{ display: "block", padding: "5px 0", fontSize: 13, color: "var(--text-2)" }}>{label} →</Link>
             ))}
           </div>

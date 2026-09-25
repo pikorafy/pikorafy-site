@@ -10,8 +10,6 @@ const NAV_LINKS = [
   { label: "Deals", href: "/deals" },
   { label: "Browse", href: "/browse" },
   { label: "Stores", href: "/stores" },
-  { label: "Compare", href: "/vs" },
-  { label: "Blog", href: "/blog" },
   { label: "API", href: "/api-docs" },
 ];
 
