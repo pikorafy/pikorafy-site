@@ -12,6 +12,7 @@ import {
   type XboxGameDetail,
 } from "@/lib/xbox";
 import XboxOffers, { xboxPlatforms } from "@/components/XboxOffers";
+import { LOW_TONE, priceTone } from "@/lib/price-tone";
 import GameMedia from "@/app/game/[slug]/GameMedia";
 
 // Xbox Store product pages for games we don't have on Steam. Games that exist on
@@ -115,14 +116,24 @@ export default async function XboxGamePage({ params }: XboxPageProps) {
             </div>
             <h1>{title}</h1>
             <p className="tagline">{heroLine(game, title, editions.filter((e) => e.price !== null).length)}</p>
-            <div className="stats">
-              {game.price !== null && <Stat value={game.is_free ? "Free" : money(game.price, cur)} label="Xbox Store price" />}
+            {/* Prices first; rating on its own line below. No price history for Xbox yet,
+                so the pill colour follows the discount: full price reads red. */}
+            <div className="stats stats-prices">
+              {game.price !== null && (
+                <Stat
+                  value={game.is_free ? "Free" : money(game.price, cur)}
+                  label="Xbox Store price"
+                  pill={game.is_free ? LOW_TONE : priceTone(game.price, null, game.regular_price, game.discount_pct)}
+                />
+              )}
               {onSale && <Stat value={`-${game.discount_pct}%`} label="Discount" accent />}
               {onSale && game.regular_price !== null && <Stat value={money(game.regular_price, cur)} label="Regular price" />}
-              {game.rating !== null && (game.rating_count ?? 0) > 0 && (
-                <Stat value={`★ ${game.rating.toFixed(1)}`} label={`${compact(game.rating_count!)} ratings`} />
-              )}
             </div>
+            {game.rating !== null && (game.rating_count ?? 0) > 0 && (
+              <div className="stats stats-meta">
+                <Stat value={`★ ${game.rating.toFixed(1)}`} label={`${compact(game.rating_count!)} ratings`} />
+              </div>
+            )}
             <div className="hero-buttons">
               <a href={storeUrl} target="_blank" rel="noopener noreferrer" className="btn btn-primary">
                 {game.is_free ? "Play free on Xbox" : game.price !== null ? `Buy on Xbox Store for ${money(game.price, cur)}` : "View on Xbox Store"} →
@@ -198,10 +209,12 @@ export default async function XboxGamePage({ params }: XboxPageProps) {
 
 // ─── Pieces ──────────────────────────────────────────────────────────────────
 
-function Stat({ value, label, accent }: { value: string; label: string; accent?: boolean }) {
+function Stat({ value, label, accent, pill }: { value: string; label: string; accent?: boolean; pill?: string }) {
   return (
     <div>
-      <div className="v" style={accent ? { color: "var(--accent)" } : undefined}>{value}</div>
+      <div className="v" style={accent ? { color: "var(--accent)" } : undefined}>
+        {pill ? <span className="price-pill" style={{ background: pill }}>{value}</span> : value}
+      </div>
       <div className="l">{label}</div>
     </div>
   );
