@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { KeyArt, SteamScreenshot, SteamTrailer } from "@/lib/catalog";
 
 type Item =
@@ -35,7 +36,7 @@ export default function GameMedia({
   ];
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [lightbox, setLightbox] = useState(false);
+  const [lightboxAt, setLightboxAt] = useState<number | null>(null);   // screenshot index
 
   const select = useCallback((i: number) => {
     setIndex((i + items.length) % items.length);
@@ -69,7 +70,7 @@ export default function GameMedia({
             </button>
           )
         ) : (
-          <button type="button" className="media-play" onClick={() => setLightbox(true)} aria-label="View screenshot full size">
+          <button type="button" className="media-play" onClick={() => setLightboxAt(index - shotOffset)} aria-label="View screenshot full size">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={current.shot.full} alt={`${name} screenshot ${index - shotOffset + 1}`} />
           </button>
@@ -100,13 +101,12 @@ export default function GameMedia({
         ))}
       </div>
 
-      {lightbox && current.kind === "shot" && (
+      {lightboxAt !== null && (
         <Lightbox
-          src={current.shot.full}
-          alt={`${name} screenshot`}
-          onClose={() => setLightbox(false)}
-          onPrev={() => select(index - 1)}
-          onNext={() => select(index + 1)}
+          images={screenshots}
+          start={lightboxAt}
+          name={name}
+          onClose={(last) => { setLightboxAt(null); select(shotOffset + last); }}
         />
       )}
     </section>
@@ -203,30 +203,85 @@ function TrailerPlayer({ trailer, source }: { trailer: SteamTrailer; source: { l
   return <video ref={ref} controls playsInline onError={() => setFailed(true)} aria-label={trailer.name} />;
 }
 
-function Lightbox({ src, alt, onClose, onPrev, onNext }: {
-  src: string; alt: string; onClose: () => void; onPrev: () => void; onNext: () => void;
+/**
+ * Full-screen screenshot viewer. Rendered into <body> through a portal so no
+ * ancestor's stacking context, overflow or transform can clip it or paint over it.
+ */
+function Lightbox({ images, start, name, onClose }: {
+  images: SteamScreenshot[];
+  start: number;
+  name: string;
+  onClose: (last: number) => void;
 }) {
+  const [i, setI] = useState(start);
+  const touchX = useRef<number | null>(null);
+  const count = images.length;
+  const go = useCallback((d: number) => setI((n) => (n + d + count) % count), [count]);
+  const close = useCallback(() => onClose(i), [onClose, i]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-      if (e.key === "ArrowLeft") onPrev();
-      if (e.key === "ArrowRight") onNext();
+      if (e.key === "Escape") close();
+      if (e.key === "ArrowLeft") go(-1);
+      if (e.key === "ArrowRight") go(1);
     };
     window.addEventListener("keydown", onKey);
+    const overflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
+      document.body.style.overflow = overflow;
     };
-  }, [onClose, onPrev, onNext]);
+  }, [close, go]);
 
-  return (
-    <div className="media-lightbox" role="dialog" aria-modal="true" aria-label="Screenshot viewer" onClick={onClose}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt={alt} onClick={(e) => e.stopPropagation()} />
-      <button type="button" className="media-nav prev" onClick={(e) => { e.stopPropagation(); onPrev(); }} aria-label="Previous">‹</button>
-      <button type="button" className="media-nav next" onClick={(e) => { e.stopPropagation(); onNext(); }} aria-label="Next">›</button>
-      <button type="button" className="media-close" onClick={onClose} aria-label="Close">✕</button>
-    </div>
+  // Warm the cache for the neighbours so paging feels instant.
+  useEffect(() => {
+    for (const d of [-1, 1]) new Image().src = images[(i + d + count) % count].full;
+  }, [i, images, count]);
+
+  return createPortal(
+    <div
+      className="media-lightbox"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${name} screenshots`}
+      onClick={close}
+      onTouchStart={(e) => { touchX.current = e.touches[0].clientX; }}
+      onTouchEnd={(e) => {
+        if (touchX.current === null) return;
+        const dx = e.changedTouches[0].clientX - touchX.current;
+        touchX.current = null;
+        if (Math.abs(dx) > 50) go(dx < 0 ? 1 : -1);
+      }}
+    >
+      <div className="lb-top" onClick={(e) => e.stopPropagation()}>
+        <span className="lb-count">{i + 1} / {count}</span>
+        <span className="lb-title">{name}</span>
+        <button type="button" className="lb-close" onClick={close} aria-label="Close">✕</button>
+      </div>
+
+      <div className="lb-stage">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img key={images[i].full} src={images[i].full} alt={`${name} screenshot ${i + 1} of ${count}`} onClick={(e) => e.stopPropagation()} />
+        {count > 1 && (
+          <>
+            <button type="button" className="lb-nav prev" onClick={(e) => { e.stopPropagation(); go(-1); }} aria-label="Previous screenshot">‹</button>
+            <button type="button" className="lb-nav next" onClick={(e) => { e.stopPropagation(); go(1); }} aria-label="Next screenshot">›</button>
+          </>
+        )}
+      </div>
+
+      {count > 1 && (
+        <div className="lb-strip" onClick={(e) => e.stopPropagation()}>
+          {images.map((img, n) => (
+            <button key={img.full} type="button" className="lb-thumb" aria-current={n === i} aria-label={`Screenshot ${n + 1}`} onClick={() => setI(n)}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={img.thumb} alt="" loading="lazy" />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>,
+    document.body,
   );
 }
