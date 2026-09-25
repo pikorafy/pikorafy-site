@@ -521,6 +521,7 @@ function toAppdetails(item: StoreItem, tagNames: Map<number, string>) {
   const tags = (item.tagids ?? []).map((id) => tagNames.get(id)).filter((n): n is string => !!n);
   const genres = tags.filter((t) => GENRES[t]).map((t) => GENRES[t]);
   if (item.is_early_access && !genres.some((g) => g.id === "70")) genres.push(GENRES["Early Access"]);
+  if (item.is_free && !genres.some((g) => g.id === "37")) genres.push(GENRES["Free to Play"]);
   const categoryIds = [
     ...(item.categories?.supported_player_categoryids ?? []),
     ...(item.categories?.feature_categoryids ?? []),
