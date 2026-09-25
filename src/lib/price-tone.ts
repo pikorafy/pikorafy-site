@@ -1,15 +1,17 @@
-// Colour for a price pill: light green at the lowest price a game has had, red at
+// Colour for a price box: green at the lowest price a game has had, red at
 // its highest, with yellow/orange in between, so "how good is this price" reads at
 // a glance.
 
-export const LOW_TONE = "hsl(120 55% 62%)";
+export const LOW_TONE = "hsl(128 60% 33%)";
 
 /** Colour for position t (0 = historic low, 1 = historic high). */
 export function toneAt(t: number): string {
   const k = Math.min(1, Math.max(0, t));
-  const hue = Math.round(120 * (1 - k));           // 120 green → 60 yellow → 0 red
-  const sat = Math.round(55 + 17 * k);
-  const light = Math.round(62 - 2 * k);
+  // Deep enough for white text everywhere (≥3:1, fine for the large bold price):
+  // green → amber → red, easing through yellow quickly where contrast is weakest.
+  const hue = Math.round(128 * (1 - k) ** 1.5);
+  const sat = Math.round(60 + 12 * k);
+  const light = Math.round(33 + 7 * k);
   return `hsl(${hue} ${sat}% ${light}%)`;
 }
 
