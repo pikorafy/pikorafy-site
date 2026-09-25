@@ -2,7 +2,7 @@
 // Schema: supabase/migrations/20260924000000_game_catalog.sql
 //
 // Usage (Node ≥ 23.6 runs .mts directly; on Node 22 add --experimental-strip-types):
-//   node scripts/import-steam.mts seed [topN]        queue the top N games from SteamSpy (default 20000)
+//   node scripts/import-steam.mts seed [topN]        queue the top N games by Steam reviews + charts (default 20000)
 //   node scripts/import-steam.mts discover           add today's most played / trending, prune the rest
 //   node scripts/import-steam.mts seed-ids 730,570   queue specific app IDs at top priority
 //   node scripts/import-steam.mts run [maxGames]     import due games via GetItems, new first (default: all due)
@@ -10,7 +10,7 @@
 //   node scripts/import-steam.mts backfill-trailers [max]  English trailers for games missing them
 //   node scripts/import-steam.mts art [max]                key-art assets (also topped up after every run)
 //
-// Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+// Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, STEAM_API_KEY (seed / discover)
 //
 // Rate limits: Steam's store API allows ~200 requests / 5 min per IP, and GitHub's
 // shared runner IPs are often already throttled. We make 2 requests per game
@@ -229,31 +229,136 @@ async function importGame(appId: number, rank: number): Promise<"ok" | "skip"> {
 
 // ─── Commands ────────────────────────────────────────────────────────────────
 
+// ─── Popularity lists (Steam Web API, needs STEAM_API_KEY) ──────────────────
+
+const STEAM_API = "https://api.steampowered.com";
+const QUERY_PAGE = 1000;         // IStoreQueryService/Query max page size
+const SEED_POOL_FACTOR = 1.5;    // candidates fetched per seeded game, re-ranked by review count
+
+let steamKey = "";
+function key(): string {
+  return (steamKey ||= required("STEAM_API_KEY"));
+}
+
+async function steamApi<T>(path: string, input?: unknown): Promise<T> {
+  const qs = [`key=${key()}`];
+  if (input !== undefined) qs.push(`input_json=${encodeURIComponent(JSON.stringify(input))}`);
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(`${STEAM_API}/${path}?${qs.join("&")}`, { headers: { Accept: "application/json" } });
+    if (res.ok) return ((await res.json()) as { response?: T }).response ?? ({} as T);
+    // Never print the URL: it carries the key.
+    if (attempt >= 3) throw new Error(`${path.split("/")[0]}/${path.split("/")[1]} HTTP ${res.status}`);
+    await sleep(10_000 * 2 ** attempt);
+  }
+}
+
+const appIdsOf = (list?: { appid?: number; id?: number; item_id?: number }[]) =>
+  (list ?? []).map((r) => r.appid ?? r.id ?? r.item_id ?? 0).filter((id) => id > 0);
+
+/** Released games from the Steam store search, in Steam's review-sorted order. */
+async function storeQueryReleased(max: number): Promise<number[]> {
+  const ids: number[] = [];
+  for (let start = 0; start < max; start += QUERY_PAGE) {
+    const res = await steamApi<{ ids?: { appid?: number }[]; metadata?: { total_matching_records?: number } }>(
+      "IStoreQueryService/Query/v1/",
+      {
+        query: { start, count: QUERY_PAGE, sort: 10, filters: { released_only: true, type_filters: { include_games: true } } },
+        context: { language: "english", country_code: "ES" },
+      },
+    );
+    const page = appIdsOf(res.ids);
+    ids.push(...page);
+    if (page.length < QUERY_PAGE) break;
+    await sleep(500);
+  }
+  return ids;
+}
+
+/** Steam's charts: most played, concurrent players, weekly top sellers (ES), top releases. */
+async function chartApps(): Promise<Map<string, number[]>> {
+  const lists = new Map<string, number[]>();
+  const ctx = { language: "english", country_code: "ES" };
+  const tryList = async (name: string, fn: () => Promise<number[]>) => {
+    try {
+      const ids = await fn();
+      lists.set(name, ids);
+      console.log(`${name}: ${ids.length}`);
+    } catch (err) {
+      console.warn(`${name}: ${String(err).replaceAll(steamKey || "\0", "***")}`);
+    }
+  };
+  await tryList("Most played", async () =>
+    appIdsOf((await steamApi<{ ranks?: { appid?: number }[] }>("ISteamChartsService/GetMostPlayedGames/v1/")).ranks));
+  await tryList("Concurrent players", async () =>
+    appIdsOf((await steamApi<{ ranks?: { appid?: number }[] }>("ISteamChartsService/GetGamesByConcurrentPlayers/v1/", { context: ctx })).ranks));
+  await tryList("Weekly top sellers", async () => {
+    const ids: number[] = [];
+    for (let start = 0; start < 500; start += 100) {
+      const res = await steamApi<{ ranks?: { appid?: number }[] }>("IStoreTopSellersService/GetWeeklyTopSellers/v1/",
+        { country_code: "ES", context: ctx, page_start: start, page_count: 100 });
+      const page = appIdsOf(res.ranks);
+      ids.push(...page);
+      if (page.length < 100) break;
+    }
+    return ids;
+  });
+  await tryList("Top releases", async () => {
+    const res = await steamApi<{ pages?: { item_ids?: { appid?: number }[] }[] }>("ISteamChartsService/GetTopReleasesPages/v1/");
+    return (res.pages ?? []).flatMap((p) => appIdsOf(p.item_ids));
+  });
+  return lists;
+}
+
+/** Review counts via GetItems (keyless, 50 apps per call). Apps Steam doesn't return are left out. */
+async function reviewCounts(appIds: number[]): Promise<Map<number, number>> {
+  const counts = new Map<number, number>();
+  for (let i = 0; i < appIds.length; i += ITEMS_BATCH) {
+    const input = {
+      ids: appIds.slice(i, i + ITEMS_BATCH).map((appid) => ({ appid })),
+      context: { language: "english", country_code: "ES" },
+      data_request: { include_reviews: true },
+    };
+    const url = `${STEAM_API}/IStoreBrowseService/GetItems/v1/?input_json=${encodeURIComponent(JSON.stringify(input))}`;
+    for (let attempt = 0; ; attempt++) {
+      const res = await fetch(url, { headers: { Accept: "application/json" } });
+      if (res.ok) {
+        const items = ((await res.json()) as { response?: { store_items?: StoreItem[] } }).response?.store_items ?? [];
+        for (const it of items) {
+          if (it.appid && it.success === 1) counts.set(it.appid, it.reviews?.summary_filtered?.review_count ?? 0);
+        }
+        break;
+      }
+      if (attempt >= 3) throw new Error(`GetItems HTTP ${res.status}`);
+      await sleep(10_000 * 2 ** attempt);
+    }
+    if ((i / ITEMS_BATCH) % 50 === 49) console.log(`Review counts: ${Math.min(i + ITEMS_BATCH, appIds.length)}/${appIds.length}`);
+    await sleep(250);
+  }
+  return counts;
+}
+
 /**
- * SteamSpy's `all` endpoint returns 1000 apps per page and allows 1 call/min.
- * Its JSON is keyed by app ID, and JS objects iterate integer keys in ascending
- * order, so the server's ordering is lost — we rank by review volume ourselves.
+ * Weekly: rank the catalog from Steam itself. Candidates are the store search's
+ * released games (review-sorted, with a buffer) plus Steam's charts; each is then
+ * ranked by its actual review count, so the order never depends on Steam's sort.
+ * Games on the charts (most played, top sellers…) are always kept.
  */
 async function seed(topN: number) {
-  const pages = Math.ceil(topN / 1000) + 1;  // fetch a buffer page so the cut-off is meaningful
-  const apps: { id: number; score: number }[] = [];
-  for (let page = 0; page < pages; page++) {
-    if (page > 0) await sleep(61_000);
-    console.log(`SteamSpy page ${page}…`);
-    const res = await fetch(`https://steamspy.com/api.php?request=all&page=${page}`);
-    if (!res.ok) throw new Error(`SteamSpy HTTP ${res.status}`);
-    const body = (await res.json()) as Record<string, { positive?: number; negative?: number }>;
-    const entries = Object.entries(body);
-    if (entries.length === 0) break;
-    for (const [id, app] of entries) {
-      apps.push({ id: Number(id), score: (app.positive ?? 0) + (app.negative ?? 0) });
-    }
-  }
-  // SteamSpy pages overlap (an app can appear on two pages): keep one entry per app.
-  const unique = new Map<number, number>();
-  for (const a of apps) if (a.id && a.score > (unique.get(a.id) ?? -1)) unique.set(a.id, a.score);
-  const ranked = [...unique].sort((a, b) => b[1] - a[1]).slice(0, topN).map(([id]) => id);
-  console.log(`SteamSpy: ${apps.length} entries, ${unique.size} unique apps; seeding top ${ranked.length}.`);
+  const pool = await storeQueryReleased(Math.ceil(topN * SEED_POOL_FACTOR));
+  console.log(`Store search: ${pool.length} released games.`);
+  if (pool.length < Math.min(topN, 1000)) throw new Error(`Store search returned only ${pool.length} games; keeping the current ranking.`);
+  const charts = [...(await chartApps()).values()].flat();
+
+  const candidates = [...new Set([...pool, ...charts])];
+  const counts = await reviewCounts(candidates);
+  console.log(`Review counts for ${counts.size}/${candidates.length} apps.`);
+
+  const onCharts = new Set(charts.filter((id) => counts.has(id)));
+  const byReviews = [...counts].sort((a, b) => b[1] - a[1]).map(([id]) => id);
+  const top = byReviews.slice(0, Math.max(0, topN - onCharts.size));
+  const ranked = [...new Set([...top, ...onCharts])]
+    .sort((a, b) => (counts.get(b) ?? 0) - (counts.get(a) ?? 0));
+  console.log(`Seeding ${ranked.length} games (${onCharts.size} from charts); #${ranked.length} has ${counts.get(ranked.at(-1)!) ?? 0} reviews.`);
 
   // New ranks first, then demote whatever isn't in them (manual seed-ids keep priority 0),
   // so a failed seed can never leave the whole queue demoted.
@@ -354,30 +459,12 @@ async function backfillArt(max: number) {
 }
 
 /**
- * Daily: add what's hot right now — Steam's most played (ISteamChartsService) and
- * SteamSpy's top 100 of the last two weeks — then drop games that fell out of both
- * the weekly top N and these lists (prune_catalog), keeping the catalog in budget.
+ * Daily: add what's hot right now — Steam's charts (most played, concurrent players,
+ * weekly top sellers, top releases) — then drop games that fell out of both the
+ * weekly top N and these lists (prune_catalog), keeping the catalog in budget.
  */
 async function discover() {
-  const ids = new Set<number>();
-  try {
-    const res = await fetch("https://api.steampowered.com/ISteamChartsService/GetMostPlayedGames/v1/");
-    const body = (await res.json()) as { response?: { ranks?: { appid?: number }[] } };
-    const ranks = (body.response?.ranks ?? []).map((r) => r.appid).filter((id): id is number => !!id);
-    ranks.forEach((id) => ids.add(id));
-    console.log(`Steam most played: ${ranks.length}`);
-  } catch (err) {
-    console.warn(`GetMostPlayedGames: ${String(err)}`);
-  }
-  try {
-    const res = await fetch("https://steamspy.com/api.php?request=top100in2weeks");
-    const body = (await res.json()) as Record<string, unknown>;
-    const top = Object.keys(body).map(Number).filter(Boolean);
-    top.forEach((id) => ids.add(id));
-    console.log(`SteamSpy top 100 (2 weeks): ${top.length}`);
-  } catch (err) {
-    console.warn(`SteamSpy top100in2weeks: ${String(err)}`);
-  }
+  const ids = new Set([...(await chartApps()).values()].flat());
   if (!ids.size) throw new Error("No trending apps found; not pruning.");
 
   const { data: marked, error } = await supabase.rpc("mark_trending", { ids: [...ids] });
