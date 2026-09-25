@@ -282,6 +282,18 @@ async function queuedApps(): Promise<number[]> {
   return ids;
 }
 
+/** Review counts saved on imported games, for apps GetItems didn't return. */
+async function storedReviewCounts(appIds: number[]): Promise<Map<number, number>> {
+  const counts = new Map<number, number>();
+  for (let i = 0; i < appIds.length; i += 500) {
+    const { data, error } = await supabase.from("games").select("steam_app_id, review_count")
+      .in("steam_app_id", appIds.slice(i, i + 500)).gt("review_count", 0);
+    if (error) throw new Error(`games read: ${error.message}`);
+    for (const g of data ?? []) counts.set(g.steam_app_id as number, g.review_count as number);
+  }
+  return counts;
+}
+
 /** Steam's charts: most played, concurrent players, weekly top sellers (ES), top releases. */
 async function chartApps(): Promise<Map<string, number[]>> {
   const lists = new Map<string, number[]>();
@@ -361,13 +373,19 @@ async function seed(topN: number) {
   const candidates = [...new Set([...all, ...queued, ...charts])];
   const counts = await reviewCounts(candidates);
   console.log(`Review counts for ${counts.size}/${candidates.length} apps.`);
+  // Steam returns nothing for some listed games (e.g. GTA IV Complete Edition): keep
+  // the review count we stored at their last import rather than ranking them at zero.
+  const stored = await storedReviewCounts(queued.filter((id) => !counts.get(id)));
+  for (const [id, n] of stored) counts.set(id, n);
+  if (stored.size) console.log(`Used stored review counts for ${stored.size} games Steam didn't return.`);
   if (counts.size < all.length / 2) throw new Error(`Too few review counts (${counts.size}); keeping the current ranking.`);
 
   const onCharts = new Set(charts.filter((id) => counts.has(id)));
   const byReviews = [...counts].filter(([id]) => !onCharts.has(id)).sort((a, b) => b[1] - a[1]).map(([id]) => id);
-  const ranked = [...byReviews.slice(0, Math.max(0, topN - onCharts.size)), ...onCharts]
-    .sort((a, b) => (counts.get(b) ?? 0) - (counts.get(a) ?? 0));
-  console.log(`Seeding ${ranked.length} games (${onCharts.size} from charts); #${ranked.length} has ${counts.get(ranked.at(-1)!) ?? 0} reviews.`);
+  const byReviewsTop = byReviews.slice(0, Math.max(0, topN - onCharts.size));
+  const ranked = [...byReviewsTop, ...onCharts].sort((a, b) => (counts.get(b) ?? 0) - (counts.get(a) ?? 0));
+  // Chart games can be pre-orders with no reviews yet, so report the cut-off of the review ranking.
+  console.log(`Seeding ${ranked.length} games (${onCharts.size} from charts); review cut-off: ${counts.get(byReviewsTop.at(-1)!) ?? 0} reviews.`);
 
   // New ranks first, then demote whatever isn't in them (manual seed-ids keep priority 0),
   // so a failed seed can never leave the whole queue demoted.
