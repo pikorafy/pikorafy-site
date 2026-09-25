@@ -249,14 +249,18 @@ async function seed(topN: number) {
       apps.push({ id: Number(id), score: (app.positive ?? 0) + (app.negative ?? 0) });
     }
   }
-  apps.sort((a, b) => b.score - a.score);
+  // SteamSpy pages overlap (an app can appear on two pages): keep one entry per app.
+  const unique = new Map<number, number>();
+  for (const a of apps) if (a.id && a.score > (unique.get(a.id) ?? -1)) unique.set(a.id, a.score);
+  const ranked = [...unique].sort((a, b) => b[1] - a[1]).slice(0, topN).map(([id]) => id);
+  console.log(`SteamSpy: ${apps.length} entries, ${unique.size} unique apps; seeding top ${ranked.length}.`);
 
-  // Demote everything from the previous seed (manual seed-ids keep priority 0),
-  // so games that fell out of the top N sink to the bottom instead of keeping their rank.
-  const { error } = await supabase.from("import_queue").update({ priority: 100_000 }).gt("priority", 0);
-  if (error) throw new Error(`import_queue reset: ${error.message}`);
-
-  await enqueue(apps.slice(0, topN).map((a, i) => ({ steam_app_id: a.id, priority: i + 1 })));
+  // New ranks first, then demote whatever isn't in them (manual seed-ids keep priority 0),
+  // so a failed seed can never leave the whole queue demoted.
+  await enqueue(ranked.map((id, i) => ({ steam_app_id: id, priority: i + 1 })));
+  const { data: demoted, error } = await supabase.rpc("demote_unseeded", { seeded: ranked });
+  if (error) throw new Error(`demote_unseeded: ${error.message}`);
+  console.log(`Demoted ${demoted} apps that fell out of the top ${topN}.`);
 
   // Re-rank games we already have right away. (Clearing ranks and waiting for each
   // game's next refresh would hide most of the catalog for up to a day.)
