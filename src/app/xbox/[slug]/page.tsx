@@ -13,6 +13,7 @@ import {
 } from "@/lib/xbox";
 import XboxOffers, { xboxPlatforms } from "@/components/XboxOffers";
 import { LOW_TONE, priceTone } from "@/lib/price-tone";
+import { MetaStat, MetaStats, PriceTile, PriceTiles } from "@/components/HeroStats";
 import GameMedia from "@/app/game/[slug]/GameMedia";
 
 // Xbox Store product pages for games we don't have on Steam. Games that exist on
@@ -116,23 +117,23 @@ export default async function XboxGamePage({ params }: XboxPageProps) {
             </div>
             <h1>{title}</h1>
             <p className="tagline">{heroLine(game, title, editions.filter((e) => e.price !== null).length)}</p>
-            {/* Prices first; rating on its own line below. No price history for Xbox yet,
-                so the pill colour follows the discount: full price reads red. */}
-            <div className="stats stats-prices">
-              {game.price !== null && (
-                <Stat
-                  value={game.is_free ? "Free" : money(game.price, cur)}
+            {/* Price tiles side by side, rating below. No Xbox price history yet, so the
+                tile colour follows the discount: full price reads red. */}
+            {game.price !== null && (
+              <PriceTiles>
+                <PriceTile
                   label="Xbox Store price"
-                  pill={game.is_free ? LOW_TONE : priceTone(game.price, null, game.regular_price, game.discount_pct)}
+                  value={game.is_free ? "Free" : money(game.price, cur)}
+                  tone={game.is_free ? LOW_TONE : priceTone(game.price, null, game.regular_price, game.discount_pct)}
+                  badge={onSale ? `-${game.discount_pct}%` : undefined}
                 />
-              )}
-              {onSale && <Stat value={`-${game.discount_pct}%`} label="Discount" accent />}
-              {onSale && game.regular_price !== null && <Stat value={money(game.regular_price, cur)} label="Regular price" />}
-            </div>
+                {onSale && game.regular_price !== null && <PriceTile label="Regular price" value={money(game.regular_price, cur)} />}
+              </PriceTiles>
+            )}
             {game.rating !== null && (game.rating_count ?? 0) > 0 && (
-              <div className="stats stats-meta">
-                <Stat value={`★ ${game.rating.toFixed(1)}`} label={`${compact(game.rating_count!)} ratings`} />
-              </div>
+              <MetaStats>
+                <MetaStat value={`★ ${game.rating.toFixed(1)}`} label={`${compact(game.rating_count!)} ratings`} />
+              </MetaStats>
             )}
             <div className="hero-buttons">
               <a href={storeUrl} target="_blank" rel="noopener noreferrer" className="btn btn-primary">
@@ -208,17 +209,6 @@ export default async function XboxGamePage({ params }: XboxPageProps) {
 }
 
 // ─── Pieces ──────────────────────────────────────────────────────────────────
-
-function Stat({ value, label, accent, pill }: { value: string; label: string; accent?: boolean; pill?: string }) {
-  return (
-    <div>
-      <div className="v" style={accent ? { color: "var(--accent)" } : undefined}>
-        {pill ? <span className="price-pill" style={{ background: pill }}>{value}</span> : value}
-      </div>
-      <div className="l">{label}</div>
-    </div>
-  );
-}
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   if (!value) return null;

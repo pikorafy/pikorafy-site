@@ -707,11 +707,18 @@ body::before {
 .media-hero .tagline { font-size:15px; margin-top:12px; }
 .media-hero .stats { gap:20px; margin-top:18px; }
 .media-hero .stats .v { font-size:19px; }
-.media-hero .stats-prices { align-items:flex-end; }
-.media-hero .stats-prices .l { margin-top:4px; }
-.media-hero .stats-meta { margin-top:14px; padding-top:14px; border-top:1px solid var(--line); }
-.media-hero .stats-meta .v { font-size:16px; }
-.price-pill { display:inline-block; padding:7px 14px; border-radius:6px; color:#fff; font-size:22px; font-weight:700; line-height:1.15; letter-spacing:-0.01em; text-shadow:0 1px 2px rgba(0,0,0,.25); box-shadow:0 6px 18px -8px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.18); }
+/* Hero price tiles: two equal columns; ratings/players: three equal columns */
+.price-tiles { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:20px; }
+.price-tile { position:relative; border-radius:10px; padding:14px 16px 16px; color:#fff; box-shadow:0 10px 28px -14px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.16); min-width:0; }
+.price-tile.neutral { background:var(--bg-3); border:1px solid var(--line-2); color:var(--text); box-shadow:none; }
+.price-tile .pt-label { font-family:var(--ff-mono); font-size:10px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; opacity:.85; }
+.price-tile .pt-row { display:flex; align-items:center; flex-wrap:wrap; gap:4px 10px; margin-top:6px; }
+.price-tile .pt-value { font-family:var(--ff-mono); font-size:clamp(24px,2.6vw,34px); font-weight:800; line-height:1.1; letter-spacing:-0.02em; text-shadow:0 1px 2px rgba(0,0,0,.25); white-space:nowrap; }
+.price-tile .pt-badge { padding:3px 8px; border-radius:999px; background:rgba(0,0,0,.28); font-family:var(--ff-mono); font-size:12px; font-weight:700; }
+.meta-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:12px; }
+.meta-stat { padding:10px 14px; border:1px solid var(--line); border-radius:10px; background:color-mix(in srgb,var(--bg-2) 70%,transparent); min-width:0; }
+.meta-stat .v { font-family:var(--ff-mono); font-size:20px; font-weight:700; color:var(--text); }
+.meta-stat .l { font-family:var(--ff-mono); font-size:10px; line-height:1.35; color:var(--text-3); letter-spacing:.08em; text-transform:uppercase; margin-top:3px; }
 .media-hero .hero-cover { aspect-ratio:460/215; width:100%; border-radius:var(--r); overflow:hidden; border:1px solid var(--line-2); }
 .media-hero .hero-cover img { width:100%; height:100%; object-fit:cover; display:block; }
 .hero-buttons { display:flex; gap:10px; margin-top:20px; flex-wrap:wrap; }
