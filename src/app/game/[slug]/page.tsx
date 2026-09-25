@@ -139,20 +139,14 @@ export default async function GamePage({ params }: GamePageProps) {
         <div className="scrim" />
         <div className="shell inner">
           <div>
-            {game.trailers.length + game.screenshots.length > 0 ? (
-              <GameMedia
-                name={game.name}
-                source={{ label: "Steam", url: `https://store.steampowered.com/app/${game.steam_app_id}/` }}
-                trailers={game.trailers}
-                screenshots={game.screenshots}
-                inHero
-              />
-            ) : game.header_image ? (
-              <div className="hero-cover">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={game.header_image} alt={`${game.name} header art`} />
-              </div>
-            ) : null}
+            <GameMedia
+              name={game.name}
+              source={{ label: "Steam", url: `https://store.steampowered.com/app/${game.steam_app_id}/` }}
+              keyArt={game.key_art}
+              trailers={game.trailers}
+              screenshots={game.screenshots}
+              inHero
+            />
           </div>
           <div className="hero-info">
             <div className="crumbs">

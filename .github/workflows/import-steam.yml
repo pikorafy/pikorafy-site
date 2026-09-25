@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       command:
-        description: "seed | seed-ids | run | backfill-trailers"
+        description: "seed | seed-ids | run | backfill-trailers | art"
         default: run
       arg:
         description: "topN / comma-separated IDs / maxGames / max games to backfill"

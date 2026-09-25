@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { SteamScreenshot, SteamTrailer } from "@/lib/catalog";
+import type { KeyArt, SteamScreenshot, SteamTrailer } from "@/lib/catalog";
 
 type Item =
+  | { kind: "art"; art: KeyArt }
   | { kind: "trailer"; trailer: SteamTrailer }
   | { kind: "shot"; shot: SteamScreenshot };
 
@@ -15,9 +16,12 @@ export default function GameMedia({
   source,
   trailers,
   screenshots,
+  keyArt = null,
   inHero = false,
 }: {
   name: string;
+  /** Title key art shown as the first slide, before trailers and screenshots. */
+  keyArt?: KeyArt | null;
   /** Rendered inside the page hero (no top margin). */
   inHero?: boolean;
   source: { label: string; url: string };
@@ -25,6 +29,7 @@ export default function GameMedia({
   screenshots: SteamScreenshot[];
 }) {
   const items: Item[] = [
+    ...(keyArt ? [{ kind: "art" as const, art: keyArt }] : []),
     ...trailers.map((trailer) => ({ kind: "trailer" as const, trailer })),
     ...screenshots.map((shot) => ({ kind: "shot" as const, shot })),
   ];
@@ -39,6 +44,7 @@ export default function GameMedia({
 
   if (items.length === 0) return null;
   const current = items[index];
+  const shotOffset = (keyArt ? 1 : 0) + trailers.length;
 
   return (
     <section aria-label={`${name} trailers and screenshots`} style={{ marginTop: inHero ? 0 : 40 }}>
@@ -50,7 +56,9 @@ export default function GameMedia({
           if (e.key === "ArrowLeft") select(index - 1);
         }}
       >
-        {current.kind === "trailer" ? (
+        {current.kind === "art" ? (
+          <KeyArtSlide art={current.art} name={name} />
+        ) : current.kind === "trailer" ? (
           playing ? (
             <TrailerPlayer key={current.trailer.id} trailer={current.trailer} source={source} />
           ) : (
@@ -63,7 +71,7 @@ export default function GameMedia({
         ) : (
           <button type="button" className="media-play" onClick={() => setLightbox(true)} aria-label="View screenshot full size">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={current.shot.full} alt={`${name} screenshot ${index - trailers.length + 1}`} />
+            <img src={current.shot.full} alt={`${name} screenshot ${index - shotOffset + 1}`} />
           </button>
         )}
         {items.length > 1 && (
@@ -77,16 +85,16 @@ export default function GameMedia({
       <div className="media-strip" role="list">
         {items.map((item, i) => (
           <button
-            key={item.kind === "trailer" ? `t${item.trailer.id}` : `s${i}`}
+            key={item.kind === "trailer" ? `t${item.trailer.id}` : `${item.kind}${i}`}
             type="button"
             role="listitem"
             className="media-thumb"
             aria-current={i === index}
-            aria-label={item.kind === "trailer" ? item.trailer.name : `Screenshot ${i - trailers.length + 1}`}
+            aria-label={item.kind === "art" ? `${name} key art` : item.kind === "trailer" ? item.trailer.name : `Screenshot ${i - shotOffset + 1}`}
             onClick={() => select(i)}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={item.kind === "trailer" ? item.trailer.thumb : item.shot.thumb} alt="" loading="lazy" />
+            <img src={item.kind === "art" ? thumbFor(item.art) : item.kind === "trailer" ? item.trailer.thumb : item.shot.thumb} alt="" loading="lazy" />
             {item.kind === "trailer" && <span className="media-thumb-play" aria-hidden>▶</span>}
           </button>
         ))}
@@ -102,6 +110,44 @@ export default function GameMedia({
         />
       )}
     </section>
+  );
+}
+
+/** Smallest title art for the thumbnail strip (the header is last in the chain). */
+function thumbFor(art: KeyArt): string {
+  return art.fallbacks[art.fallbacks.length - 1] ?? art.src;
+}
+
+/**
+ * Title key art. Flat art (capsule / header) is shown whole over a blurred copy of
+ * itself, so any aspect ratio fits the 16:9 stage without cropping the title. Hero
+ * art is shown full-bleed with the game's logo laid over it, like Steam's library.
+ * Any image that fails to load drops to the next source.
+ */
+function KeyArtSlide({ art, name }: { art: KeyArt; name: string }) {
+  const chain = art.logo ? art.fallbacks : [art.src, ...art.fallbacks];
+  const [step, setStep] = useState(art.logo ? -1 : 0);   // -1 = hero + logo
+  const next = () => setStep((s) => s + 1);
+
+  if (step === -1) {
+    return (
+      <div className="media-keyart hero">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img className="bg" src={art.src} alt="" onError={next} />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img className="logo" src={art.logo} alt={`${name} key art`} onError={next} />
+      </div>
+    );
+  }
+  const src = chain[step];
+  if (!src) return null;
+  return (
+    <div className="media-keyart">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img className="blur" src={src} alt="" aria-hidden />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img key={src} className="fg" src={src} alt={`${name} key art`} onError={next} />
+    </div>
   );
 }
 

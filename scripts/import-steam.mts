@@ -6,6 +6,7 @@
 //   node scripts/import-steam.mts seed-ids 730,570   queue specific app IDs at top priority
 //   node scripts/import-steam.mts run [maxGames]     import due games from the queue (default 120)
 //   node scripts/import-steam.mts backfill-trailers [max]  English trailers for games missing them
+//   node scripts/import-steam.mts art [max]                key-art assets (also topped up after every run)
 //
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 //
@@ -273,6 +274,63 @@ async function backfillTrailers(max: number) {
   console.log(`English trailers: ${updated}/${data?.length ?? 0} games updated.`);
 }
 
+/**
+ * Art assets (header, main capsule, library hero, logo…) from IStoreBrowseService,
+ * the API the Steam store itself uses. File names are hash-versioned, so they can't
+ * be guessed from the app ID any more; we store the whole "assets" object.
+ */
+async function fetchArt(appIds: number[]): Promise<Map<number, Record<string, string>>> {
+  const input = {
+    ids: appIds.map((appid) => ({ appid })),
+    context: { language: "english", country_code: COUNTRY },
+    data_request: { include_assets: true },
+  };
+  const url = `https://api.steampowered.com/IStoreBrowseService/GetItems/v1/?input_json=${encodeURIComponent(JSON.stringify(input))}`;
+  const res = await fetch(url, { headers: { Accept: "application/json" } });
+  if (!res.ok) throw new Error(`GetItems HTTP ${res.status}`);
+  const body = (await res.json()) as { response?: { store_items?: { appid?: number; assets?: Record<string, string> }[] } };
+  const out = new Map<number, Record<string, string>>();
+  for (const item of body.response?.store_items ?? []) {
+    if (item.appid && item.assets) out.set(item.appid, item.assets);
+  }
+  return out;
+}
+
+async function backfillArt(max: number) {
+  const staleBefore = new Date(Date.now() - 7 * 86_400_000).toISOString();
+  const { data, error } = await supabase
+    .from("games")
+    .select("steam_app_id")
+    .not("popularity_rank", "is", null)
+    .or(`art_fetched_at.is.null,art_fetched_at.lt.${staleBefore}`)
+    .order("popularity_rank", { ascending: true })
+    .limit(max);
+  if (error) throw new Error(`games select: ${error.message}`);
+
+  const ids = (data ?? []).map((r) => r.steam_app_id as number);
+  const keys = new Map<string, number>();
+  let updated = 0;
+  for (let i = 0; i < ids.length; i += 50) {
+    const batch = ids.slice(i, i + 50);
+    let art: Map<number, Record<string, string>>;
+    try {
+      art = await fetchArt(batch);
+    } catch (err) {
+      console.warn(`art batch ${i / 50 + 1}: ${String(err)}`);
+      continue;
+    }
+    const now = new Date().toISOString();
+    for (const appId of batch) {
+      const assets = art.get(appId) ?? null;
+      for (const k of Object.keys(assets ?? {})) keys.set(k, (keys.get(k) ?? 0) + 1);
+      const { error: e } = await supabase.from("games").update({ art: assets, art_fetched_at: now }).eq("steam_app_id", appId);
+      if (e) console.warn(`${appId}: ${e.message}`); else if (assets) updated++;
+    }
+    await sleep(500);
+  }
+  console.log(`Art: ${updated}/${ids.length} games. Asset keys seen: ${[...keys].map(([k, n]) => `${k}(${n})`).join(", ") || "none"}`);
+}
+
 async function seedIds(ids: number[]) {
   await enqueue(ids.map((id) => ({ steam_app_id: id, priority: 0 })));
 }
@@ -327,6 +385,9 @@ async function run(maxGames: number) {
     }
   }
   console.log(`Done: ${ok} imported, ${skipped} skipped (not a game / unavailable), ${failed} failed, ${(due?.length ?? 0) - ok - skipped - failed} left for next run.`);
+
+  // Art uses a different Steam API (no appdetails rate limit): top up missing / week-old art.
+  await backfillArt(300);
 }
 
 // ─── Entry ───────────────────────────────────────────────────────────────────
@@ -348,7 +409,8 @@ switch (cmd) {
   case "seed-ids": await seedIds((arg ?? "").split(",").map(Number).filter(Boolean)); break;
   case "run":      await run(Number(arg ?? 120)); break;
   case "backfill-trailers": await backfillTrailers(Number(arg ?? 500)); break;
+  case "art":      await backfillArt(Number(arg ?? 2000)); break;
   default:
-    console.error("Usage: import-steam.mts seed [topN] | seed-ids <id,id> | run [maxGames] | backfill-trailers [max]");
+    console.error("Usage: import-steam.mts seed [topN] | seed-ids <id,id> | run [maxGames] | backfill-trailers [max] | art [max]");
     process.exit(1);
 }

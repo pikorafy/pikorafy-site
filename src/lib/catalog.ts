@@ -35,6 +35,18 @@ export interface Game {
   steam_description: string | null;     // Steam's short description, shown with attribution
   screenshots: SteamScreenshot[];
   trailers: SteamTrailer[];
+  /** Title key art for the first media slide, sharpest source first (see keyArtFor). */
+  key_art: KeyArt | null;
+}
+
+/**
+ * Key art with the game's title on it. `src` is tried first, then each fallback.
+ * With `logo`, `src` is textless background art (library hero) and the logo is laid over it.
+ */
+export interface KeyArt {
+  src: string;
+  logo?: string;
+  fallbacks: string[];
 }
 
 export interface SteamScreenshot {
@@ -82,7 +94,7 @@ export interface GameCard {
 }
 
 const GAME_COLUMNS =
-  "steam_app_id, slug, name, is_free, release_date, coming_soon, developers, publishers, genres, categories, platforms, metacritic, review_score_pct, review_count, review_label, header_image, popularity_rank, steam_fetched_at, history_low_price, history_low_currency, history_low_shop, history_low_at, current_players, current_players_at, peak_players_24h, peak_players_30d, steam_description:raw->>short_description, raw_screenshots:raw->screenshots, raw_movies:raw->movies, trailers_en";
+  "steam_app_id, slug, name, is_free, release_date, coming_soon, developers, publishers, genres, categories, platforms, metacritic, review_score_pct, review_count, review_label, header_image, popularity_rank, steam_fetched_at, history_low_price, history_low_currency, history_low_shop, history_low_at, current_players, current_players_at, peak_players_24h, peak_players_30d, steam_description:raw->>short_description, raw_screenshots:raw->screenshots, raw_movies:raw->movies, trailers_en, art";
 
 function db() {
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return null;
@@ -99,16 +111,40 @@ export async function getGameBySlug(slug: string): Promise<Game | null> {
     .eq("type", "game")
     .maybeSingle();
   if (!data) return null;
-  const { raw_screenshots, raw_movies, trailers_en, ...game } =
-    data as Game & { raw_screenshots: unknown; raw_movies: unknown; trailers_en: unknown };
+  const { raw_screenshots, raw_movies, trailers_en, art, ...game } =
+    data as Game & { raw_screenshots: unknown; raw_movies: unknown; trailers_en: unknown; art: unknown };
   return {
     ...game,
+    key_art: keyArtFor(art as Record<string, string> | null, game.header_image),
     screenshots: parseScreenshots(raw_screenshots),
     // English-region trailers when we have them; the import's own (Spanish-region) list otherwise.
     trailers: parseTrailers(Array.isArray(trailers_en) && trailers_en.length > 0 ? trailers_en : raw_movies),
     history_low_price: game.history_low_price === null ? null : Number(game.history_low_price),
     steam_description: game.steam_description ? decodeEntities(game.steam_description).trim() || null : null,
   };
+}
+
+const STEAM_ASSETS = "https://shared.akamai.steamstatic.com/store_item_assets/";
+
+/**
+ * Pick the sharpest title art Steam lists for a game. Asset file names are
+ * hash-versioned, so they come from the stored IStoreBrowseService "assets".
+ * Order: 2x landscape capsule/header → library hero with its logo laid over it →
+ * main capsule (616x353) → header (460x215).
+ */
+export function keyArtFor(assets: Record<string, string> | null, header: string | null): KeyArt | null {
+  const format = assets?.asset_url_format;
+  const url = (key: string) => (format && assets?.[key] ? STEAM_ASSETS + format.replace("${FILENAME}", assets[key]) : null);
+  const flat = [url("main_capsule_2x"), url("header_2x"), url("main_capsule"), header ?? url("header")]
+    .filter((u): u is string => !!u);
+  const logoKey = assets ? Object.keys(assets).find((k) => /logo/i.test(k) && !/small|icon/i.test(k)) : undefined;
+  const hero = url("library_hero_2x") ?? url("library_hero");
+  const logo = logoKey ? url(logoKey) : null;
+
+  if (url("main_capsule_2x") || url("header_2x") || !(hero && logo)) {
+    return flat.length ? { src: flat[0], fallbacks: flat.slice(1) } : null;
+  }
+  return { src: hero!, logo: logo!, fallbacks: flat };
 }
 
 /** Slugs of the most popular games, for generateStaticParams. */
