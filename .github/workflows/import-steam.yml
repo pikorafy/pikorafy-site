@@ -6,7 +6,7 @@ name: Import Steam catalog
 on:
   schedule:
     - cron: "17 * * * *"     # hourly: up to 4000 due games via GetItems (new first; top 500 refresh every 6h, rest daily)
-    - cron: "40 4 * * 1"     # Mondays: refresh the top-20000 seed list from SteamSpy (popularity, ~22 min)
+    - cron: "40 4 * * 1"     # Mondays: re-rank the top 20000 from Steam (store search + charts, by review count)
     - cron: "5 5 * * *"      # daily: add most played / trending, prune games that fell out
   workflow_dispatch:
     inputs:
@@ -36,6 +36,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          STEAM_API_KEY: ${{ secrets.STEAM_API_KEY }}
           CMD: ${{ inputs.command }}
           ARG: ${{ inputs.arg }}
         run: |
