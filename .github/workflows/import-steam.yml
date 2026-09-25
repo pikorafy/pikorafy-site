@@ -5,12 +5,13 @@ name: Import Steam catalog
 
 on:
   schedule:
-    - cron: "17 * * * *"     # hourly: every due game via GetItems (new games first; top 500 refresh every 6h, rest daily)
-    - cron: "40 4 * * 1"     # Mondays: refresh the top-2000 seed list from SteamSpy
+    - cron: "17 * * * *"     # hourly: up to 4000 due games via GetItems (new first; top 500 refresh every 6h, rest daily)
+    - cron: "40 4 * * 1"     # Mondays: refresh the top-20000 seed list from SteamSpy (popularity, ~22 min)
+    - cron: "5 5 * * *"      # daily: add most played / trending, prune games that fell out
   workflow_dispatch:
     inputs:
       command:
-        description: "seed | seed-ids | run | run-appdetails | backfill-trailers | art"
+        description: "seed | seed-ids | run | discover | run-appdetails | backfill-trailers | art"
         default: run
       arg:
         description: "topN / comma-separated IDs / maxGames / max games to backfill"
@@ -23,7 +24,7 @@ concurrency:
 jobs:
   import:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -41,7 +42,9 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             node scripts/import-steam.mts "$CMD" $ARG
           elif [ "${{ github.event.schedule }}" = "40 4 * * 1" ]; then
-            node scripts/import-steam.mts seed 2000
+            node scripts/import-steam.mts seed 20000
+          elif [ "${{ github.event.schedule }}" = "5 5 * * *" ]; then
+            node scripts/import-steam.mts discover
           else
             node scripts/import-steam.mts run
           fi

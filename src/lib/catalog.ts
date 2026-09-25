@@ -183,19 +183,29 @@ export async function getPriceHistory(appId: number, currency: string): Promise<
   if (!client) return [];
   const { data } = await client
     .from("price_history")
-    .select("day, price")
+    .select("day, price, store")
     .eq("steam_app_id", appId)
     .eq("currency", currency)
     .order("day", { ascending: true })
     .limit(1000);
 
-  const byDay = new Map<string, number>();
-  for (const row of data ?? []) {
-    const price = Number(row.price);
-    const prev = byDay.get(row.day);
-    if (prev === undefined || price < prev) byDay.set(row.day, price);
+  // Rows are change points per store (unchanged prices aren't stored), so each day's
+  // value is the cheapest of every store's latest known price, not just that day's rows.
+  const current = new Map<string, number>();
+  const points: PricePoint[] = [];
+  const rows = data ?? [];
+  for (let i = 0; i < rows.length; i++) {
+    current.set(rows[i].store as string, Number(rows[i].price));
+    if (i === rows.length - 1 || rows[i + 1].day !== rows[i].day) {
+      const price = Math.min(...current.values());
+      if (points.at(-1)?.price !== price) points.push({ day: rows[i].day as string, price });
+    }
   }
-  return [...byDay].map(([day, price]) => ({ day, price }));
+  // Carry the line to today.
+  const today = new Date().toISOString().slice(0, 10);
+  const last = points.at(-1);
+  if (last && last.day < today) points.push({ day: today, price: last.price });
+  return points;
 }
 
 export interface PlayerPoint {

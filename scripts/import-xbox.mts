@@ -251,7 +251,7 @@ function mapProduct(p: CatalogProduct, d: Discovered | undefined) {
     discount_pct: list !== null && msrp && msrp > list ? Math.round((1 - list / msrp) * 100) : 0,
     currency: price?.CurrencyCode ?? null,
     is_free: list === 0,
-    raw: p,
+    raw: slimRaw(p),
     fetched_at: new Date().toISOString(),
   };
 }
@@ -282,6 +282,28 @@ async function resolveSubscriptions() {
     if (error) console.warn(`xbox_subscriptions upsert: ${error.message}`);
   }
   console.log(`Subscriptions: ${names.map((n) => `${n.big_id}=${n.name}`).join(", ") || "none"}`);
+}
+
+/**
+ * Only what the site reads back from `raw`: images (key art) and SKU availabilities
+ * (prices and Game Pass / EA Play entitlements, see refresh_xbox_catalog()). The full
+ * Store response is ~20 KB per product and kept the table 10× larger than needed.
+ */
+function slimRaw(p: CatalogProduct) {
+  return {
+    ProductId: p.ProductId,
+    LocalizedProperties: [{ Images: p.LocalizedProperties?.[0]?.Images ?? [] }],
+    DisplaySkuAvailabilities: (p.DisplaySkuAvailabilities ?? []).map((s) => ({
+      Sku: { Properties: { IsTrial: s.Sku?.Properties?.IsTrial } },
+      Availabilities: (s.Availabilities ?? []).map((a) => ({
+        Actions: a.Actions,
+        Remediations: a.Remediations ?? undefined,
+        Properties: { MerchandisingTags: a.Properties?.MerchandisingTags },
+        OrderManagementData: { Price: a.OrderManagementData?.Price },
+        Conditions: { ClientConditions: a.Conditions?.ClientConditions },
+      })),
+    })),
+  };
 }
 
 // ─── Slugs ───────────────────────────────────────────────────────────────────
