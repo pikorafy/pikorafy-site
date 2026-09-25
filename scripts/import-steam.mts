@@ -7,6 +7,7 @@
 //   node scripts/import-steam.mts run [maxGames]     import due games from the queue (default 60)
 //   node scripts/import-steam.mts backfill-trailers [max]  English trailers for games missing them
 //   node scripts/import-steam.mts art [max]                key-art assets (also topped up after every run)
+//   node scripts/import-steam.mts items [max]              raw GetItems data for queued apps (works from GitHub)
 //
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 //
@@ -342,6 +343,73 @@ async function backfillArt(max: number) {
   console.log(`Art: ${updated}/${ids.length} games. Asset keys seen: ${[...keys].map(([k, n]) => `${k}(${n})`).join(", ") || "none"}`);
 }
 
+/**
+ * Raw IStoreBrowseService/GetItems data for queued apps (new ones first), 50 per request,
+ * into steam_store_items, plus the tag-name list. Works from GitHub runners, unlike
+ * appdetails. The mapping into `games` reads from what is stored here.
+ */
+async function fetchItems(max: number) {
+  // Tag names, so tag ids can become genres.
+  try {
+    const res = await fetch("https://api.steampowered.com/IStoreService/GetTagList/v1/?language=english");
+    const body = (await res.json()) as { response?: { tags?: { tagid: number; name: string }[] } };
+    const tags = body.response?.tags ?? [];
+    if (tags.length) {
+      const { error } = await supabase.from("steam_tags").upsert(tags.map((t) => ({ tagid: t.tagid, name: t.name })));
+      if (error) console.warn(`steam_tags upsert: ${error.message}`);
+    }
+    console.log(`Tags: ${tags.length}`);
+  } catch (err) {
+    console.warn(`GetTagList: ${String(err)}`);
+  }
+
+  const { data: have } = await supabase.from("steam_store_items").select("steam_app_id").limit(10000);
+  const fetched = new Set((have ?? []).map((r) => r.steam_app_id as number));
+  const { data: queue, error } = await supabase
+    .from("import_queue")
+    .select("steam_app_id")
+    .eq("skip", false)
+    .order("imported_at", { ascending: true, nullsFirst: true })
+    .order("priority", { ascending: true })
+    .limit(10000);
+  if (error) throw new Error(`import_queue select: ${error.message}`);
+  const ids = (queue ?? []).map((r) => r.steam_app_id as number).filter((id) => !fetched.has(id)).slice(0, max);
+
+  let saved = 0, missing = 0;
+  for (let i = 0; i < ids.length; i += 50) {
+    const batch = ids.slice(i, i + 50);
+    const input = {
+      ids: batch.map((appid) => ({ appid })),
+      context: { language: "english", country_code: COUNTRY.toUpperCase() },
+      data_request: {
+        include_assets: true, include_release: true, include_platforms: true,
+        include_all_purchase_options: true, include_screenshots: true, include_trailers: true,
+        include_ratings: true, include_tag_count: 20, include_reviews: true, include_basic_info: true,
+      },
+    };
+    const url = `https://api.steampowered.com/IStoreBrowseService/GetItems/v1/?input_json=${encodeURIComponent(JSON.stringify(input))}`;
+    try {
+      const res = await fetch(url, { headers: { Accept: "application/json" } });
+      if (!res.ok) throw new Error(`GetItems HTTP ${res.status}`);
+      const body = (await res.json()) as { response?: { store_items?: { appid?: number; success?: number }[] } };
+      const items = (body.response?.store_items ?? []).filter((it) => it.appid && it.success === 1);
+      missing += batch.length - items.length;
+      if (items.length) {
+        const now = new Date().toISOString();
+        const { error: e } = await supabase.from("steam_store_items")
+          .upsert(items.map((item) => ({ steam_app_id: item.appid, item, fetched_at: now })));
+        if (e) throw new Error(`steam_store_items upsert: ${e.message}`);
+        saved += items.length;
+      }
+      if (i === 0 && items[0]) console.log(`Item keys: ${Object.keys(items[0]).join(", ")}`);
+    } catch (err) {
+      console.warn(`items batch ${i / 50 + 1}: ${String(err)}`);
+    }
+    await sleep(500);
+  }
+  console.log(`Store items: ${saved} saved, ${missing} not returned, of ${ids.length} requested.`);
+}
+
 async function seedIds(ids: number[]) {
   await enqueue(ids.map((id) => ({ steam_app_id: id, priority: 0 })));
 }
@@ -423,7 +491,8 @@ switch (cmd) {
   case "run":      await run(Number(arg ?? 60)); break;
   case "backfill-trailers": await backfillTrailers(Number(arg ?? 500)); break;
   case "art":      await backfillArt(Number(arg ?? 2000)); break;
+  case "items":    await fetchItems(Number(arg ?? 3000)); break;
   default:
-    console.error("Usage: import-steam.mts seed [topN] | seed-ids <id,id> | run [maxGames] | backfill-trailers [max] | art [max]");
+    console.error("Usage: import-steam.mts seed [topN] | seed-ids <id,id> | run [maxGames] | backfill-trailers [max] | art [max] | items [max]");
     process.exit(1);
 }
