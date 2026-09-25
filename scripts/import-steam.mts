@@ -4,10 +4,10 @@
 // Usage (Node ≥ 23.6 runs .mts directly; on Node 22 add --experimental-strip-types):
 //   node scripts/import-steam.mts seed [topN]        queue the top N games from SteamSpy (default 2000)
 //   node scripts/import-steam.mts seed-ids 730,570   queue specific app IDs at top priority
-//   node scripts/import-steam.mts run [maxGames]     import due games from the queue (default 60)
+//   node scripts/import-steam.mts run [maxGames]     import due games via GetItems, new first (default: all due)
+//   node scripts/import-steam.mts run-appdetails [n] legacy per-game appdetails import (blocked from GitHub)
 //   node scripts/import-steam.mts backfill-trailers [max]  English trailers for games missing them
 //   node scripts/import-steam.mts art [max]                key-art assets (also topped up after every run)
-//   node scripts/import-steam.mts items [max]              raw GetItems data for queued apps (works from GitHub)
 //
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 //
@@ -343,73 +343,6 @@ async function backfillArt(max: number) {
   console.log(`Art: ${updated}/${ids.length} games. Asset keys seen: ${[...keys].map(([k, n]) => `${k}(${n})`).join(", ") || "none"}`);
 }
 
-/**
- * Raw IStoreBrowseService/GetItems data for queued apps (new ones first), 50 per request,
- * into steam_store_items, plus the tag-name list. Works from GitHub runners, unlike
- * appdetails. The mapping into `games` reads from what is stored here.
- */
-async function fetchItems(max: number) {
-  // Tag names, so tag ids can become genres.
-  try {
-    const res = await fetch("https://api.steampowered.com/IStoreService/GetTagList/v1/?language=english");
-    const body = (await res.json()) as { response?: { tags?: { tagid: number; name: string }[] } };
-    const tags = body.response?.tags ?? [];
-    if (tags.length) {
-      const { error } = await supabase.from("steam_tags").upsert(tags.map((t) => ({ tagid: t.tagid, name: t.name })));
-      if (error) console.warn(`steam_tags upsert: ${error.message}`);
-    }
-    console.log(`Tags: ${tags.length}`);
-  } catch (err) {
-    console.warn(`GetTagList: ${String(err)}`);
-  }
-
-  const { data: have } = await supabase.from("steam_store_items").select("steam_app_id").limit(10000);
-  const fetched = new Set((have ?? []).map((r) => r.steam_app_id as number));
-  const { data: queue, error } = await supabase
-    .from("import_queue")
-    .select("steam_app_id")
-    .eq("skip", false)
-    .order("imported_at", { ascending: true, nullsFirst: true })
-    .order("priority", { ascending: true })
-    .limit(10000);
-  if (error) throw new Error(`import_queue select: ${error.message}`);
-  const ids = (queue ?? []).map((r) => r.steam_app_id as number).filter((id) => !fetched.has(id)).slice(0, max);
-
-  let saved = 0, missing = 0;
-  for (let i = 0; i < ids.length; i += 50) {
-    const batch = ids.slice(i, i + 50);
-    const input = {
-      ids: batch.map((appid) => ({ appid })),
-      context: { language: "english", country_code: COUNTRY.toUpperCase() },
-      data_request: {
-        include_assets: true, include_release: true, include_platforms: true,
-        include_all_purchase_options: true, include_screenshots: true, include_trailers: true,
-        include_ratings: true, include_tag_count: 20, include_reviews: true, include_basic_info: true,
-      },
-    };
-    const url = `https://api.steampowered.com/IStoreBrowseService/GetItems/v1/?input_json=${encodeURIComponent(JSON.stringify(input))}`;
-    try {
-      const res = await fetch(url, { headers: { Accept: "application/json" } });
-      if (!res.ok) throw new Error(`GetItems HTTP ${res.status}`);
-      const body = (await res.json()) as { response?: { store_items?: { appid?: number; success?: number }[] } };
-      const items = (body.response?.store_items ?? []).filter((it) => it.appid && it.success === 1);
-      missing += batch.length - items.length;
-      if (items.length) {
-        const now = new Date().toISOString();
-        const { error: e } = await supabase.from("steam_store_items")
-          .upsert(items.map((item) => ({ steam_app_id: item.appid, item, fetched_at: now })));
-        if (e) throw new Error(`steam_store_items upsert: ${e.message}`);
-        saved += items.length;
-      }
-      if (i === 0 && items[0]) console.log(`Item keys: ${Object.keys(items[0]).join(", ")}`);
-    } catch (err) {
-      console.warn(`items batch ${i / 50 + 1}: ${String(err)}`);
-    }
-    await sleep(500);
-  }
-  console.log(`Store items: ${saved} saved, ${missing} not returned, of ${ids.length} requested.`);
-}
-
 async function seedIds(ids: number[]) {
   await enqueue(ids.map((id) => ({ steam_app_id: id, priority: 0 })));
 }
@@ -425,7 +358,8 @@ async function enqueue(rows: { steam_app_id: number; priority: number }[]) {
   console.log(`Queued ${rows.length} apps.`);
 }
 
-async function run(maxGames: number) {
+/** Legacy path: one appdetails call per game. Blocked from GitHub runners; kept for local use. */
+async function runAppdetails(maxGames: number) {
   const { data: due, error } = await supabase
     .from("import_queue")
     .select("steam_app_id, priority, attempts")
@@ -471,6 +405,321 @@ async function run(maxGames: number) {
   await backfillArt(300);
 }
 
+// ─── GetItems import (main path) ─────────────────────────────────────────────
+//
+// store.steampowered.com/api/appdetails blocks GitHub's runner IPs, so the hourly
+// import uses IStoreBrowseService/GetItems on api.steampowered.com instead: 50 apps
+// per request with names, descriptions, release, platforms, reviews, price, tags,
+// art, screenshots and trailers. Each item is stored raw (steam_store_items) and
+// mapped into `games` in the appdetails shape the site already reads (`raw`).
+
+const STORE_ASSETS = "https://shared.akamai.steamstatic.com/store_item_assets/";
+const STORE_TRAILERS = "https://video.akamai.steamstatic.com/store_trailers/";
+const ITEMS_BATCH = 50;
+
+// Steam genre ids as appdetails reports them; GetItems only has tags, whose names match.
+const GENRES: Record<string, { id: string; description: string }> = {
+  "Action": { id: "1", description: "Action" },
+  "Strategy": { id: "2", description: "Strategy" },
+  "RPG": { id: "3", description: "RPG" },
+  "Casual": { id: "4", description: "Casual" },
+  "Racing": { id: "9", description: "Racing" },
+  "Sports": { id: "18", description: "Sports" },
+  "Indie": { id: "23", description: "Indie" },
+  "Adventure": { id: "25", description: "Adventure" },
+  "Simulation": { id: "28", description: "Simulation" },
+  "Massively Multiplayer": { id: "29", description: "Massively Multiplayer" },
+  "Free to Play": { id: "37", description: "Free To Play" },
+  "Early Access": { id: "70", description: "Early Access" },
+};
+
+// Store category ids → names (as appdetails names them).
+const CATEGORIES: Record<number, string> = {
+  1: "Multi-player", 2: "Single-player", 8: "Valve Anti-Cheat enabled", 9: "Co-op", 13: "Captions available",
+  14: "Commentary available", 15: "Stats", 16: "Includes Source SDK", 17: "Includes level editor",
+  18: "Partial Controller Support", 20: "MMO", 22: "Steam Achievements", 23: "Steam Cloud", 24: "Shared/Split Screen",
+  25: "Steam Leaderboards", 27: "Cross-Platform Multiplayer", 28: "Full controller support", 29: "Steam Trading Cards",
+  30: "Steam Workshop", 31: "VR Support", 32: "Steam Turn Notifications", 35: "In-App Purchases", 36: "Online PvP",
+  37: "Shared/Split Screen PvP", 38: "Online Co-op", 39: "Shared/Split Screen Co-op", 40: "SteamVR Collectibles",
+  41: "Remote Play on Phone", 42: "Remote Play on Tablet", 43: "Remote Play on TV", 44: "Remote Play Together",
+  47: "LAN PvP", 48: "LAN Co-op", 49: "PvP", 51: "Steam Workshop", 52: "Tracked Controller Support",
+  53: "VR Supported", 54: "VR Only", 55: "DualShock Controller Support", 56: "DualShock Controller Support",
+  57: "DualSense Controller Support", 58: "DualSense Controller Support", 59: "Steam Input API Support",
+  60: "Gamepad Recommended", 61: "HDR available", 62: "Family Sharing", 63: "Steam Timeline",
+};
+
+interface StoreTrailer {
+  trailer_name?: string;
+  trailer_base_id?: number;
+  trailer_url_format?: string;
+  screenshot_medium?: string;
+  screenshot_full?: string;
+  adaptive_trailers?: { cdn_path?: string; encoding?: string }[];
+}
+
+interface StoreItem {
+  appid?: number;
+  success?: number;
+  type?: number;                 // 0 = game
+  name?: string;
+  is_free?: boolean;
+  is_early_access?: boolean;
+  tagids?: number[];
+  basic_info?: { short_description?: string; developers?: { name: string }[]; publishers?: { name: string }[] };
+  release?: { steam_release_date?: number; original_release_date?: number; is_coming_soon?: boolean };
+  platforms?: { windows?: boolean; mac?: boolean; steamos_linux?: boolean };
+  reviews?: { summary_filtered?: { review_count?: number; percent_positive?: number; review_score_label?: string } };
+  categories?: { supported_player_categoryids?: number[]; feature_categoryids?: number[]; controller_categoryids?: number[] };
+  best_purchase_option?: { final_price_in_cents?: string | number; original_price_in_cents?: string | number; discount_pct?: number };
+  assets?: Record<string, string>;
+  screenshots?: { all_ages_screenshots?: { filename?: string; ordinal?: number }[] };
+  trailers?: { highlights?: StoreTrailer[]; other_trailers?: StoreTrailer[] };
+}
+
+/** Full items for Spain (EUR prices), or only trailers for another region (`trailersOnly`). */
+async function getItems(appIds: number[], country = COUNTRY, trailersOnly = false): Promise<StoreItem[]> {
+  const input = {
+    ids: appIds.map((appid) => ({ appid })),
+    context: { language: "english", country_code: country.toUpperCase() },
+    data_request: trailersOnly ? { include_trailers: true } : {
+      include_assets: true, include_release: true, include_platforms: true, include_screenshots: true,
+      include_trailers: true, include_ratings: true, include_tag_count: 20, include_reviews: true, include_basic_info: true,
+    },
+  };
+  const url = `https://api.steampowered.com/IStoreBrowseService/GetItems/v1/?input_json=${encodeURIComponent(JSON.stringify(input))}`;
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(url, { headers: { Accept: "application/json" } });
+    if (res.ok) {
+      const body = (await res.json()) as { response?: { store_items?: StoreItem[] } };
+      return body.response?.store_items ?? [];
+    }
+    if (attempt >= 3) throw new Error(`GetItems HTTP ${res.status}`);
+    await sleep(10_000 * 2 ** attempt);
+  }
+}
+
+async function loadTagNames(): Promise<Map<number, string>> {
+  try {
+    const res = await fetch("https://api.steampowered.com/IStoreService/GetTagList/v1/?language=english");
+    const tags = ((await res.json()) as { response?: { tags?: { tagid: number; name: string }[] } }).response?.tags ?? [];
+    if (tags.length) await supabase.from("steam_tags").upsert(tags.map((t) => ({ tagid: t.tagid, name: t.name })));
+    if (tags.length) return new Map(tags.map((t) => [t.tagid, t.name]));
+  } catch (err) {
+    console.warn(`GetTagList: ${String(err)} — using stored tag names`);
+  }
+  const { data } = await supabase.from("steam_tags").select("tagid, name");
+  return new Map((data ?? []).map((t) => [t.tagid as number, t.name as string]));
+}
+
+const cents = (v: string | number | undefined) => (v === undefined || v === null || v === "" ? null : Number(v) / 100);
+const isoDate = (sec?: number) => (sec ? new Date(sec * 1000).toISOString().slice(0, 10) : null);
+
+/** A GetItems item in the appdetails shape `games.raw` has always held (pages read it). */
+function toAppdetails(item: StoreItem, tagNames: Map<number, string>) {
+  const assets = item.assets ?? {};
+  const asset = (file?: string) => (file && assets.asset_url_format ? STORE_ASSETS + assets.asset_url_format.replace("${FILENAME}", file) : null);
+  const tags = (item.tagids ?? []).map((id) => tagNames.get(id)).filter((n): n is string => !!n);
+  const genres = tags.filter((t) => GENRES[t]).map((t) => GENRES[t]);
+  if (item.is_early_access && !genres.some((g) => g.id === "70")) genres.push(GENRES["Early Access"]);
+  const categoryIds = [
+    ...(item.categories?.supported_player_categoryids ?? []),
+    ...(item.categories?.feature_categoryids ?? []),
+    ...(item.categories?.controller_categoryids ?? []),
+  ];
+  const categories = [...new Set(categoryIds)].filter((id) => CATEGORIES[id]).map((id) => ({ id, description: CATEGORIES[id] }));
+
+  const screenshots = (item.screenshots?.all_ages_screenshots ?? [])
+    .filter((s) => s.filename)
+    .sort((a, b) => (a.ordinal ?? 0) - (b.ordinal ?? 0))
+    .map((s, id) => {
+      const [path, query = ""] = s.filename!.split("?");
+      const sized = (size: string) => `${STORE_ASSETS}${path.replace(/\.jpg$/, `.${size}.jpg`)}${query ? `?${query}` : ""}`;
+      return { id, path_thumbnail: sized("600x338"), path_full: sized("1920x1080") };
+    });
+
+  const trailer = (t: StoreTrailer, highlight: boolean) => {
+    const hls = t.adaptive_trailers?.find((a) => a.encoding === "hls_h264")?.cdn_path;
+    const thumbFile = t.screenshot_medium;
+    const thumb = thumbFile && t.trailer_url_format ? STORE_ASSETS + t.trailer_url_format.replace("${FILENAME}", thumbFile) : null;
+    return { id: t.trailer_base_id, name: t.trailer_name ?? "Trailer", thumbnail: thumb, hls_h264: hls ? STORE_TRAILERS + hls : null, highlight };
+  };
+  const movies = [
+    ...(item.trailers?.highlights ?? []).map((t) => trailer(t, true)),
+    ...(item.trailers?.other_trailers ?? []).map((t) => trailer(t, false)),
+  ].filter((m) => typeof m.id === "number" && m.thumbnail);
+
+  const release = item.release?.steam_release_date ?? item.release?.original_release_date;
+  const comingSoon = item.release?.is_coming_soon ?? (!release || release * 1000 > Date.now());
+  const bpo = item.best_purchase_option;
+  const final = cents(bpo?.final_price_in_cents);
+  const initial = cents(bpo?.original_price_in_cents) ?? final;
+
+  return {
+    source: "getitems",
+    type: item.type === 0 ? "game" : `type_${item.type}`,
+    name: item.name ?? String(item.appid),
+    steam_appid: item.appid,
+    is_free: Boolean(item.is_free),
+    short_description: item.basic_info?.short_description ?? "",
+    header_image: asset(assets.header),
+    developers: (item.basic_info?.developers ?? []).map((d) => d.name),
+    publishers: (item.basic_info?.publishers ?? []).map((p) => p.name),
+    genres,
+    categories,
+    tags,
+    platforms: { windows: Boolean(item.platforms?.windows), mac: Boolean(item.platforms?.mac), linux: Boolean(item.platforms?.steamos_linux) },
+    release_date: { coming_soon: comingSoon, date: isoDate(release) ?? "" },
+    price_overview: final !== null && !item.is_free
+      ? { currency: "EUR", final: Math.round(final * 100), initial: Math.round((initial ?? final) * 100), discount_percent: bpo?.discount_pct ?? 0 }
+      : undefined,
+    screenshots,
+    movies,
+  };
+}
+
+/** Import (or refresh) due games through GetItems: new games first, then due refreshes. */
+async function run(maxGames: number) {
+  const tagNames = await loadTagNames();
+
+  // PostgREST caps responses at 1000 rows: page through the due queue.
+  const due: { steam_app_id: number; priority: number; attempts: number }[] = [];
+  for (let from = 0; due.length < maxGames; from += 1000) {
+    const { data, error } = await supabase
+      .from("import_queue")
+      .select("steam_app_id, priority, attempts")
+      .eq("skip", false)
+      .lte("next_fetch_at", new Date().toISOString())
+      .order("imported_at", { ascending: true, nullsFirst: true })
+      .order("priority", { ascending: true })
+      .order("steam_app_id", { ascending: true })
+      .range(from, Math.min(from + 999, maxGames - 1));
+    if (error) throw new Error(`import_queue select: ${error.message}`);
+    due.push(...(data ?? []));
+    if (!data || data.length < 1000) break;
+  }
+
+  let ok = 0, skipped = 0, failed = 0;
+  for (let i = 0; i < due.length; i += ITEMS_BATCH) {
+    const batch = due.slice(i, i + ITEMS_BATCH);
+    let items: StoreItem[];
+    try {
+      items = await getItems(batch.map((q) => q.steam_app_id));
+    } catch (err) {
+      failed += batch.length;
+      console.warn(`items batch ${i / ITEMS_BATCH + 1}: ${String(err)}`);
+      continue;
+    }
+    const byId = new Map(items.filter((it) => it.appid).map((it) => [it.appid!, it]));
+    // Steam picks trailer cuts by region (Spain gets PEGI/Spanish ones): take trailers from the US.
+    const usTrailers = new Map<number, StoreItem["trailers"]>();
+    try {
+      for (const it of await getItems(batch.map((q) => q.steam_app_id), TRAILER_COUNTRY, true)) {
+        if (it.appid && it.trailers) usTrailers.set(it.appid, it.trailers);
+      }
+    } catch (err) {
+      console.warn(`US trailers batch ${i / ITEMS_BATCH + 1}: ${String(err)} — using Spain's`);
+    }
+    const now = new Date().toISOString();
+
+    const stored = items.filter((it) => it.appid && it.success === 1);
+    if (stored.length) {
+      await supabase.from("steam_store_items").upsert(stored.map((item) => ({ steam_app_id: item.appid, item, fetched_at: now })));
+    }
+
+    for (const q of batch) {
+      const item = byId.get(q.steam_app_id);
+      try {
+        let result: "ok" | "skip";
+        if (!item || item.success !== 1) {
+          // Not returned: delisted or region-locked. Give it a few tries before skipping.
+          result = "skip";
+          const attempts = q.attempts + 1;
+          await supabase.from("import_queue").update({
+            next_fetch_at: new Date(Date.now() + 86_400_000).toISOString(),
+            attempts, last_error: "not returned by GetItems", skip: attempts >= 3,
+          }).eq("steam_app_id", q.steam_app_id);
+          skipped++;
+          continue;
+        } else if (item.type !== 0) {
+          result = "skip";
+        } else {
+          await saveItem(item, q.priority, tagNames, now, usTrailers.get(q.steam_app_id));
+          result = "ok";
+        }
+        const hours = q.priority <= TOP_REFRESH_RANK ? 6 : 24;
+        await supabase.from("import_queue").update({
+          next_fetch_at: new Date(Date.now() + hours * 3_600_000).toISOString(),
+          ...(result === "ok" && { imported_at: now }),
+          attempts: 0, last_error: null, skip: result === "skip",
+        }).eq("steam_app_id", q.steam_app_id);
+        if (result === "ok") ok++; else skipped++;
+      } catch (err) {
+        failed++;
+        await supabase.from("import_queue").update({
+          attempts: q.attempts + 1, last_error: String(err).slice(0, 500),
+          next_fetch_at: new Date(Date.now() + 3_600_000).toISOString(), skip: q.attempts + 1 >= 5,
+        }).eq("steam_app_id", q.steam_app_id);
+      }
+    }
+    await sleep(300);
+  }
+  console.log(`Done: ${ok} imported/refreshed, ${skipped} skipped (not a game / not returned), ${failed} failed, of ${due.length} due.`);
+
+  // New Steam games may match Xbox products we already have.
+  const { error: linkError } = await supabase.rpc("refresh_xbox_catalog");
+  if (linkError) console.warn(`refresh_xbox_catalog: ${linkError.message}`);
+}
+
+async function saveItem(item: StoreItem, rank: number, tagNames: Map<number, string>, now: string, usTrailers?: StoreItem["trailers"]) {
+  const appId = item.appid!;
+  const details = toAppdetails(item, tagNames);
+  const english = usTrailers ? toAppdetails({ ...item, trailers: usTrailers }, tagNames).movies : details.movies;
+  const review = item.reviews?.summary_filtered;
+
+  const game = {
+    steam_app_id: appId,
+    slug: await resolveSlug(appId, details.name),
+    name: details.name,
+    type: "game",
+    is_free: details.is_free,
+    release_date: details.release_date.date || null,
+    coming_soon: details.release_date.coming_soon,
+    developers: details.developers,
+    publishers: details.publishers,
+    genres: details.genres.map((g) => g.description),
+    categories: details.categories.map((c) => c.description),
+    platforms: Object.entries(details.platforms).filter(([, v]) => v).map(([k]) => k),
+    review_score_pct: review?.review_count ? review.percent_positive ?? null : null,
+    review_count: review?.review_count ?? null,
+    review_label: review?.review_score_label ?? null,
+    header_image: details.header_image,
+    popularity_rank: rank,
+    raw: details,
+    trailers_en: english,
+    art: item.assets ?? null,
+    art_fetched_at: now,
+    steam_fetched_at: now,
+  };
+  const { error: gameErr } = await supabase.from("games").upsert(game);
+  if (gameErr) throw new Error(`games upsert: ${gameErr.message}`);
+
+  const po = details.price_overview;
+  if (po) {
+    const price = po.final / 100, regular = po.initial / 100;
+    const [a, b] = await Promise.all([
+      supabase.from("game_prices").upsert({
+        steam_app_id: appId, source: "steam", store: "Steam", currency: po.currency, price, regular_price: regular,
+        discount_pct: po.discount_percent, url: `https://store.steampowered.com/app/${appId}/`, fetched_at: now,
+      }),
+      supabase.from("price_history").upsert({
+        steam_app_id: appId, store: "Steam", currency: po.currency, day: now.slice(0, 10), price, regular_price: regular,
+      }),
+    ]);
+    if (a.error) throw new Error(`game_prices upsert: ${a.error.message}`);
+    if (b.error) throw new Error(`price_history upsert: ${b.error.message}`);
+  }
+}
+
 // ─── Entry ───────────────────────────────────────────────────────────────────
 
 function required(name: string): string {
@@ -488,11 +737,11 @@ const [cmd, arg] = process.argv.slice(2);
 switch (cmd) {
   case "seed":     await seed(Number(arg ?? 2000)); break;
   case "seed-ids": await seedIds((arg ?? "").split(",").map(Number).filter(Boolean)); break;
-  case "run":      await run(Number(arg ?? 60)); break;
+  case "run":      await run(Number(arg ?? 5000)); break;
+  case "run-appdetails": await runAppdetails(Number(arg ?? 60)); break;
   case "backfill-trailers": await backfillTrailers(Number(arg ?? 500)); break;
   case "art":      await backfillArt(Number(arg ?? 2000)); break;
-  case "items":    await fetchItems(Number(arg ?? 3000)); break;
   default:
-    console.error("Usage: import-steam.mts seed [topN] | seed-ids <id,id> | run [maxGames] | backfill-trailers [max] | art [max] | items [max]");
+    console.error("Usage: import-steam.mts seed [topN] | seed-ids <id,id> | run [maxGames] | run-appdetails [maxGames] | backfill-trailers [max] | art [max]");
     process.exit(1);
 }

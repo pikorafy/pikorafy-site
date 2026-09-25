@@ -5,12 +5,12 @@ name: Import Steam catalog
 
 on:
   schedule:
-    - cron: "17 * * * *"     # hourly: up to 60 games per run (new games first), ~1400/day
+    - cron: "17 * * * *"     # hourly: every due game via GetItems (new games first; top 500 refresh every 6h, rest daily)
     - cron: "40 4 * * 1"     # Mondays: refresh the top-2000 seed list from SteamSpy
   workflow_dispatch:
     inputs:
       command:
-        description: "seed | seed-ids | run | backfill-trailers | art | items"
+        description: "seed | seed-ids | run | run-appdetails | backfill-trailers | art"
         default: run
       arg:
         description: "topN / comma-separated IDs / maxGames / max games to backfill"
@@ -43,5 +43,5 @@ jobs:
           elif [ "${{ github.event.schedule }}" = "40 4 * * 1" ]; then
             node scripts/import-steam.mts seed 2000
           else
-            node scripts/import-steam.mts run 60
+            node scripts/import-steam.mts run
           fi
