@@ -1,7 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { getRelatedXbox, getXboxBySlug, xboxHref, type XboxGameDetail } from "@/lib/xbox";
+import {
+  cleanXboxTitle,
+  getRelatedXbox,
+  getSubscriptionNames,
+  getXboxBySlug,
+  getXboxEditions,
+  subscriptionLabels,
+  xboxHref,
+  type XboxGameDetail,
+} from "@/lib/xbox";
 import XboxOffers, { xboxPlatforms } from "@/components/XboxOffers";
 import GameMedia from "@/app/game/[slug]/GameMedia";
 
@@ -23,23 +32,24 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: XboxPageProps): Promise<Metadata> {
   const { slug } = await params;
   const game = await getXboxBySlug(slug);
-  if (!game || game.game_slug) return {};
+  if (!game || game.game_slug || !game.is_primary) return {};
+  const title = cleanXboxTitle(game.title);
 
   const description =
-    `${game.title} is ${priceText(game) ?? "listed"} on the Xbox Store right now. ` +
+    `${title} is ${priceText(game) ?? "listed"} on the Xbox Store right now. ` +
     `See the current price, discounts, platforms, trailers and screenshots.`;
   const image = game.hero_art ?? game.box_art;
   const images = image ? [{ url: `${image}?w=1200` }] : undefined;
 
   return {
     // The root layout's title template appends " | Pikorafy".
-    title: `${game.title}: Xbox Price & Deals`,
+    title: `${title}: Xbox Price & Deals`,
     description,
     alternates: { canonical: `/xbox/${game.slug}` },
     // Same rule as the Steam pages: price-only pages stay out of the index for now.
     robots: { index: false, follow: true },
-    openGraph: { title: `${game.title} — Xbox price today`, description, url: `${BASE_URL}/xbox/${game.slug}`, images },
-    twitter: { title: `${game.title} — Xbox price today`, description, images },
+    openGraph: { title: `${title} — Xbox price today`, description, url: `${BASE_URL}/xbox/${game.slug}`, images },
+    twitter: { title: `${title} — Xbox price today`, description, images },
   };
 }
 
@@ -49,9 +59,19 @@ export default async function XboxGamePage({ params }: XboxPageProps) {
   if (!game) notFound();
   if (game.game_slug) redirect(`/game/${game.game_slug}`);
 
-  const related = await getRelatedXbox(game, 6);
+  const [editions, related, subNames] = await Promise.all([
+    game.group_key ? getXboxEditions(game.group_key) : Promise.resolve([game]),
+    getRelatedXbox(game, 6),
+    getSubscriptionNames(),
+  ]);
+  // Other editions / platform versions live on their group's primary page.
+  const primary = editions.find((e) => e.is_primary);
+  if (!game.is_primary && primary && primary.slug !== game.slug) redirect(`/xbox/${primary.slug}`);
+
+  const title = cleanXboxTitle(game.title);
+  const included = subscriptionLabels(editions, subNames);
   const cur = game.currency ?? "EUR";
-  const platforms = xboxPlatforms([game], true);
+  const platforms = xboxPlatforms(editions, true);
   const onSale = (game.discount_pct ?? 0) > 0;
   const storeUrl = game.store_url ?? `https://www.xbox.com/es-ES/games/store/${game.slug}/${game.product_id}`;
 
@@ -66,7 +86,7 @@ export default async function XboxGamePage({ params }: XboxPageProps) {
       <script
         type="application/ld+json"
         // JSON-LD must be inline; escape "<" so names can't close the script tag.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd(game, storeUrl, platforms)).replace(/</g, "\\u003c") }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd(game, title, storeUrl, platforms)).replace(/</g, "\\u003c") }}
       />
 
       {/* ─── Hero ─────────────────────────────────────────────────────── */}
@@ -82,15 +102,15 @@ export default async function XboxGamePage({ params }: XboxPageProps) {
           <div className="cover">
             {game.box_art && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={`${game.box_art}?w=600`} alt={`${game.title} box art`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              <img src={`${game.box_art}?w=600`} alt={`${title} box art`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             )}
           </div>
           <div>
             <div className="crumbs">
-              <Link href="/">Home</Link> / <Link href="/xbox">Xbox</Link> / <span style={{ color: "var(--text)" }}>{game.title}</span>
+              <Link href="/">Home</Link> / <Link href="/xbox">Xbox</Link> / <span style={{ color: "var(--text)" }}>{title}</span>
             </div>
-            <h1>{game.title}</h1>
-            <p className="tagline">{heroLine(game)}</p>
+            <h1>{title}</h1>
+            <p className="tagline">{heroLine(game, title, editions.filter((e) => e.price !== null).length)}</p>
             <div className="stats">
               {game.price !== null && <Stat value={game.is_free ? "Free" : money(game.price, cur)} label="Xbox Store price" />}
               {onSale && <Stat value={`-${game.discount_pct}%`} label="Discount" accent />}
@@ -127,10 +147,10 @@ export default async function XboxGamePage({ params }: XboxPageProps) {
       {/* ─── Detail grid ──────────────────────────────────────────────── */}
       <div className="shell detail-grid">
         <div>
-          <XboxOffers name={game.title} products={[game]} />
+          <XboxOffers name={title} products={editions} included={included} first />
 
           <GameMedia
-            name={game.title}
+            name={title}
             source={{ label: "Xbox", url: storeUrl }}
             trailers={trailers}
             screenshots={screenshots}
@@ -208,21 +228,22 @@ function priceText(game: XboxGameDetail): string | null {
   return `${money(game.price, game.currency ?? "EUR")}${game.discount_pct ? ` (-${game.discount_pct}%)` : ""}`;
 }
 
-function heroLine(game: XboxGameDetail): string {
-  if (game.is_free) return `${game.title} is free to play on Xbox.`;
-  if (game.price === null) return `${game.title} has no standalone price on the Spanish Xbox Store right now.`;
+function heroLine(game: XboxGameDetail, title: string, editionCount: number): string {
+  if (game.is_free) return `${title} is free to play on Xbox.`;
+  if (game.price === null) return `${title} has no standalone price on the Spanish Xbox Store right now.`;
   const cur = game.currency ?? "EUR";
+  const editions = editionCount > 1 ? ` ${editionCount} editions listed below.` : "";
   if (game.discount_pct && game.regular_price !== null) {
-    return `${money(game.price, cur)} on the Xbox Store, ${game.discount_pct}% off the regular ${money(game.regular_price, cur)}.`;
+    return `${money(game.price, cur)} on the Xbox Store, ${game.discount_pct}% off the regular ${money(game.regular_price, cur)}.${editions}`;
   }
-  return `${money(game.price, cur)} on the Xbox Store. It's at full price right now.`;
+  return `${money(game.price, cur)} on the Xbox Store. It's at full price right now.${editions}`;
 }
 
-function jsonLd(game: XboxGameDetail, storeUrl: string, platforms: string[]) {
+function jsonLd(game: XboxGameDetail, title: string, storeUrl: string, platforms: string[]) {
   return {
     "@context": "https://schema.org",
     "@type": "VideoGame",
-    name: game.title,
+    name: title,
     url: `${BASE_URL}/xbox/${game.slug}`,
     image: game.box_art ?? game.hero_art ?? undefined,
     genre: game.categories,

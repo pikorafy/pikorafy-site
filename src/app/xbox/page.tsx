@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getXboxCategories, getXboxListing, xboxHref, type XboxGame, type XboxSort } from "@/lib/xbox";
+import { cleanXboxTitle, getXboxCategories, getXboxListing, hasGamePassData, xboxHref, type XboxGame, type XboxSort } from "@/lib/xbox";
 
 const PAGE_SIZE = 48;
 
@@ -27,20 +27,24 @@ export default async function XboxPage({ searchParams }: { searchParams: Promise
   const pageNum = Number(one(params.page));
   const page = Number.isInteger(pageNum) && pageNum > 1 ? pageNum : 1;
   const category = one(params.category) || undefined;
+  const gamePass = one(params.gamepass) === "1";
 
-  const [{ games, total }, categories] = await Promise.all([
-    getXboxListing({ category, sort, limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }),
+  const [{ games, total }, categories, showGamePass] = await Promise.all([
+    getXboxListing({ category, sort, gamePass, limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }),
     getXboxCategories(12),
+    hasGamePassData(),
   ]);
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  const href = (next: { sort?: XboxSort; page?: number; category?: string | null }) => {
+  const href = (next: { sort?: XboxSort; page?: number; category?: string | null; gamePass?: boolean }) => {
     const s = next.sort ?? sort;
     const c = next.category === undefined ? category : next.category;
+    const gp = next.gamePass ?? gamePass;
     const p = next.page ?? 1;
     const qs = new URLSearchParams();
     if (s !== "popular") qs.set("sort", s);
     if (c) qs.set("category", c);
+    if (gp) qs.set("gamepass", "1");
     if (p > 1) qs.set("page", String(p));
     const str = qs.toString();
     return str ? `/xbox?${str}` : "/xbox";
@@ -50,7 +54,7 @@ export default async function XboxPage({ searchParams }: { searchParams: Promise
     <div className="shell" style={{ paddingTop: 48, paddingBottom: 80 }}>
       <div className="section-hd" style={{ marginBottom: 12 }}>
         <div>
-          <div className="eyebrow">Xbox · {total.toLocaleString("en")} games</div>
+          <div className="eyebrow">Xbox · {total.toLocaleString("en")} {total === 1 ? "game" : "games"}</div>
           <h1 className="h2" style={{ fontSize: "clamp(30px,5vw,48px)" }}>Xbox games. <em>Prices in euros.</em></h1>
         </div>
       </div>
@@ -75,6 +79,12 @@ export default async function XboxPage({ searchParams }: { searchParams: Promise
         {SORTS.map((s) => (
           <Link key={s.key} href={href({ sort: s.key })} className="chip" aria-pressed={sort === s.key} rel="nofollow">{s.label}</Link>
         ))}
+        {showGamePass && (
+          <>
+            <span className="lbl" style={{ marginLeft: 12 }}>Show</span>
+            <Link href={href({ gamePass: !gamePass })} className="chip" aria-pressed={gamePass} rel="nofollow">In Game Pass</Link>
+          </>
+        )}
       </nav>
 
       {games.length === 0 ? (
@@ -103,6 +113,8 @@ function XboxCard({ game }: { game: XboxGame }) {
   const onSale = (game.discount_pct ?? 0) > 0;
   const platforms = game.platforms.filter((p) => PLATFORM_LABEL[p]);
   const image = game.hero_art ?? game.box_art;
+  const title = cleanXboxTitle(game.title);
+  const fromPrice = game.edition_count > 1 && game.group_min_price !== null && game.price !== null && game.group_min_price < game.price;
   const money = (n: number) => new Intl.NumberFormat("en-IE", { style: "currency", currency: game.currency ?? "EUR" }).format(n);
 
   return (
@@ -110,7 +122,7 @@ function XboxCard({ game }: { game: XboxGame }) {
       <div className="cover">
         {image
           // eslint-disable-next-line @next/next/no-img-element
-          ? <img src={`${image}?w=640`} alt={game.title} loading="lazy" style={{ width: "100%", height: "100%", objectFit: game.hero_art ? "cover" : "contain", background: "var(--bg-3)" }} />
+          ? <img src={`${image}?w=640`} alt={title} loading="lazy" style={{ width: "100%", height: "100%", objectFit: game.hero_art ? "cover" : "contain", background: "var(--bg-3)" }} />
           : <div style={{ background: "var(--bg-3)", width: "100%", height: "100%" }} />}
         {onSale && <div className="disc-tag">-{game.discount_pct}%</div>}
       </div>
@@ -121,11 +133,14 @@ function XboxCard({ game }: { game: XboxGame }) {
           )}
           {game.rating !== null && (game.rating_count ?? 0) > 0 && <span>★ {game.rating.toFixed(1)}</span>}
         </div>
-        <div className="title">{game.title}</div>
+        <div className="title">{title}</div>
         <div className="prices">
           <div>
             {onSale && game.regular_price !== null && <div className="was">{money(game.regular_price)}</div>}
-            <div className="now">{game.is_free ? "Free" : game.price !== null ? money(game.price) : "—"}</div>
+            <div className="now">
+              {game.is_free ? "Free" : fromPrice ? <><small style={{ fontSize: "0.6em", fontWeight: 500 }}>from </small>{money(game.group_min_price!)}</> : game.price !== null ? money(game.price) : "—"}
+            </div>
+            {game.edition_count > 1 && <div className="was" style={{ textDecoration: "none" }}>{game.edition_count} editions</div>}
           </div>
           <div className="stores"><b>{game.game_slug ? "Xbox + PC" : "Xbox Store"}</b></div>
         </div>

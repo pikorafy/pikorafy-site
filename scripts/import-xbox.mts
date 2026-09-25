@@ -167,7 +167,7 @@ interface CatalogProduct {
     Sku?: { Properties?: { IsTrial?: boolean } };
     Availabilities?: {
       Actions?: string[];
-      Remediations?: { Type?: string }[] | null;
+      Remediations?: { Type?: string; BigId?: string }[] | null;
       Properties?: { MerchandisingTags?: string[] };
       Conditions?: { ClientConditions?: { AllowedPlatforms?: { PlatformName?: string }[] } };
       OrderManagementData?: { Price?: { ListPrice?: number; MSRP?: number; CurrencyCode?: string } };
@@ -256,6 +256,34 @@ function mapProduct(p: CatalogProduct, d: Discovered | undefined) {
   };
 }
 
+// ─── Subscriptions (Game Pass tiers, EA Play…) ────────────────────────────────
+//
+// A product included with a subscription carries an "Upsell" remediation pointing
+// at the subscription's own Store product. Resolve those ids to names.
+
+async function resolveSubscriptions() {
+  // refresh_xbox_catalog() has already copied each product's upsell ids into `subscriptions`.
+  const { data: rows } = await supabase.from("xbox_games").select("subscriptions").neq("subscriptions", "{}").limit(5000);
+  const ids = new Set((rows ?? []).flatMap((r) => (r.subscriptions as string[]) ?? []));
+  const list = [...ids];
+  const names: { big_id: string; name: string; updated_at: string }[] = [];
+  for (let i = 0; i < list.length; i += DETAILS_BATCH) {
+    try {
+      for (const p of await catalog(list.slice(i, i + DETAILS_BATCH))) {
+        const name = p.LocalizedProperties?.[0]?.ProductTitle?.trim();
+        if (name) names.push({ big_id: p.ProductId, name, updated_at: new Date().toISOString() });
+      }
+    } catch (err) {
+      console.warn(`subscription lookup: ${String(err)}`);
+    }
+  }
+  if (names.length) {
+    const { error } = await supabase.from("xbox_subscriptions").upsert(names, { onConflict: "big_id" });
+    if (error) console.warn(`xbox_subscriptions upsert: ${error.message}`);
+  }
+  console.log(`Subscriptions: ${names.map((n) => `${n.big_id}=${n.name}`).join(", ") || "none"}`);
+}
+
 // ─── Slugs ───────────────────────────────────────────────────────────────────
 
 function slugify(name: string): string {
@@ -329,9 +357,10 @@ async function run(pagesPerList: number, perStoreList: number) {
     }
   }
 
-  // Match Xbox products to Steam games by normalized title (one merged game page).
-  const { data: linked, error: linkError } = await supabase.rpc("link_xbox_games");
-  if (linkError) console.warn(`link_xbox_games: ${linkError.message}`);
+  // Group editions, pick each group's primary product, read subscriptions, match groups to Steam games.
+  const { data: linked, error: linkError } = await supabase.rpc("refresh_xbox_catalog");
+  if (linkError) console.warn(`refresh_xbox_catalog: ${linkError.message}`);
+  await resolveSubscriptions();
 
   console.log(`Saved ${saved} Xbox games (${withPrice} with a price), ${failedBatches} catalog batches failed, ${xblSpent} OpenXBL requests used, ${linked ?? "?"} linked to Steam.`);
   if (saved === 0) process.exit(1);

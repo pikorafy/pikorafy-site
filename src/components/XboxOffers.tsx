@@ -14,13 +14,25 @@ export function xboxPlatforms(products: XboxGame[], withPc = false): string[] {
 }
 
 /** Xbox Store prices, kept apart from the PC key/store comparison. */
-export default function XboxOffers({ name, products }: { name: string; products: XboxGame[] }) {
+export default function XboxOffers({ name, products, included = [], first = false }: {
+  name: string;
+  products: XboxGame[];
+  /** Subscriptions that include the game ("Xbox Game Pass Ultimate", "EA Play"…). */
+  included?: string[];
+  /** Drop the top margin when this is the first section on the page. */
+  first?: boolean;
+}) {
   // Unpriced products are usually delisted editions; show them only when nothing else is sold.
   const shown = products.some((p) => p.price !== null) ? products.filter((p) => p.price !== null) : products;
   return (
-    <section style={{ marginTop: 40 }} aria-labelledby="xbox-offers">
+    <section style={{ marginTop: first ? 0 : 40 }} aria-labelledby="xbox-offers">
       <div className="eyebrow">Xbox Store · Microsoft Store Spain · prices in EUR</div>
       <h2 id="xbox-offers" className="h2" style={{ fontSize: "clamp(22px,3.5vw,28px)", marginBottom: 16 }}>{name} on Xbox</h2>
+      {included.length > 0 && (
+        <p className="xbox-included">
+          <span aria-hidden>✓</span> Included with {included.join(", ")}
+        </p>
+      )}
       <div className="offers">
         <div className="hd">
           <div>#</div>

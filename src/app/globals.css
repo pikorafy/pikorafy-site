@@ -703,6 +703,8 @@ body::before {
 .detail-grid > * { min-width:0; }
 
 .offers { border:1px solid var(--line); border-radius:var(--r); overflow:hidden; }
+.xbox-included { margin:-6px 0 14px; font-size:14px; color:var(--text-2); }
+.xbox-included span { color:var(--good); font-weight:700; margin-right:4px; }
 .offers .hd, .offers .row { display:grid; grid-template-columns:38px 1.6fr 1fr 1fr 1fr 110px; gap:14px; align-items:center; padding:0 18px; min-height:60px; }
 .offers .hd { background:var(--bg-3); padding:12px 18px; font-family:var(--ff-mono); font-size:10px; color:var(--text-3); text-transform:uppercase; letter-spacing:0.12em; border-bottom:1px solid var(--line); }
 .offers .row { background:var(--bg-elev); border-bottom:1px solid var(--line); }

@@ -14,7 +14,7 @@ import {
   type PricePoint,
 } from "@/lib/catalog";
 import { AFFILIATE_DISCLOSURE_SHORT } from "@/lib/affiliate";
-import { getXboxForSteamApp } from "@/lib/xbox";
+import { getSubscriptionNames, getXboxForSteamApp, subscriptionLabels } from "@/lib/xbox";
 import XboxOffers, { xboxPlatforms } from "@/components/XboxOffers";
 import GameDetailClient from "./GameDetailClient";
 import GameMedia from "./GameMedia";
@@ -104,12 +104,13 @@ export default async function GamePage({ params }: GamePageProps) {
 
   const prices = await getGamePrices(game.steam_app_id);
   const currency = prices[0]?.currency ?? "EUR";
-  const [history, content, related, players, xbox] = await Promise.all([
+  const [history, content, related, players, xbox, subNames] = await Promise.all([
     getPriceHistory(game.steam_app_id, currency),
     getGameContent(game.steam_app_id, "en"),
     getRelatedGames(game, 6),
     getPlayerHistory(game.steam_app_id),
     getXboxForSteamApp(game.steam_app_id),
+    getSubscriptionNames(),
   ]);
   const xboxBest = xbox.find((x) => x.price !== null);
 
@@ -255,7 +256,7 @@ export default async function GamePage({ params }: GamePageProps) {
             <p style={{ color: "var(--text-2)" }}>{game.name} is free to play on Steam. Offers above, if any, are for paid editions or bundles.</p>
           )}
 
-          {xbox.length > 0 && <XboxOffers name={game.name} products={xbox} />}
+          {xbox.length > 0 && <XboxOffers name={game.name} products={xbox} included={subscriptionLabels(xbox, subNames)} />}
 
           <GameMedia
             name={game.name}
