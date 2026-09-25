@@ -22,6 +22,13 @@ export interface XboxGame {
   store_url: string | null;
   lists: string[];
   steam_app_id: number | null;
+  group_key: string | null;
+  is_primary: boolean;
+  /** Number of Store products (editions / platform versions) in this title's group. */
+  edition_count: number;
+  group_min_price: number | null;
+  /** Store ids of subscriptions that include this product (see getSubscriptionNames). */
+  subscriptions: string[];
   /** Slug of the merged /game page when this product is linked to a Steam game. */
   game_slug?: string | null;
 }
@@ -40,7 +47,7 @@ export interface XboxGameDetail extends XboxGame {
 export type XboxSort = "popular" | "discount" | "price" | "rating";
 
 const COLUMNS =
-  "product_id, slug, title, categories, platforms, rating, rating_count, box_art, hero_art, price, regular_price, discount_pct, currency, is_free, popularity_rank, store_url, lists, steam_app_id";
+  "product_id, slug, title, categories, platforms, rating, rating_count, box_art, hero_art, price, regular_price, discount_pct, currency, is_free, popularity_rank, store_url, lists, steam_app_id, group_key, is_primary, edition_count, group_min_price, subscriptions";
 const DETAIL_COLUMNS = `${COLUMNS}, developer, publisher, short_description, release_date, screenshots, trailers`;
 
 function db() {
@@ -51,14 +58,22 @@ function db() {
 export async function getXboxListing(opts: {
   category?: string;
   sort?: XboxSort;
+  /** Only games included with a Game Pass tier. */
+  gamePass?: boolean;
   limit: number;
   offset?: number;
 }): Promise<{ games: XboxGame[]; total: number }> {
   const client = db();
   if (!client) return { games: [], total: 0 };
 
-  let q = client.from("xbox_games").select(COLUMNS, { count: "exact" });
+  // One card per title: the group's primary product stands in for its other editions.
+  let q = client.from("xbox_games").select(COLUMNS, { count: "exact" }).eq("is_primary", true);
   if (opts.category) q = q.contains("categories", [opts.category]);
+  if (opts.gamePass) {
+    const ids = await getGamePassIds();
+    if (!ids.length) return { games: [], total: 0 };
+    q = q.overlaps("subscriptions", ids);
+  }
 
   switch (opts.sort ?? "popular") {
     case "discount":
@@ -71,7 +86,7 @@ export async function getXboxListing(opts: {
       q = q.gte("rating_count", 50).order("rating", { ascending: false, nullsFirst: false });
       break;
     default:
-      q = q.order("popularity_rank", { ascending: true, nullsFirst: false });
+      q = q.order("group_rank", { ascending: true, nullsFirst: false });
   }
 
   const from = opts.offset ?? 0;
@@ -83,7 +98,14 @@ export async function getXboxListing(opts: {
 /** Postgres numerics arrive as strings. */
 function normalize<T extends XboxGame>(g: Record<string, unknown>): T {
   const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
-  return { ...g, price: num(g.price), regular_price: num(g.regular_price), rating: num(g.rating) } as T;
+  return {
+    ...g,
+    price: num(g.price),
+    regular_price: num(g.regular_price),
+    rating: num(g.rating),
+    group_min_price: num(g.group_min_price),
+    subscriptions: (g.subscriptions as string[] | null) ?? [],
+  } as T;
 }
 
 /** Fill game_slug for products linked to a Steam game, so cards can link to the merged page. */
@@ -120,14 +142,54 @@ export async function getXboxForSteamApp(appId: number): Promise<XboxGame[]> {
     (a.price === null ? 1 : 0) - (b.price === null ? 1 : 0) || (a.price ?? 0) - (b.price ?? 0) || a.title.length - b.title.length);
 }
 
+/** Every Store product in a title's group (editions, Xbox One / Series X|S / PC versions). */
+export async function getXboxEditions(groupKey: string): Promise<XboxGame[]> {
+  const client = db();
+  if (!client) return [];
+  const { data } = await client.from("xbox_games").select(COLUMNS).eq("group_key", groupKey).limit(20);
+  return (data ?? []).map(normalize<XboxGame>).sort((a, b) =>
+    Number(b.is_primary) - Number(a.is_primary) || (a.price === null ? 1 : 0) - (b.price === null ? 1 : 0) || (a.price ?? 0) - (b.price ?? 0));
+}
+
+/** Subscription Store id → name ("Xbox Game Pass Ultimate", "EA Play"…), as resolved by the importer. */
+export async function getSubscriptionNames(): Promise<Map<string, string>> {
+  const client = db();
+  if (!client) return new Map();
+  const { data } = await client.from("xbox_subscriptions").select("big_id, name");
+  return new Map((data ?? []).map((r) => [r.big_id as string, r.name as string]));
+}
+
+async function getGamePassIds(): Promise<string[]> {
+  return [...(await getSubscriptionNames())].filter(([, name]) => /game pass/i.test(name)).map(([id]) => id);
+}
+
+export async function hasGamePassData(): Promise<boolean> {
+  return (await getGamePassIds()).length > 0;
+}
+
+/** Names of the subscriptions (across all given products) that include the game, Game Pass first. */
+export function subscriptionLabels(products: XboxGame[], names: Map<string, string>): string[] {
+  const labels = new Set(products.flatMap((p) => p.subscriptions.map((id) => names.get(id)).filter((n): n is string => !!n)));
+  return [...labels].sort((a, b) => Number(/game pass/i.test(b)) - Number(/game pass/i.test(a)) || a.localeCompare(b));
+}
+
+/** Drop platform tags from a Store title: "GTA V (Xbox One & Xbox Series X|S)" → "GTA V". */
+export function cleanXboxTitle(title: string): string {
+  const cleaned = title
+    .replace(/\s*\((?:pc|windows[^)]*|xbox[^)]*)\)/gi, "")
+    .replace(/\s*[-–]?\s*(?:for\s+)?(?:xbox series x\|s|xbox series x|xbox one|windows 10|windows|pc)\s*$/i, "")
+    .trim();
+  return cleaned || title;
+}
+
 /** Popular Xbox games in the same Store category, for the sidebar. */
 export async function getRelatedXbox(game: XboxGame, limit: number): Promise<XboxGame[]> {
   const client = db();
   const category = game.categories[0];
   if (!client || !category) return [];
   const { data } = await client.from("xbox_games").select(COLUMNS)
-    .contains("categories", [category]).neq("product_id", game.product_id)
-    .order("popularity_rank", { ascending: true, nullsFirst: false }).limit(limit);
+    .contains("categories", [category]).eq("is_primary", true).neq("group_key", game.group_key ?? "")
+    .order("group_rank", { ascending: true, nullsFirst: false }).limit(limit);
   return withGameSlugs((data ?? []).map(normalize<XboxGame>));
 }
 
@@ -137,7 +199,7 @@ export const xboxHref = (g: Pick<XboxGame, "slug" | "game_slug">) => (g.game_slu
 export async function getXboxCategories(limit: number): Promise<{ name: string; count: number }[]> {
   const client = db();
   if (!client) return [];
-  const { data } = await client.from("xbox_games").select("categories").limit(5000);
+  const { data } = await client.from("xbox_games").select("categories").eq("is_primary", true).limit(5000);
   const counts = new Map<string, number>();
   for (const row of data ?? []) for (const c of (row.categories as string[]) ?? []) counts.set(c, (counts.get(c) ?? 0) + 1);
   return [...counts].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, limit);
