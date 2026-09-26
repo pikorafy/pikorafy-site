@@ -15,6 +15,7 @@ export interface FilterState {
   platforms: string[];
   sale: boolean;
   score: string;         // "" | "70" | "80" | "90"
+  gamePass?: boolean;    // /xbox only
 }
 
 interface Option { value: string; label: string }
@@ -37,6 +38,8 @@ export default function FilterDrawer({
   scoreSteps,
   activeCount,
   note = "Prices are for Spain (EUR), the only region tracked for now.",
+  genreTitle = "Genre",
+  gamePassToggle = false,
 }: {
   action: string;
   query?: string;
@@ -47,6 +50,10 @@ export default function FilterDrawer({
   scoreSteps: readonly number[];
   activeCount: number;
   note?: string;
+  /** Section heading for the genres list ("Category" on /xbox). */
+  genreTitle?: string;
+  /** Show the "Included with Game Pass" switch (/xbox). */
+  gamePassToggle?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -81,6 +88,7 @@ export default function FilterDrawer({
     if (next.platforms.length) p.set("platform", next.platforms.join(","));
     if (next.sale) p.set("sale", "1");
     if (next.score) p.set("score", next.score);
+    if (next.gamePass) p.set("gamepass", "1");
     if (sort !== "popular") p.set("sort", sort);
     const qs = p.toString().replaceAll("%2C", ",");   // readable "genre=rpg,indie"
     setOpen(false);
@@ -166,6 +174,17 @@ export default function FilterDrawer({
                       onChange={(e) => setState((s) => ({ ...s, sale: e.target.checked }))} />
                     <i aria-hidden="true" />
                   </label>
+                  {gamePassToggle && (
+                    <label className="fd-switch">
+                      <span>
+                        <b>Included with Game Pass</b>
+                        <small>{state.gamePass ? "Game Pass games only" : "All games"}</small>
+                      </span>
+                      <input type="checkbox" role="switch" checked={!!state.gamePass}
+                        onChange={(e) => setState((s) => ({ ...s, gamePass: e.target.checked }))} />
+                      <i aria-hidden="true" />
+                    </label>
+                  )}
                 </section>
 
                 {platforms.length > 0 && <section>
@@ -181,7 +200,7 @@ export default function FilterDrawer({
                 </section>}
 
                 <section>
-                  <h3>Genre</h3>
+                  <h3>{genreTitle}</h3>
                   <div className="fd-chips">
                     {genres.map((g) => (
                       <button key={g.value} type="button" className="chip" aria-pressed={state.genres.includes(g.value)}

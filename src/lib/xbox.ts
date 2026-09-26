@@ -1,6 +1,6 @@
 import "server-only";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
-import type { KeyArt } from "@/lib/catalog";
+import { normalizeQuery, type KeyArt } from "@/lib/catalog";
 
 // Read-side access to the Xbox catalog (supabase/migrations/*_xbox_games.sql).
 
@@ -58,8 +58,23 @@ function db() {
   return getSupabaseAdmin();
 }
 
+/** Store platform codes offered in the /xbox filter panel. */
+export const XBOX_PLATFORMS = [
+  { key: "series", label: "Series X|S", code: "XboxSeriesX" },
+  { key: "one", label: "Xbox One", code: "XboxOne" },
+  { key: "pc", label: "PC", code: "PC" },
+] as const;
+
 export async function getXboxListing(opts: {
-  category?: string;
+  /** Any of these Store categories. */
+  categories?: string[];
+  /** Store platform codes (any of them). */
+  platforms?: string[];
+  query?: string;
+  priceMin?: number;
+  priceMax?: number;
+  free?: "hide" | "only";
+  onSale?: boolean;
   sort?: XboxSort;
   /** Only games included with a Game Pass tier. */
   gamePass?: boolean;
@@ -71,7 +86,14 @@ export async function getXboxListing(opts: {
 
   // One card per title: the group's primary product stands in for its other editions.
   let q = client.from("xbox_games").select(COLUMNS, { count: "exact" }).eq("is_primary", true);
-  if (opts.category) q = q.contains("categories", [opts.category]);
+  if (opts.categories?.length) q = q.overlaps("categories", opts.categories);
+  if (opts.platforms?.length) q = q.overlaps("platforms", opts.platforms);
+  const text = opts.query ? normalizeQuery(opts.query) : "";
+  if (text) q = q.ilike("group_key", `%${text}%`);
+  if (opts.priceMin !== undefined) q = q.gte("price", opts.priceMin);
+  if (opts.priceMax !== undefined) q = q.lte("price", opts.priceMax);
+  if (opts.free) q = q.eq("is_free", opts.free === "only");
+  if (opts.onSale) q = q.gt("discount_pct", 0);
   if (opts.gamePass) {
     const ids = await getGamePassIds();
     if (!ids.length) return { games: [], total: 0 };
