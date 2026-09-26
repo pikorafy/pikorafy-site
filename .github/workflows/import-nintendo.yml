@@ -4,8 +4,9 @@ name: Import Nintendo eShop
 # Both sources are public: no Nintendo key needed.
 
 on:
-  schedule:
-    - cron: "41 */6 * * *"   # every 6h: catalog (new games) + prices
+  # PAUSED 2026-09-26: Supabase disk I/O budget exhausted; re-enable after the write-only-changes fix.
+  # schedule:
+  #   - cron: "41 */6 * * *"   # every 6h: catalog (new games) + prices
   workflow_dispatch:
     inputs:
       command:

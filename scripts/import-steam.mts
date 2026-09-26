@@ -19,6 +19,7 @@
 // 1 → 2 → 4 → 8 min before giving up; the queue resumes on the next hourly run.
 // Games never imported go before refreshes of games we already have.
 
+import { createHash } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 
 const REQUEST_GAP_MS = 1600;   // ≈187 req / 5 min
@@ -775,7 +776,7 @@ async function run(maxGames: number) {
     if (!data || data.length < 1000) break;
   }
 
-  let ok = 0, skipped = 0, failed = 0;
+  let ok = 0, skipped = 0, failed = 0, changed = 0;
   for (let i = 0; i < due.length; i += ITEMS_BATCH) {
     const batch = due.slice(i, i + ITEMS_BATCH);
     let items: StoreItem[];
@@ -797,6 +798,10 @@ async function run(maxGames: number) {
       console.warn(`US trailers batch ${i / ITEMS_BATCH + 1}: ${String(err)} — using Spain's`);
     }
     const now = new Date().toISOString();
+    // Fingerprints of what we stored last time: unchanged games aren't rewritten (disk I/O budget).
+    const { data: stored } = await supabase.from("games").select("steam_app_id, content_hash")
+      .in("steam_app_id", batch.map((q) => q.steam_app_id));
+    const hashes = new Map((stored ?? []).map((g) => [g.steam_app_id as number, g.content_hash as string | null]));
 
     for (const q of batch) {
       const item = byId.get(q.steam_app_id);
@@ -815,7 +820,8 @@ async function run(maxGames: number) {
         } else if (item.type !== 0) {
           result = "skip";
         } else {
-          await saveItem(item, q.priority, tagNames, now, usTrailers.get(q.steam_app_id));
+          const saved = await saveItem(item, q.priority, tagNames, now, usTrailers.get(q.steam_app_id), hashes.get(q.steam_app_id));
+          if (saved) changed++;
           result = "ok";
         }
         const hours = q.priority <= TOP_REFRESH_RANK ? 6 : 24;
@@ -835,18 +841,28 @@ async function run(maxGames: number) {
     }
     await sleep(300);
   }
-  console.log(`Done: ${ok} imported/refreshed, ${skipped} skipped (not a game / not returned), ${failed} failed, of ${due.length} due.`);
+  console.log(`Done: ${ok} imported/refreshed (${changed} changed, ${ok - changed} unchanged), ${skipped} skipped (not a game / not returned), ${failed} failed, of ${due.length} due.`);
 
   // New Steam games may match Xbox products we already have.
-  const { error: linkError } = await supabase.rpc("refresh_xbox_catalog");
-  if (linkError) console.warn(`refresh_xbox_catalog: ${linkError.message}`);
+  if (changed) {
+    const { error: linkError } = await supabase.rpc("refresh_xbox_catalog");
+    if (linkError) console.warn(`refresh_xbox_catalog: ${linkError.message}`);
+  }
 }
 
-async function saveItem(item: StoreItem, rank: number, tagNames: Map<number, string>, now: string, usTrailers?: StoreItem["trailers"]) {
+/** Saves a game and its Steam price. Returns false (and writes nothing) when nothing changed. */
+async function saveItem(
+  item: StoreItem, rank: number, tagNames: Map<number, string>, now: string,
+  usTrailers?: StoreItem["trailers"], storedHash?: string | null,
+): Promise<boolean> {
   const appId = item.appid!;
   const details = toAppdetails(item, tagNames);
   const english = usTrailers ? toAppdetails({ ...item, trailers: usTrailers }, tagNames).movies : details.movies;
   const review = item.reviews?.summary_filtered;
+  const contentHash = createHash("sha1")
+    .update(JSON.stringify({ details, english, review, rank, assets: item.assets ?? null }))
+    .digest("hex");
+  if (storedHash === contentHash) return false;
 
   const game = {
     steam_app_id: appId,
@@ -871,6 +887,7 @@ async function saveItem(item: StoreItem, rank: number, tagNames: Map<number, str
     art: item.assets ?? null,
     art_fetched_at: now,
     steam_fetched_at: now,
+    content_hash: contentHash,
   };
   const { error: gameErr } = await supabase.from("games").upsert(game);
   if (gameErr) throw new Error(`games upsert: ${gameErr.message}`);
@@ -890,6 +907,7 @@ async function saveItem(item: StoreItem, rank: number, tagNames: Map<number, str
     if (a.error) throw new Error(`game_prices upsert: ${a.error.message}`);
     if (b.error) throw new Error(`price_history upsert: ${b.error.message}`);
   }
+  return true;
 }
 
 // ─── Entry ───────────────────────────────────────────────────────────────────

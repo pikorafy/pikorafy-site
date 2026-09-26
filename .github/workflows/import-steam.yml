@@ -4,10 +4,11 @@ name: Import Steam catalog
 # 403s that CheapShark returns to Vercel's IPs. See scripts/import-steam.mts.
 
 on:
-  schedule:
-    - cron: "17 * * * *"     # hourly: up to 4000 due games via GetItems (new first; top 500 refresh every 6h, rest daily)
-    - cron: "40 4 * * 1"     # Mondays: re-rank the top 20000 from Steam (store search + charts, by review count)
-    - cron: "5 5 * * *"      # daily: add most played / trending, prune games that fell out
+  # PAUSED 2026-09-26: Supabase disk I/O budget exhausted; re-enable after the write-only-changes fix.
+  # schedule:
+  #   - cron: "17 * * * *"     # hourly: up to 4000 due games via GetItems (new first; top 500 refresh every 6h, rest daily)
+  #   - cron: "40 4 * * 1"     # Mondays: re-rank the top 20000 from Steam (store search + charts, by review count)
+  #   - cron: "5 5 * * *"      # daily: add most played / trending, prune games that fell out
   workflow_dispatch:
     inputs:
       command:

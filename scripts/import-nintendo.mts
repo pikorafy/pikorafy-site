@@ -13,6 +13,7 @@
 // Both are unofficial: they can change without notice, so the run logs what it sees
 // (field names, platform values, sales statuses) and fails loudly on empty results.
 
+import { createHash } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 
 const CATALOG_URL = "https://searching.nintendo-europe.com/en/select";
@@ -96,16 +97,25 @@ function slugify(name: string): string {
     .slice(0, 80);
 }
 
-async function existingSlugs(): Promise<Map<string, string>> {
-  const slugs = new Map<string, string>();
+interface Stored { slug: string; hash: string | null; popularity: number | null }
+
+async function storedGames(): Promise<Map<string, Stored>> {
+  const stored = new Map<string, Stored>();
   for (let from = 0; ; from += 1000) {
-    const { data, error } = await supabase.from("nintendo_games").select("nsuid, slug").order("nsuid").range(from, from + 999);
+    const { data, error } = await supabase.from("nintendo_games").select("nsuid, slug, catalog_hash, popularity")
+      .order("nsuid").range(from, from + 999);
     if (error) throw new Error(`nintendo_games read: ${error.message}`);
-    for (const r of data ?? []) slugs.set(r.nsuid as string, r.slug as string);
+    for (const r of data ?? []) {
+      stored.set(r.nsuid as string, { slug: r.slug as string, hash: r.catalog_hash as string | null, popularity: r.popularity as number | null });
+    }
     if (!data || data.length < 1000) break;
   }
-  return slugs;
+  return stored;
 }
+
+/** Rank moves smaller than this don't justify a rewrite (hit counts drift a little every run). */
+const rankMoved = (before: number | null, after: number) =>
+  before === null || Math.abs(before - after) > Math.max(25, before * 0.1);
 
 async function importCatalog(): Promise<number> {
   const all = await fetchCatalog();
@@ -123,25 +133,25 @@ async function importCatalog(): Promise<number> {
   const ordered = [...games].sort((a, b) =>
     hits(b) - hits(a) || (releaseDate(b) ?? "").localeCompare(releaseDate(a) ?? ""));
 
-  const slugs = await existingSlugs();
-  const taken = new Set(slugs.values());
+  const stored = await storedGames();
+  const taken = new Set([...stored.values()].map((g) => g.slug));
   const now = new Date().toISOString();
   const rows = new Map<string, Record<string, unknown>>();
+  const seen = new Set<string>();
   ordered.forEach((d, i) => {
     const nsuid = strs(d.nsuid_txt).find((n) => /^7001\d{10}$/.test(n))!;
-    if (rows.has(nsuid)) return;                   // bundles / re-listings sharing an NSUID
+    if (seen.has(nsuid)) return;                   // bundles / re-listings sharing an NSUID
     const title = (str(d.title) ?? "").trim();
     if (!title) return;
-    let slug = slugs.get(nsuid);
+    const before = stored.get(nsuid);
+    let slug = before?.slug;
     if (!slug) {
       const base = slugify(title) || nsuid;
       slug = taken.has(base) ? `${base}-${nsuid.slice(-6)}` : base;
       taken.add(slug);
     }
-    rows.set(nsuid, {
-      nsuid,
+    const fields = {
       fs_id: str(d.fs_id),
-      slug,
       title,
       developer: str(d.developer),
       publisher: str(d.publisher),
@@ -152,9 +162,13 @@ async function importCatalog(): Promise<number> {
       image_wide: https(str(d.image_url_h2x1_s) ?? str(d.image_url)),
       image_square: https(str(d.image_url_sq_s)),
       url_path: str(d.url),
-      popularity: i + 1,
-      catalog_at: now,
-    });
+    };
+    // Only write what changed: unchanged rows cost disk I/O on every run.
+    const hash = createHash("sha1").update(JSON.stringify(fields)).digest("hex");
+    const popularity = i + 1;
+    seen.add(nsuid);
+    if (before && before.hash === hash && !rankMoved(before.popularity, popularity)) return;
+    rows.set(nsuid, { nsuid, slug, ...fields, popularity, catalog_hash: hash, catalog_at: now });
   });
 
   const list = [...rows.values()];
@@ -162,9 +176,8 @@ async function importCatalog(): Promise<number> {
     const { error } = await supabase.from("nintendo_games").upsert(list.slice(i, i + 500), { onConflict: "nsuid" });
     if (error) throw new Error(`nintendo_games upsert: ${error.message}`);
   }
-  const sample = list[0];
-  console.log(`Catalog saved: ${list.length} games. #1: ${sample?.title} (${sample?.nsuid}), ${sample?.genres}, ${sample?.release_date}, ${sample?.url_path}`);
-  console.log(`Top 10 by hits: ${list.slice(0, 10).map((r) => r.title).join(" · ")}`);
+  console.log(`Catalog: ${seen.size} games, ${list.length} new or changed written, ${seen.size - list.length} unchanged.`);
+  console.log(`Top 10 by hits: ${ordered.slice(0, 10).map((d) => str(d.title)).join(" · ")}`);
   return list.length;
 }
 
@@ -189,7 +202,7 @@ async function importPrices(): Promise<void> {
 
   const statuses = new Map<string, number>();
   const now = new Date().toISOString();
-  let priced = 0;
+  let priced = 0, changedPrices = 0;
   for (let i = 0; i < ids.length; i += PRICE_BATCH) {
     const batch = ids.slice(i, i + PRICE_BATCH);
     const qs = new URLSearchParams({ country: COUNTRY, lang: "en", ids: batch.join(",") });
@@ -214,12 +227,13 @@ async function importPrices(): Promise<void> {
       };
     });
     // Update only (rows the catalog created), one call per batch.
-    const { error } = await supabase.rpc("apply_nintendo_prices", { rows: updates });
+    const { data: written, error } = await supabase.rpc("apply_nintendo_prices", { rows: updates });
     if (error) throw new Error(`apply_nintendo_prices: ${error.message}`);
+    changedPrices += Number(written ?? 0);
     if ((i / PRICE_BATCH) % 40 === 39) console.log(`Prices: ${Math.min(i + PRICE_BATCH, ids.length)}/${ids.length}`);
     await sleep(250);
   }
-  console.log(`Prices: ${priced} priced of ${ids.length}. Sales status: ${[...statuses].map(([s, n]) => `${s}(${n})`).join(", ")}`);
+  console.log(`Prices: ${priced} priced of ${ids.length}, ${changedPrices} changed. Sales status: ${[...statuses].map(([s, n]) => `${s}(${n})`).join(", ")}`);
   if (ids.length && !statuses.size) throw new Error("The price endpoint returned nothing.");
 }
 

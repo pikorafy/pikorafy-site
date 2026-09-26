@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AFFILIATE_DISCLOSURE_SHORT } from "@/lib/affiliate";
 import HeroSection from "@/components/HeroSection";
+import { getSiteStats } from "@/lib/catalog";
 import HomeTopLists from "@/components/HomeTopLists";
 import InstantGamingBanner from "@/components/InstantGamingBanner";
 
@@ -48,10 +49,11 @@ const FAQ_ITEMS = [
 ];
 
 export default async function Home() {
+  const stats = await getSiteStats();
   return (
     <div className="flex flex-col min-h-full">
       {/* ─── Hero ─── */}
-      <HeroSection />
+      <HeroSection stats={stats} />
 
       {/* ─── Top 10s (most played, recent releases) and genre top 5s ─── */}
       <HomeTopLists />
