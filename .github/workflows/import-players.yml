@@ -3,8 +3,9 @@ name: Import Steam player counts
 # Concurrent players for every ranked game, hourly. See scripts/import-players.mts.
 
 on:
-  schedule:
-    - cron: "5 * * * *"
+  # PAUSED 2026-09-26: Supabase disk I/O budget exhausted; re-enable after the write-only-changes fix.
+  # schedule:
+  #   - cron: "5 * * * *"
   workflow_dispatch:
 
 concurrency:

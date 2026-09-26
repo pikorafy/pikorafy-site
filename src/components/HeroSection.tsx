@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import type { SiteStats } from "@/lib/catalog";
 
 interface SearchResult {
   href: string;
@@ -18,14 +19,19 @@ interface SearchResult {
 
 const money = (n: number) => new Intl.NumberFormat("en-IE", { style: "currency", currency: "EUR" }).format(n);
 
-const STATS = [
-  { num: "11,482", lbl: "Games tracked" },
-  { num: "47", lbl: "Stores indexed" },
-  { num: "$1.4M", lbl: "Saved this month" },
-  { num: "14s", lbl: "Refresh interval" },
-];
+const count = (n: number) => n.toLocaleString("en");
 
-export default function HeroSection() {
+export default function HeroSection({ stats }: { stats: SiteStats | null }) {
+  // Real numbers from the catalog (site_stats); hidden if the database didn't answer.
+  const statRow = stats
+    ? [
+        { num: count(stats.games), lbl: "Games tracked" },
+        { num: count(stats.stores), lbl: "Stores compared" },
+        { num: count(stats.onSale), lbl: "On sale now" },
+        { num: "Hourly", lbl: "Price refresh" },
+      ]
+    : [];
+  const searchable = stats ? stats.steamGames + stats.xboxGames : 0;
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -76,7 +82,9 @@ export default function HeroSection() {
         <div className="hero-l">
           <div className="hero-tag">
             <span className="pulse" />
-            LIVE INDEX · 11,482 GAMES · 47 STORES · UPDATED 14s AGO
+            {stats
+              ? `LIVE INDEX · ${count(stats.games)} GAMES · STEAM · XBOX · NINTENDO`
+              : "LIVE INDEX · STEAM · XBOX · NINTENDO"}
           </div>
 
           <h1>
@@ -85,8 +93,8 @@ export default function HeroSection() {
           </h1>
 
           <p className="lede">
-            Pikorafy compares prices across every legit game store on the planet — Steam, GOG,
-            Epic, and 40+ vetted resellers — so you never pay full MSRP again.
+            Pikorafy compares game prices across {stats ? `${stats.stores} stores` : "official stores and key shops"} —
+            Steam, GOG, Humble, the Xbox Store, the Nintendo eShop and more — so you never pay full price again.
           </p>
 
           {/* Search */}
@@ -97,7 +105,7 @@ export default function HeroSection() {
                 <path d="m21 21-4-4" />
               </svg>
               <input
-                placeholder='Search 11,482 games — try "Elden Ring" or "rpg under $10"'
+                placeholder={searchable ? `Search ${count(searchable)} games — try "Elden Ring"` : 'Search games — try "Elden Ring"'}
                 value={query}
                 onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
                 onFocus={() => setOpen(true)}
@@ -149,14 +157,14 @@ export default function HeroSection() {
           </form>
 
           {/* Stats */}
-          <div className="hero-stats">
-            {STATS.map((s) => (
+          {statRow.length > 0 && <div className="hero-stats">
+            {statRow.map((s) => (
               <div key={s.lbl}>
                 <span className="num">{s.num}</span>
                 <span className="lbl">{s.lbl}</span>
               </div>
             ))}
-          </div>
+          </div>}
         </div>
 
         {/* Right — Featured partner card */}

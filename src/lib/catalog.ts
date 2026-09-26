@@ -522,3 +522,34 @@ function parseTrailers(raw: unknown): SteamTrailer[] {
       hls: typeof m.hls_h264 === "string" ? m.hls_h264 : null,
     }));
 }
+
+// ─── Site stats (home hero) ──────────────────────────────────────────────────
+
+export interface SiteStats {
+  games: number;          // Steam catalog + Xbox-only + Nintendo titles
+  steamGames: number;
+  xboxGames: number;
+  nintendoGames: number;
+  stores: number;         // distinct PC stores with EUR prices + Microsoft Store + eShop
+  onSale: number;
+  lastPriceAt: string | null;
+}
+
+/** Real counts for the home hero; null when the database is unreachable (the hero hides them). */
+export async function getSiteStats(): Promise<SiteStats | null> {
+  const client = db();
+  if (!client) return null;
+  const { data, error } = await client.rpc("site_stats");
+  if (error || !data) return null;
+  const s = data as Record<string, number | string | null>;
+  const n = (k: string) => Number(s[k] ?? 0);
+  return {
+    games: n("steam_games") + n("xbox_games") + n("nintendo_games"),
+    steamGames: n("steam_games"),
+    xboxGames: n("xbox_games"),
+    nintendoGames: n("nintendo_games"),
+    stores: n("pc_stores") + (n("xbox_games") ? 1 : 0) + (n("nintendo_games") ? 1 : 0),
+    onSale: n("on_sale"),
+    lastPriceAt: (s.last_price_at as string | null) ?? null,
+  };
+}
