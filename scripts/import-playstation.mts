@@ -5,6 +5,7 @@
 //   node scripts/import-playstation.mts store       store pages that are due (every 6h)
 //   node scripts/import-playstation.mts run         both
 //   node scripts/import-playstation.mts parse <file.html> [conceptId]   parse a saved page, no database
+//   node scripts/import-playstation.mts inspect <conceptId>…            fetch pages, print price buttons + result, no database
 //
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, IGDB_CLIENT_ID, IGDB_CLIENT_SECRET (catalog).
 //      STORE_PAGES (optional): store pages per run, default 1000.
@@ -21,7 +22,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { parseConceptPage, type PsStoreData } from "./lib/playstation-page.mts";
+import { describeCtas, parseConceptPage, type PsStoreData } from "./lib/playstation-page.mts";
 
 const STORE_URL = "https://store.playstation.com/es-es/concept";
 const STORE_PAGES = Number(process.env.STORE_PAGES) || 1000;
@@ -365,6 +366,18 @@ const [cmd = "run", ...args] = process.argv.slice(2);
 if (cmd === "parse") {
   const [file, id = file?.match(/(\d+)\D*$/)?.[1] ?? ""] = args;
   console.log(JSON.stringify(parseConceptPage(readFileSync(file, "utf8"), id), null, 2));
+  process.exit(0);
+}
+if (cmd === "inspect") {
+  for (const id of args) {
+    const page = await fetchConcept(id);
+    console.log(`\n=== concept ${id}: ${page.status}${page.status === "error" ? ` ${page.detail}` : ""}`);
+    if (page.status !== "ok") continue;
+    for (const line of describeCtas(page.html)) console.log(`  ${line}`);
+    const data = parseConceptPage(page.html, id);
+    console.log(`  → ${data ? `${data.storeName}: ${data.salesStatus} price=${data.price} regular=${data.regularPrice} plus=${data.plusTier}` : "not parsed"}`);
+    await sleep(STORE_DELAY_MS);
+  }
   process.exit(0);
 }
 switch (cmd) {

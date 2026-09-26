@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       command:
-        description: "catalog | store | run (catalog + store)"
+        description: "catalog | store | run (catalog + store) | inspect <conceptId> <conceptId>…"
         default: store
 
 concurrency:
@@ -37,4 +37,4 @@ jobs:
           IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
           IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
           CMD: ${{ inputs.command || (github.event.schedule == '37 4 * * *' && 'run' || 'store') }}
-        run: node scripts/import-playstation.mts "$CMD"
+        run: node scripts/import-playstation.mts $CMD   # unquoted: "inspect 1 2" → several args
