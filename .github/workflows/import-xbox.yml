@@ -5,9 +5,8 @@ name: Import Xbox catalog
 # then the public Game Pass catalog for breadth.
 
 on:
-  # PAUSED 2026-09-26: Supabase disk I/O budget exhausted; re-enable after the write-only-changes fix.
-  # schedule:
-  #   - cron: "23 */6 * * *"   # every 6h: refresh prices and pick up new games
+  schedule:
+    - cron: "23 */6 * * *"   # every 6h: refresh prices and pick up new games
   workflow_dispatch:
     inputs:
       pages:

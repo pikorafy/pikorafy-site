@@ -4,9 +4,8 @@ name: Import IsThereAnyDeal prices
 # See scripts/import-itad.mts.
 
 on:
-  # PAUSED 2026-09-26: Supabase disk I/O budget exhausted; re-enable after the write-only-changes fix.
-  # schedule:
-  #   - cron: "47 */6 * * *"   # every 6h, offset from the Steam import
+  schedule:
+    - cron: "47 */6 * * *"   # every 6h, offset from the Steam import
   workflow_dispatch:
     inputs:
       command:
