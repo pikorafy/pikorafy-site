@@ -96,48 +96,40 @@ async function probe(label: string, url: string): Promise<string | null> {
   return html;
 }
 
-// Browse and search pages are client-rendered shells: the data comes from Sony's web
-// GraphQL API (persisted queries). So: 1) try a concept page (id from IGDB), 2) collect the
-// persisted-query names + hashes from the store's JS bundles, 3) call one for that concept.
-const CONCEPT = "204794";   // The Witcher 3: Wild Hunt (IGDB → PlayStation Store US concept id)
-const conceptHtml = await probe("Concept page (The Witcher 3)", `${BASE}/concept/${CONCEPT}`);
+// Concept pages are server-rendered: each embeds Apollo cache blobs (application/json scripts)
+// with the main product, its SKU price, price history, media and add-ons. Dump the price and
+// media records for a few concepts (ids from IGDB) to learn the exact fields.
+const CONCEPTS = [
+  ["204794", "The Witcher 3"],
+  ["209441", "Red Dead Redemption 2"],
+  ["227770", "God of War"],
+];
 
-const scripts = [...new Set([...(conceptHtml ?? "").matchAll(/<script[^>]+src="([^"]+\.js)"/g)].map((m) => m[1]))]
-  .map((src) => (src.startsWith("http") ? src : `https://store.playstation.com${src}`));
-console.log(`\nJS bundles on the concept page: ${scripts.length}`);
-
-const ops = new Map<string, string>();
-for (const src of scripts.slice(0, 40)) {
-  try {
-    const js = await (await fetch(src, { headers: HEADERS })).text();
-    // Persisted queries appear as {operationName:"x", ... sha256Hash:"…64 hex…"} (in either order).
-    for (const m of js.matchAll(/operationName\s*[:=]\s*["']([A-Za-z0-9_]+)["'][^{}]{0,400}?sha256Hash\s*[:=]\s*["']([a-f0-9]{64})["']/g)) ops.set(m[1], m[2]);
-    for (const m of js.matchAll(/sha256Hash\s*[:=]\s*["']([a-f0-9]{64})["'][^{}]{0,400}?operationName\s*[:=]\s*["']([A-Za-z0-9_]+)["']/g)) ops.set(m[2], m[1]);
-  } catch (err) {
-    console.log(`  bundle failed: ${src} ${String(err)}`);
+for (const [id, label] of CONCEPTS) {
+  const html = await probe(`Concept ${label}`, `${BASE}/concept/${id}`);
+  if (!html) continue;
+  const all = embeddedJson(html).flatMap((b) => [...walk(b.data)]);
+  const show = (typename: string, max: number) => {
+    const found = all.filter((o) => o.__typename === typename);
+    console.log(`  --- ${typename}: ${found.length}`);
+    for (const o of found.slice(0, max)) console.log(`    ${JSON.stringify(o).slice(0, 1200)}`);
+  };
+  show("Price", 3);
+  show("PriceHistory", 2);
+  show("Sku", 2);
+  show("GameCTA", 2);
+  show("CTAMeta", 2);
+  const concept = all.find((o) => o.__typename === "Concept" && ("media" in o || "name" in o));
+  if (concept) console.log(`  --- Concept keys: ${Object.keys(concept).join(", ")}`);
+  // Media roles (key art, cover, screenshots…).
+  const media = all.filter((o) => o.__typename === "Media");
+  const roles = new Map<string, string>();
+  for (const m of media) {
+    const role = String(m.role ?? m.type ?? "?");
+    if (!roles.has(role)) roles.set(role, String(m.url ?? ""));
   }
-}
-console.log(`Persisted queries found: ${ops.size}`);
-for (const [name, hash] of [...ops].sort()) console.log(`  ${name}: ${hash}`);
-
-// Try every query whose name mentions concepts / products / prices with the concept id.
-const GQL = "https://web.np.playstation.com/api/graphql/v1/op";
-const candidates = [...ops].filter(([name]) => /concept|product|price|cta/i.test(name)).slice(0, 8);
-for (const [name, hash] of candidates) {
-  const variables = { conceptId: CONCEPT, id: CONCEPT, productId: CONCEPT };
-  const url = `${GQL}?operationName=${name}&variables=${encodeURIComponent(JSON.stringify(variables))}` +
-    `&extensions=${encodeURIComponent(JSON.stringify({ persistedQuery: { version: 1, sha256Hash: hash } }))}`;
-  await new Promise((r) => setTimeout(r, 1500));
-  try {
-    const res = await fetch(url, {
-      headers: { ...HEADERS, Accept: "application/json", "Content-Type": "application/json", "x-psn-store-locale-override": "es-ES" },
-    });
-    const text = await res.text();
-    const prices = [...new Set(text.match(/"(basePrice|discountedPrice|upsellText|discountText)"\s*:\s*"[^"]*"/g) ?? [])];
-    console.log(`\n=== GraphQL ${name}: HTTP ${res.status}, ${text.length} chars`);
-    console.log(`  prices: ${prices.slice(0, 8).join("  ") || "none"}`);
-    console.log(`  body: ${text.slice(0, 600)}`);
-  } catch (err) {
-    console.log(`\n=== GraphQL ${name}: failed ${String(err)}`);
-  }
+  console.log(`  --- Media roles: ${[...roles].map(([r, u]) => `${r} → ${u.slice(0, 110)}`).join("\n      ")}`);
+  const main = all.find((o) => o.__typename === "Product" && "platforms" in o && "releaseDate" in o);
+  if (main) console.log(`  --- Main product: ${JSON.stringify(main).slice(0, 800)}`);
+  await new Promise((r) => setTimeout(r, 2500));
 }
