@@ -1,0 +1,35 @@
+name: Import Nintendo eShop
+
+# Nintendo Switch games (Europe catalog, Spanish EUR prices). See scripts/import-nintendo.mts.
+# Both sources are public: no Nintendo key needed.
+
+on:
+  schedule:
+    - cron: "41 */6 * * *"   # every 6h: catalog (new games) + prices
+  workflow_dispatch:
+    inputs:
+      command:
+        description: "run (catalog + prices) | prices"
+        default: run
+
+concurrency:
+  group: import-nintendo
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Run importer
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CMD: ${{ inputs.command || 'run' }}
+        run: node scripts/import-nintendo.mts "$CMD"
