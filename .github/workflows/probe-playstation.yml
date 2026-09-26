@@ -1,0 +1,19 @@
+name: Probe PlayStation Store
+
+# Read-only: checks whether store.playstation.com (Spain) can be read from GitHub and
+# what data its pages embed. See scripts/probe-playstation.mts. Run manually.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Probe
+        run: node scripts/probe-playstation.mts
