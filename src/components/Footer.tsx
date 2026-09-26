@@ -28,7 +28,7 @@ const COLS = [
       { name: "Xbox on Sale", href: "/xbox?sort=discount" },
       { name: "In Game Pass", href: "/xbox?gamepass=1" },
       { name: "PlayStation Games", href: "/playstation" },
-      { name: "In PS Plus", href: "/playstation?plus=1" },
+      { name: "In PS Plus Extra", href: "/playstation?plus=extra" },
       { name: "Nintendo Switch Games", href: "/nintendo" },
       { name: "Switch on Sale", href: "/nintendo?sale=1&sort=discount" },
       { name: "All Deals", href: "/deals" },
