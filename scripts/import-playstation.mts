@@ -8,6 +8,7 @@
 //
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, IGDB_CLIENT_ID, IGDB_CLIENT_SECRET (catalog).
 //      STORE_PAGES (optional): store pages per run, default 1000.
+//      MAX_GAMES (optional): how many games to track, most popular first, default 5000.
 //
 // Two sources:
 //  - IGDB (Twitch API): every game with a PlayStation Store link gives its store concept id,
@@ -32,6 +33,7 @@ const PS_STORE_SOURCE = 36;           // IGDB external_game_source: "Playstation
 const STEAM_SOURCE = 1;
 const PS_PLATFORMS: Record<number, string> = { 48: "PS4", 167: "PS5" };
 const GAME_TYPES = [0, 4, 8, 9, 10, 11];   // main game, standalone expansion, remake, remaster, expanded, port
+const MAX_GAMES = Number(process.env.MAX_GAMES) || 5000;   // tracked games, most popular first (DB and store load)
 const MIN_CATALOG = 5000;
 const MAX_CATALOG_WRITES = 5000;      // per run, most popular first (spreads the first fill over runs)
 const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36";
@@ -180,7 +182,8 @@ async function importCatalog(): Promise<void> {
   const stored = await storedGames();
   const known = await knownSteamApps();
   const score = (g: IgdbGame) => (stored.get(g.id)?.ratingCount ?? 0) * 10 + (g.total_rating_count ?? 0) * 50 + (g.hypes ?? 0);
-  const ordered = [...games.values()].sort((a, b) => score(b) - score(a) || (b.first_release_date ?? 0) - (a.first_release_date ?? 0));
+  const ordered = [...games.values()].sort((a, b) => score(b) - score(a) || (b.first_release_date ?? 0) - (a.first_release_date ?? 0))
+    .slice(0, MAX_GAMES);
 
   const taken = new Set([...stored.values()].map((g) => g.slug));
   const now = new Date().toISOString();
@@ -220,7 +223,7 @@ async function importCatalog(): Promise<void> {
     await sleep(500);
   }
   const fresh = rows.filter((r) => !stored.has(r.igdb_id as number)).length;
-  console.log(`Catalog: ${games.size} games, ${fresh} new and ${rows.length - fresh} changed written, ${deferred} deferred to the next run, ${unchanged} unchanged.`);
+  console.log(`Catalog: tracking the top ${ordered.length} of ${games.size} games, ${fresh} new and ${rows.length - fresh} changed written, ${deferred} deferred to the next run, ${unchanged} unchanged.`);
   console.log(`Top 10: ${ordered.slice(0, 10).map((g) => g.name).join(" · ")}`);
 }
 
