@@ -333,6 +333,33 @@ export const GENRES: { slug: string; name: string }[] = [
 
 export type ListingSort = "popular" | "discount" | "price" | "reviews";
 
+export const PLATFORMS = [
+  { key: "windows", label: "Windows" },
+  { key: "mac", label: "macOS" },
+  { key: "linux", label: "Linux" },
+  { key: "xbox", label: "Also on Xbox" },
+] as const;
+export type PlatformKey = (typeof PLATFORMS)[number]["key"];
+
+/** Filters from the /games filter panel. Empty object = everything. */
+export interface ListingFilters {
+  /** Genre names (any of them). */
+  genres?: string[];
+  priceMin?: number;
+  priceMax?: number;
+  hideFree?: boolean;
+  /** Any of these platforms. */
+  platforms?: PlatformKey[];
+  onSale?: boolean;
+  /** Minimum % positive reviews. */
+  minScore?: number;
+}
+
+export function hasFilters(f: ListingFilters): boolean {
+  return !!(f.genres?.length || f.priceMin !== undefined || f.priceMax !== undefined || f.hideFree ||
+    f.platforms?.length || f.onSale || f.minScore);
+}
+
 const LISTING_COLUMNS =
   "steam_app_id, slug, name, header_image, genres, is_free, review_score_pct, metacritic, popularity_rank, price, regular_price, discount_pct, store";
 
@@ -341,7 +368,7 @@ export async function getListing(opts: {
   /** Free-text search on the (normalized) title. */
   query?: string;
   sort?: ListingSort;
-  onSale?: boolean;
+  filters?: ListingFilters;
   limit: number;
   offset?: number;
 }): Promise<{ games: ListingGame[]; total: number }> {
@@ -350,11 +377,26 @@ export async function getListing(opts: {
 
   const text = opts.query ? normalizeQuery(opts.query) : "";
   // An exact count scans the whole (joined) listing on every request, which gets slow
-  // as the catalog grows. Page numbers only need Postgres's estimate; searches keep the
-  // exact count since they match few rows and show "N matches".
-  let q = client.from("game_listing").select(LISTING_COLUMNS, { count: text ? "exact" : "estimated" });
+  // as the catalog grows. Plain browsing only needs Postgres's estimate for page numbers;
+  // searches and filters keep the exact count (the planner's guess can be far off there).
+  const f = opts.filters ?? {};
+  const filtered = !!text || hasFilters(f);
+  let q = client.from("game_listing").select(LISTING_COLUMNS, { count: filtered ? "exact" : "estimated" });
   if (opts.genre) q = q.contains("genres", [opts.genre]);
-  if (opts.onSale) q = q.gt("discount_pct", 0);
+  if (f.genres?.length) q = q.overlaps("genres", f.genres);
+  if (f.priceMin !== undefined) q = q.gte("price", f.priceMin);
+  if (f.priceMax !== undefined) q = q.lte("price", f.priceMax);
+  if (f.hideFree) q = q.eq("is_free", false);
+  if (f.onSale) q = q.gt("discount_pct", 0);
+  if (f.minScore) q = q.gte("review_score_pct", f.minScore);
+  if (f.platforms?.length) {
+    const pc = f.platforms.filter((p) => p !== "xbox");
+    const any = [
+      ...(pc.length ? [`platforms.ov.{${pc.join(",")}}`] : []),
+      ...(f.platforms.includes("xbox") ? ["on_xbox.is.true"] : []),
+    ];
+    q = q.or(any.join(","));
+  }
   if (text) q = q.ilike("title_key", `%${text}%`);
 
   switch (opts.sort ?? "popular") {

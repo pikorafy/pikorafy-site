@@ -1,5 +1,8 @@
 import Link from "next/link";
-import { GENRES, type ListingGame, type ListingSort } from "@/lib/catalog";
+import { GENRES, PLATFORMS, type ListingFilters, type ListingGame, type ListingSort } from "@/lib/catalog";
+import { activeFilterChips, filterParams, SCORE_STEPS } from "@/lib/listing-params";
+import FilterDrawer, { type FilterState } from "@/components/FilterDrawer";
+import SortSelect from "@/components/SortSelect";
 
 // Server-rendered catalog grid shared by /games and /games/[genre].
 
@@ -26,6 +29,7 @@ export default function GameListing({
   intro,
   activeGenre,
   query,
+  filters = {},
   sort,
   page,
   pageSize,
@@ -39,6 +43,7 @@ export default function GameListing({
   activeGenre?: string;
   /** Current search text (only /games supports it). */
   query?: string;
+  filters?: ListingFilters;
   sort: ListingSort;
   page: number;
   pageSize: number;
@@ -46,13 +51,43 @@ export default function GameListing({
   total: number;
 }) {
   const pages = Math.max(1, Math.ceil(total / pageSize));
-  const href = (s: ListingSort, p: number) => {
+  // Query string for the current search + filters (no sort / page).
+  const baseParams = (f: ListingFilters = filters) => {
     const params = new URLSearchParams();
     if (query) params.set("q", query);
+    return filterParams(f, params);
+  };
+  const href = (s: ListingSort, p: number) => {
+    const params = baseParams();
     if (s !== "popular") params.set("sort", s);
     if (p > 1) params.set("page", String(p));
-    const qs = params.toString();
+    const qs = params.toString().replaceAll("%2C", ",");
     return qs ? `${basePath}?${qs}` : basePath;
+  };
+  const withFilters = (f: ListingFilters) => {
+    const params = baseParams(f);
+    if (sort !== "popular") params.set("sort", sort);
+    const qs = params.toString().replaceAll("%2C", ",");
+    return qs ? `${basePath}?${qs}` : basePath;
+  };
+
+  const withoutQuery = () => {
+    const params = filterParams(filters);
+    if (sort !== "popular") params.set("sort", sort);
+    const qs = params.toString().replaceAll("%2C", ",");
+    return qs ? `${basePath}?${qs}` : basePath;
+  };
+
+  const chips = activeFilterChips(filters);
+  const genreSlug = (name: string) => GENRES.find((g) => g.name === name)?.slug ?? "";
+  const drawerState: FilterState = {
+    genres: (filters.genres ?? []).map(genreSlug).filter(Boolean),
+    min: filters.priceMin?.toString() ?? "",
+    max: filters.priceMax?.toString() ?? "",
+    hideFree: !!filters.hideFree,
+    platforms: filters.platforms ?? [],
+    sale: !!filters.onSale,
+    score: filters.minScore?.toString() ?? "",
   };
 
   return (
@@ -65,42 +100,56 @@ export default function GameListing({
       </div>
       <p style={{ color: "var(--text-2)", maxWidth: "70ch", lineHeight: 1.6, margin: "0 0 24px" }}>{intro}</p>
 
-      {query !== undefined && (
-        <form action={basePath} method="get" role="search" className="filterbar" style={{ marginBottom: 12 }}>
-          <span className="lbl">Search</span>
-          <input
-            type="search"
-            name="q"
-            defaultValue={query}
-            placeholder="Game title…"
-            aria-label="Search games"
-            style={{ flex: 1, minWidth: 0, background: "transparent", border: 0, outline: 0, color: "var(--text)", fontSize: 14 }}
-          />
-          {sort !== "popular" && <input type="hidden" name="sort" value={sort} />}
-          <button type="submit" className="chip">Search</button>
-          {query && <Link href={basePath} className="chip" rel="nofollow">Clear</Link>}
-        </form>
+      {/* Toolbar: filters (left), search, sort (right). Genre pages filter within /games. */}
+      <div className="listing-toolbar">
+        <FilterDrawer
+          action={activeGenre ? "/games" : basePath}
+          query={query}
+          sort={sort}
+          initial={activeGenre && !drawerState.genres.length ? { ...drawerState, genres: [activeGenre] } : drawerState}
+          genres={GENRES.filter((g) => g.slug !== "free-to-play").map((g) => ({ value: g.slug, label: g.name === "Massively Multiplayer" ? "MMO" : g.name }))}
+          platforms={PLATFORMS.map((p) => ({ value: p.key, label: p.label }))}
+          scoreSteps={SCORE_STEPS}
+          activeCount={chips.length}
+        />
+        {query !== undefined && (
+          <form action={basePath} method="get" role="search" className="listing-search">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" strokeLinecap="round" />
+            </svg>
+            <input type="search" name="q" defaultValue={query} placeholder="Search games…" aria-label="Search games" />
+            {[...filterParams(filters)].map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
+            {sort !== "popular" && <input type="hidden" name="sort" value={sort} />}
+          </form>
+        )}
+        <SortSelect
+          basePath={basePath}
+          params={baseParams().toString()}
+          sort={sort}
+          options={SORTS}
+        />
+      </div>
+
+      {(chips.length > 0 || query) && (
+        <div className="active-filters">
+          {query && (
+            <Link href={withoutQuery()} className="chip" rel="nofollow" aria-label={`Remove search ${query}`}>
+              “{query}” <span aria-hidden="true">×</span>
+            </Link>
+          )}
+          {chips.map((c) => (
+            <Link key={c.label} href={withFilters(c.without)} className="chip" rel="nofollow" aria-label={`Remove filter ${c.label}`}>
+              {c.label} <span aria-hidden="true">×</span>
+            </Link>
+          ))}
+          <Link href={basePath} className="clear" rel="nofollow">Clear all</Link>
+        </div>
       )}
-      <nav aria-label="Genres" className="filterbar" style={{ marginBottom: 12, flexWrap: "wrap" }}>
-        <span className="lbl">Genre</span>
-        <Link href="/games" className="chip" aria-pressed={!activeGenre}>All</Link>
-        {GENRES.map((g) => (
-          <Link key={g.slug} href={`/games/${g.slug}`} className="chip" aria-pressed={activeGenre === g.slug}>
-            {g.name === "Massively Multiplayer" ? "MMO" : g.name}
-          </Link>
-        ))}
-      </nav>
-      <nav aria-label="Sort" className="filterbar" style={{ marginBottom: 24, flexWrap: "wrap" }}>
-        <span className="lbl">Sort</span>
-        {SORTS.map((s) => (
-          <Link key={s.key} href={href(s.key, 1)} className="chip" aria-pressed={sort === s.key} rel="nofollow">
-            {s.label}
-          </Link>
-        ))}
-      </nav>
 
       {games.length === 0 ? (
-        <p style={{ color: "var(--text-2)" }}>No games here yet — the catalog is still filling up. Check back soon.</p>
+        <p style={{ color: "var(--text-2)" }}>
+          {chips.length || query ? "No games match these filters. Try removing one." : "No games here yet — the catalog is still filling up. Check back soon."}
+        </p>
       ) : (
         <div className="cards">
           {games.map((g) => <GameCard key={g.steam_app_id} game={g} />)}
