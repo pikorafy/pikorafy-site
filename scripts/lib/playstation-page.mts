@@ -78,6 +78,39 @@ const PLUS_TIERS: Record<string, string> = { TIER_10: "essential", TIER_20: "ext
 const sized = (url: string | null, w: number) =>
   url && /^https:\/\/image\.api\.playstation\.com\//.test(url) && !url.includes("?") ? `${url}?w=${w}` : url;
 
+const TRIAL = /\b(trial|demo|prueba|versi[oó]n de prueba|free trial)\b/i;
+
+/** Buttons for a trial or demo SKU: by button type, offer label, SKU name or SKU id. */
+function isTrial(cache: Map<string, Obj>, key: string, cta: Obj): boolean {
+  if (/TRIAL|DEMO/i.test(s(cta.type) ?? "")) return true;
+  const local = isObj(cta.local) ? cta.local : null;
+  if (local && TRIAL.test(s(local.offerLabel) ?? "")) return true;
+  const params = isObj(cta.action) && Array.isArray(cta.action.param) ? cta.action.param.filter(isObj) : [];
+  const skuId = s(params.find((p) => s(p.name) === "skuId")?.value) ?? key.match(/[A-Z]{2}\d{4}-[A-Z]{4}\d{5}_00-[A-Z0-9]{16}-[A-Z]\d{3}/)?.[0] ?? null;
+  if (!skuId) return false;
+  const sku = cache.get(`Sku:${skuId}`);
+  return TRIAL.test(s(sku?.name) ?? "") || /TRIAL|DEMO/.test(skuId.split("-")[2] ?? "");
+}
+
+/** Every price button on the page, for debugging (import-playstation.mts inspect). */
+export function describeCtas(html: string): string[] {
+  const cache = pageCache(html);
+  const out: string[] = [];
+  for (const [k, cta] of cache) {
+    if (!k.startsWith("GameCTA:")) continue;
+    const price = isObj(cta.price) ? cta.price : null;
+    const local = isObj(cta.local) ? cta.local : null;
+    const params = isObj(cta.action) && Array.isArray(cta.action.param) ? cta.action.param.filter(isObj) : [];
+    const skuId = s(params.find((p) => s(p.name) === "skuId")?.value) ?? "";
+    out.push([
+      `type=${s(cta.type)}`, `sku=${skuId}`, `skuName=${s(cache.get(`Sku:${skuId}`)?.name) ?? "-"}`,
+      `offerLabel=${local ? s(local.offerLabel) : "-"}`, `trial=${isTrial(cache, k, cta)}`,
+      price ? `price=${n(price.discountedValue)}/${n(price.basePriceValue)} free=${price.isFree} branding=${JSON.stringify(price.serviceBranding)} tier=${s(price.tierLabel)} tied=${price.isTiedToSubscription}` : "no price",
+    ].join(" "));
+  }
+  return out;
+}
+
 export function parseConceptPage(html: string, conceptId: string): PsStoreData | null {
   const cache = pageCache(html);
   const concept = cache.get(`Concept:${conceptId}`) ?? [...cache.entries()].find(([k]) => k.startsWith("Concept:"))?.[1];
@@ -87,12 +120,14 @@ export function parseConceptPage(html: string, conceptId: string): PsStoreData |
   if (!product) return null;
   const productId = s(product.id) ?? productKey!.replace(/^Product:/, "");
 
-  // Prices from the product's call-to-action buttons.
+  // Prices from the product's call-to-action buttons. A product can have several SKUs
+  // (the game, a free trial, a demo), each with its own buttons: trials and demos are skipped,
+  // and a paid price beats a free one (a real free-to-play game has no paid SKU).
   let buy: Obj | null = null, preorder = false, plusTier: string | null = null, plusPrice: number | null = null;
   for (const [k, cta] of cache) {
     if (!k.startsWith("GameCTA:") || !k.includes(productId)) continue;
     const price = cta.price;
-    if (!isObj(price)) continue;
+    if (!isObj(price) || isTrial(cache, k, cta)) continue;
     const branding = Array.isArray(price.serviceBranding) ? price.serviceBranding.map(String) : [];
     const value = n(price.discountedValue);
     if (branding.includes("PS_PLUS")) {
@@ -101,7 +136,11 @@ export function parseConceptPage(html: string, conceptId: string): PsStoreData |
       continue;
     }
     if (branding.some((b) => b !== "NONE") || price.isTiedToSubscription === true) continue;   // EA Play, Ubisoft+…
-    if (!buy || (value ?? Infinity) < (n(buy.discountedValue) ?? Infinity)) {
+    const current = buy ? n(buy.discountedValue) : null;
+    const better = !buy
+      || (current === 0 && (value ?? 0) > 0)                                         // paid beats free
+      || ((value ?? 0) > 0 && (value ?? Infinity) < (current ?? Infinity));          // else the cheapest paid
+    if (better) {
       buy = price;
       preorder = s(cta.type) === "PREORDER" || (isObj(cta.meta) && cta.meta.preOrder === true);
     }
