@@ -4,6 +4,9 @@
 // and what data is embedded in them. Writes nothing.
 //
 //   node scripts/probe-playstation.mts
+//   SAVE_DIR=/tmp/ps node scripts/probe-playstation.mts   (also saves each concept page there)
+
+import { mkdirSync, writeFileSync } from "node:fs";
 
 const BASE = "https://store.playstation.com/es-es";
 const HEADERS = {
@@ -108,6 +111,10 @@ const CONCEPTS = [
 for (const [id, label] of CONCEPTS) {
   const html = await probe(`Concept ${label}`, `${BASE}/concept/${id}`);
   if (!html) continue;
+  if (process.env.SAVE_DIR) {
+    mkdirSync(process.env.SAVE_DIR, { recursive: true });
+    writeFileSync(`${process.env.SAVE_DIR}/concept-${id}.html`, html);
+  }
   const all = embeddedJson(html).flatMap((b) => [...walk(b.data)]);
   const show = (typename: string, max: number) => {
     const found = all.filter((o) => o.__typename === typename);
