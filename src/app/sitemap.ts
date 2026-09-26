@@ -46,6 +46,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const catalogPages: MetadataRoute.Sitemap = [
     { url: `${BASE_URL}/games`, lastModified: new Date(), changeFrequency: "daily" as const, priority: 0.9 },
     { url: `${BASE_URL}/xbox`, lastModified: new Date(), changeFrequency: "daily" as const, priority: 0.9 },
+    { url: `${BASE_URL}/nintendo`, lastModified: new Date(), changeFrequency: "daily" as const, priority: 0.9 },
     ...GENRES.map((g) => ({
       url: `${BASE_URL}/games/${g.slug}`,
       lastModified: new Date(),

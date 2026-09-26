@@ -20,7 +20,8 @@ const CATALOG_PAGE = 1000;
 const PRICE_URL = "https://api.ec.nintendo.com/v1/price";
 const PRICE_BATCH = 50;
 const COUNTRY = "ES";
-const MIN_CATALOG = 1000;            // fewer Switch games than this = something broke; don't write
+const MIN_CATALOG = 1000;
+const MAX_RELEASE_DATE = `${new Date().getUTCFullYear() + 3}-12-31`;            // fewer Switch games than this = something broke; don't write
 
 const supabase = createClient(required("SUPABASE_URL"), required("SUPABASE_SERVICE_ROLE_KEY"), {
   auth: { persistSession: false },
@@ -77,8 +78,8 @@ function releaseDate(d: SolrDoc): string | null {
   const raw = str(d.dates_released_dts) ?? str(d.date_from);
   if (!raw) return null;
   const date = raw.slice(0, 10);
-  // Placeholder far-future dates ("TBA") aren't release dates.
-  return /^\d{4}-\d{2}-\d{2}$/.test(date) && date < "2100" ? date : null;
+  // Placeholder far-future dates ("TBA" is stored as e.g. 2050-12-31) aren't release dates.
+  return /^\d{4}-\d{2}-\d{2}$/.test(date) && date <= MAX_RELEASE_DATE ? date : null;
 }
 
 function slugify(name: string): string {
@@ -117,12 +118,10 @@ async function importCatalog(): Promise<number> {
   console.log(`Switch games with an NSUID: ${games.length} of ${all.length}.`);
   if (games.length < MIN_CATALOG) throw new Error(`Only ${games.length} Switch games found; not writing. Check the fields above.`);
 
-  // Popularity: the index's own score if it has one, else newest first.
-  const hasPopularity = games.some((d) => typeof d.popularity === "number");
+  // Popularity: the index's hit counter (hits_i), then newest first.
+  const hits = (d: SolrDoc) => (typeof d.hits_i === "number" ? d.hits_i : 0);
   const ordered = [...games].sort((a, b) =>
-    hasPopularity
-      ? (Number(a.popularity ?? Infinity) - Number(b.popularity ?? Infinity))
-      : (releaseDate(b) ?? "").localeCompare(releaseDate(a) ?? ""));
+    hits(b) - hits(a) || (releaseDate(b) ?? "").localeCompare(releaseDate(a) ?? ""));
 
   const slugs = await existingSlugs();
   const taken = new Set(slugs.values());
@@ -165,6 +164,7 @@ async function importCatalog(): Promise<number> {
   }
   const sample = list[0];
   console.log(`Catalog saved: ${list.length} games. #1: ${sample?.title} (${sample?.nsuid}), ${sample?.genres}, ${sample?.release_date}, ${sample?.url_path}`);
+  console.log(`Top 10 by hits: ${list.slice(0, 10).map((r) => r.title).join(" · ")}`);
   return list.length;
 }
 
@@ -248,7 +248,6 @@ switch (cmd) {
     console.error("Usage: import-nintendo.mts run | prices");
     process.exit(1);
 }
-const { data: linked, error: linkError } = await supabase.rpc("link_nintendo_games");
-if (linkError) throw new Error(`link_nintendo_games: ${linkError.message}`);
+// Linking to Steam games (link_nintendo_games) comes later, once /nintendo is live.
 const { data: sizeMb } = await supabase.rpc("db_size_mb");
-console.log(`Linked to Steam: ${linked}. Database: ${sizeMb} MB.`);
+console.log(`Database: ${sizeMb} MB.`);
