@@ -84,6 +84,31 @@ function releaseDate(d: SolrDoc): string | null {
   return /^\d{4}-\d{2}-\d{2}$/.test(date) && date <= MAX_RELEASE_DATE ? date : null;
 }
 
+// Image fields differ between games (newer entries use other names), so pick by name
+// pattern across all of a document's image fields rather than a fixed list.
+const imageFields = (d: SolrDoc) =>
+  Object.keys(d).filter((k) => /image/i.test(k) && typeof str(d[k]) === "string" && /^(https?:)?\/\//.test(str(d[k])!));
+const WIDE = [/h2x1/i, /16x9/i, /hero/i, /banner640/i, /banner/i, /wide/i];
+const SQUARE = [/sq/i, /square/i, /1x1/i];
+
+function wideImage(d: SolrDoc): string | null {
+  const fields = imageFields(d);
+  for (const re of WIDE) {
+    const k = fields.find((f) => re.test(f));
+    if (k) return str(d[k]);
+  }
+  return str(d.image_url);
+}
+
+function squareImage(d: SolrDoc): string | null {
+  const fields = imageFields(d);
+  for (const re of SQUARE) {
+    const k = fields.find((f) => re.test(f));
+    if (k) return str(d[k]);
+  }
+  return null;
+}
+
 function slugify(name: string): string {
   return name
     .replace(/[™®©]/g, "")
@@ -127,6 +152,10 @@ async function importCatalog(): Promise<number> {
   for (const d of all) for (const s of strs(d.system_type)) systems.set(s, (systems.get(s) ?? 0) + 1);
   console.log(`System types: ${[...systems].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([s, n]) => `${s}(${n})`).join(", ")}`);
   console.log(`Switch games with an NSUID: ${games.length} of ${all.length}.`);
+  const imageKeys = new Map<string, number>();
+  for (const d of games) for (const k of imageFields(d)) imageKeys.set(k, (imageKeys.get(k) ?? 0) + 1);
+  console.log(`Image fields: ${[...imageKeys].sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k}(${n})`).join(", ")}`);
+  console.log(`Games with wide art: ${games.filter((d) => wideImage(d)).length}, square only: ${games.filter((d) => !wideImage(d) && squareImage(d)).length}`);
   if (games.length < MIN_CATALOG) throw new Error(`Only ${games.length} Switch games found; not writing. Check the fields above.`);
 
   // Popularity: the index's hit counter (hits_i), then newest first.
@@ -161,8 +190,8 @@ async function importCatalog(): Promise<number> {
       genres: strs(d.pretty_game_categories_txt),
       platforms: platformsOf(d),
       release_date: releaseDate(d),
-      image_wide: https(str(d.image_url_h2x1_s) ?? str(d.image_url)),
-      image_square: https(str(d.image_url_sq_s)),
+      image_wide: https(wideImage(d)),
+      image_square: https(str(d.image_url_sq_s) ?? squareImage(d)),
       url_path: str(d.url),
     };
     // Only write what changed: unchanged rows cost disk I/O on every run.
