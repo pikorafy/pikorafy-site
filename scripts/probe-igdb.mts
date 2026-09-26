@@ -50,6 +50,15 @@ for (const p of platforms ?? []) {
   console.log(`${p.abbreviation}: ${count?.count ?? "?"} main games (${countAll?.count ?? "?"} incl. DLC, bundles…)`);
 }
 
+// 3b. Coverage: PlayStation games with a PlayStation Store link, and with both a PS Store and a Steam link.
+for (const p of platforms ?? []) {
+  const withPs = (await igdb("games/count", `where platforms = (${p.id}) & game_type = 0 & external_games.external_game_source = 36;`)) as { count?: number } | null;
+  const withBoth = (await igdb("games/count", `where platforms = (${p.id}) & game_type = 0 & external_games.external_game_source = 36 & external_games.external_game_source = 1;`)) as { count?: number } | null;
+  console.log(`${p.abbreviation}: ${withPs?.count ?? "?"} with a PlayStation Store link, ${withBoth?.count ?? "?"} also with a Steam link`);
+}
+const steamWithPs = (await igdb("games/count", `where external_games.external_game_source = 1 & external_games.external_game_source = 36;`)) as { count?: number } | null;
+console.log(`All games with both a Steam and a PlayStation Store link: ${steamWithPs?.count ?? "?"}`);
+
 // 4. External store ids: which sources exist, and a few popular PS5 games with their links.
 const sources = await igdb("external_game_sources", `fields id,name; limit 100;`);
 console.log(`External sources: ${JSON.stringify(sources)}`);
