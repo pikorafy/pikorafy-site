@@ -96,34 +96,48 @@ async function probe(label: string, url: string): Promise<string | null> {
   return html;
 }
 
-// /pages/browse is a landing page (navigation only); game grids live on category pages.
-// Collect every link the embedded navigation data points to, then open category pages.
-const landing = await probe("Browse landing", `${BASE}/pages/browse`);
-const links = new Set<string>();
-for (const b of landing ? embeddedJson(landing) : []) {
-  for (const o of walk(b.data)) {
-    if (o.__typename === "EMSNavItem") console.log(`  nav item: ${JSON.stringify(o).slice(0, 300)}`);
-    for (const v of Object.values(o)) {
-      if (typeof v === "string" && /\/(category|view|pages)\//.test(v)) links.add(v);
-    }
+// Browse and search pages are client-rendered shells: the data comes from Sony's web
+// GraphQL API (persisted queries). So: 1) try a concept page (id from IGDB), 2) collect the
+// persisted-query names + hashes from the store's JS bundles, 3) call one for that concept.
+const CONCEPT = "204794";   // The Witcher 3: Wild Hunt (IGDB → PlayStation Store US concept id)
+const conceptHtml = await probe("Concept page (The Witcher 3)", `${BASE}/concept/${CONCEPT}`);
+
+const scripts = [...new Set([...(conceptHtml ?? "").matchAll(/<script[^>]+src="([^"]+\.js)"/g)].map((m) => m[1]))]
+  .map((src) => (src.startsWith("http") ? src : `https://store.playstation.com${src}`));
+console.log(`\nJS bundles on the concept page: ${scripts.length}`);
+
+const ops = new Map<string, string>();
+for (const src of scripts.slice(0, 40)) {
+  try {
+    const js = await (await fetch(src, { headers: HEADERS })).text();
+    // Persisted queries appear as {operationName:"x", ... sha256Hash:"…64 hex…"} (in either order).
+    for (const m of js.matchAll(/operationName\s*[:=]\s*["']([A-Za-z0-9_]+)["'][^{}]{0,400}?sha256Hash\s*[:=]\s*["']([a-f0-9]{64})["']/g)) ops.set(m[1], m[2]);
+    for (const m of js.matchAll(/sha256Hash\s*[:=]\s*["']([a-f0-9]{64})["'][^{}]{0,400}?operationName\s*[:=]\s*["']([A-Za-z0-9_]+)["']/g)) ops.set(m[2], m[1]);
+  } catch (err) {
+    console.log(`  bundle failed: ${src} ${String(err)}`);
   }
 }
-for (const m of landing?.matchAll(/href="([^"]*\/(?:category|view)\/[^"]+)"/g) ?? []) links.add(m[1]);
-console.log(`\nLinks found (${links.size}): ${[...links].slice(0, 40).join("  ")}`);
+console.log(`Persisted queries found: ${ops.size}`);
+for (const [name, hash] of [...ops].sort()) console.log(`  ${name}: ${hash}`);
 
-const categoryIds = [...new Set([...links].map((l) => l.match(/category\/([0-9a-f-]{36})/)?.[1]).filter((x): x is string => !!x))];
-let firstProduct: string | undefined;
-for (const id of categoryIds.slice(0, 3)) {
-  await new Promise((r) => setTimeout(r, 2000));
-  const html = await probe(`Category ${id}`, `${BASE}/category/${id}/1`);
-  firstProduct ??= html?.match(/[A-Z]{2}\d{4}-[A-Z]{4}\d{5}_00-[A-Z0-9]{16}/)?.[0];
-}
-await new Promise((r) => setTimeout(r, 2000));
-const search = await probe("Search 'elden ring'", `${BASE}/search/elden%20ring/1`);
-firstProduct ??= search?.match(/[A-Z]{2}\d{4}-[A-Z]{4}\d{5}_00-[A-Z0-9]{16}/)?.[0];
-if (firstProduct) {
-  await new Promise((r) => setTimeout(r, 2000));
-  await probe("Product page", `${BASE}/product/${firstProduct}`);
-} else {
-  console.log("\nNo product id found on category pages; skipping the product page.");
+// Try every query whose name mentions concepts / products / prices with the concept id.
+const GQL = "https://web.np.playstation.com/api/graphql/v1/op";
+const candidates = [...ops].filter(([name]) => /concept|product|price|cta/i.test(name)).slice(0, 8);
+for (const [name, hash] of candidates) {
+  const variables = { conceptId: CONCEPT, id: CONCEPT, productId: CONCEPT };
+  const url = `${GQL}?operationName=${name}&variables=${encodeURIComponent(JSON.stringify(variables))}` +
+    `&extensions=${encodeURIComponent(JSON.stringify({ persistedQuery: { version: 1, sha256Hash: hash } }))}`;
+  await new Promise((r) => setTimeout(r, 1500));
+  try {
+    const res = await fetch(url, {
+      headers: { ...HEADERS, Accept: "application/json", "Content-Type": "application/json", "x-psn-store-locale-override": "es-ES" },
+    });
+    const text = await res.text();
+    const prices = [...new Set(text.match(/"(basePrice|discountedPrice|upsellText|discountText)"\s*:\s*"[^"]*"/g) ?? [])];
+    console.log(`\n=== GraphQL ${name}: HTTP ${res.status}, ${text.length} chars`);
+    console.log(`  prices: ${prices.slice(0, 8).join("  ") || "none"}`);
+    console.log(`  body: ${text.slice(0, 600)}`);
+  } catch (err) {
+    console.log(`\n=== GraphQL ${name}: failed ${String(err)}`);
+  }
 }
