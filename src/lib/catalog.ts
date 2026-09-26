@@ -348,10 +348,13 @@ export async function getListing(opts: {
   const client = db();
   if (!client) return { games: [], total: 0 };
 
-  let q = client.from("game_listing").select(LISTING_COLUMNS, { count: "exact" });
+  const text = opts.query ? normalizeQuery(opts.query) : "";
+  // An exact count scans the whole (joined) listing on every request, which gets slow
+  // as the catalog grows. Page numbers only need Postgres's estimate; searches keep the
+  // exact count since they match few rows and show "N matches".
+  let q = client.from("game_listing").select(LISTING_COLUMNS, { count: text ? "exact" : "estimated" });
   if (opts.genre) q = q.contains("genres", [opts.genre]);
   if (opts.onSale) q = q.gt("discount_pct", 0);
-  const text = opts.query ? normalizeQuery(opts.query) : "";
   if (text) q = q.ilike("title_key", `%${text}%`);
 
   switch (opts.sort ?? "popular") {
@@ -369,7 +372,10 @@ export async function getListing(opts: {
   }
 
   const from = opts.offset ?? 0;
-  const { data, count } = await q.range(from, from + opts.limit - 1);
+  const { data, count, error } = await q.range(from, from + opts.limit - 1);
+  // Throw instead of returning an empty list: a timeout must not read as "no games".
+  // (The error boundary offers a retry.)
+  if (error) throw new Error(`game listing: ${error.message}`);
   const games = (data ?? []).map((g) => ({
     ...g,
     price: g.price === null ? null : Number(g.price),
