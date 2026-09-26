@@ -347,7 +347,8 @@ export interface ListingFilters {
   genres?: string[];
   priceMin?: number;
   priceMax?: number;
-  hideFree?: boolean;
+  /** Free-to-play games: hidden, or the only ones shown (default: shown). */
+  free?: "hide" | "only";
   /** Any of these platforms. */
   platforms?: PlatformKey[];
   onSale?: boolean;
@@ -356,7 +357,7 @@ export interface ListingFilters {
 }
 
 export function hasFilters(f: ListingFilters): boolean {
-  return !!(f.genres?.length || f.priceMin !== undefined || f.priceMax !== undefined || f.hideFree ||
+  return !!(f.genres?.length || f.priceMin !== undefined || f.priceMax !== undefined || f.free ||
     f.platforms?.length || f.onSale || f.minScore);
 }
 
@@ -386,7 +387,7 @@ export async function getListing(opts: {
   if (f.genres?.length) q = q.overlaps("genres", f.genres);
   if (f.priceMin !== undefined) q = q.gte("price", f.priceMin);
   if (f.priceMax !== undefined) q = q.lte("price", f.priceMax);
-  if (f.hideFree) q = q.eq("is_free", false);
+  if (f.free) q = q.eq("is_free", f.free === "only");
   if (f.onSale) q = q.gt("discount_pct", 0);
   if (f.minScore) q = q.gte("review_score_pct", f.minScore);
   if (f.platforms?.length) {
