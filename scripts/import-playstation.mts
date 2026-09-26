@@ -1,14 +1,14 @@
 // PlayStation Store (PS4 / PS5, Spain) → Supabase (`playstation_games`).
 //
 // Usage (Node ≥ 23.6 runs .mts directly):
-//   node scripts/import-playstation.mts catalog     game list from IGDB (weekly)
+//   node scripts/import-playstation.mts catalog     game list from IGDB (daily)
 //   node scripts/import-playstation.mts store       store pages that are due (every 6h)
 //   node scripts/import-playstation.mts run         both
 //   node scripts/import-playstation.mts parse <file.html> [conceptId]   parse a saved page, no database
 //
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, IGDB_CLIENT_ID, IGDB_CLIENT_SECRET (catalog).
 //      STORE_PAGES (optional): store pages per run, default 1000.
-//      MAX_GAMES (optional): how many games to track, most popular first, default 5000.
+//      MAX_GAMES (optional): how many games to track, most popular first, default 15000.
 //
 // Two sources:
 //  - IGDB (Twitch API): every game with a PlayStation Store link gives its store concept id,
@@ -33,9 +33,9 @@ const PS_STORE_SOURCE = 36;           // IGDB external_game_source: "Playstation
 const STEAM_SOURCE = 1;
 const PS_PLATFORMS: Record<number, string> = { 48: "PS4", 167: "PS5" };
 const GAME_TYPES = [0, 4, 8, 9, 10, 11];   // main game, standalone expansion, remake, remaster, expanded, port
-const MAX_GAMES = Number(process.env.MAX_GAMES) || 5000;   // tracked games, most popular first (DB and store load)
+const MAX_GAMES = Number(process.env.MAX_GAMES) || 15000;  // tracked games, most popular first (DB and store load)
 const MIN_CATALOG = 5000;
-const MAX_CATALOG_WRITES = 5000;      // per run, most popular first (spreads the first fill over runs)
+const MAX_CATALOG_WRITES = 5000;      // per run, most popular first: the first fill takes one daily run per 5000
 const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36";
 
 let client: SupabaseClient | null = null;
