@@ -11,6 +11,7 @@ import {
 import { LOW_TONE, priceTone } from "@/lib/price-tone";
 import { MetaStat, MetaStats, PriceTile, PriceTiles } from "@/components/HeroStats";
 import GameMedia from "@/app/game/[slug]/GameMedia";
+import FallbackImg from "@/components/FallbackImg";
 
 // Nintendo eShop product pages (Switch / Switch 2). Rendered on first visit,
 // refreshed at most hourly (prices update every 6h).
@@ -33,7 +34,7 @@ export async function generateMetadata({ params }: NintendoPageProps): Promise<M
   const description =
     `${game.title} is ${priceText(game) ?? "listed"} on the Nintendo eShop right now. ` +
     `See the current price, discounts and when the sale ends.`;
-  const image = game.image_wide ?? game.image_square;
+  const image = game.image_wide ?? game.image_page ?? game.image_square;
   const images = image ? [{ url: image }] : undefined;
   return {
     // The root layout's title template appends " | Pikorafy".
@@ -69,10 +70,9 @@ export default async function NintendoGamePage({ params }: NintendoPageProps) {
 
       {/* ─── Hero: key art on the left, title / price / buy on the right ── */}
       <section className="detail-hero media-hero">
-        {(game.image_wide ?? game.image_square) && (
+        {game.key_art && (
           <div className="bg">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={game.image_wide ?? game.image_square ?? ""} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            <FallbackImg srcs={[game.key_art.src, ...game.key_art.fallbacks]} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           </div>
         )}
         <div className="scrim" />
@@ -205,10 +205,8 @@ export default async function NintendoGamePage({ params }: NintendoPageProps) {
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {related.map((r) => (
                   <Link key={r.nsuid} href={`/nintendo/${r.slug}`} style={{ display: "flex", gap: 12, alignItems: "center", textDecoration: "none", color: "inherit" }}>
-                    {(r.image_wide ?? r.image_square) && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={r.image_wide ?? r.image_square ?? ""} alt="" width={92} height={46} style={{ borderRadius: 3, objectFit: r.image_wide ? "cover" : "contain", background: "var(--bg-3)", flexShrink: 0 }} />
-                    )}
+                    <FallbackImg srcs={r.wide_art} last={r.image_square} alt="" width={92} height={46}
+                      style={{ width: 92, height: 46, borderRadius: 3, objectFit: "cover", flexShrink: 0 }} />
                     <span style={{ fontSize: 14, fontWeight: 600 }}>{r.title}</span>
                   </Link>
                 ))}
@@ -260,7 +258,7 @@ function jsonLd(game: NintendoGameDetail, storeUrl: string | null, platforms: st
     "@type": "VideoGame",
     name: game.title,
     url: `${BASE_URL}/nintendo/${game.slug}`,
-    image: game.image_wide ?? game.image_square ?? undefined,
+    image: game.image_wide ?? game.image_page ?? game.image_square ?? undefined,
     genre: game.genres,
     author: game.developer ? { "@type": "Organization", name: game.developer } : undefined,
     publisher: game.publisher ? { "@type": "Organization", name: game.publisher } : undefined,

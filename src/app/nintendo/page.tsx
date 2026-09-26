@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import FilterDrawer from "@/components/FilterDrawer";
 import SortSelect from "@/components/SortSelect";
+import FallbackImg from "@/components/FallbackImg";
 import {
   getNintendoListing,
   NINTENDO_GENRES,
@@ -220,12 +221,9 @@ function NintendoCard({ game }: { game: NintendoGame }) {
   return (
     <Link href={`/nintendo/${game.slug}`} className="card boxart" style={{ textDecoration: "none", color: "inherit" }}>
       <div className="cover">
-        {game.image_wide || game.image_square
-          // Square art (no 2:1 key art for this game) is fitted, not cropped.
-          // eslint-disable-next-line @next/next/no-img-element
-          ? <img src={game.image_wide ?? game.image_square ?? ""} alt={game.title} loading="lazy"
-              style={{ width: "100%", height: "100%", objectFit: game.image_wide ? "cover" : "contain", background: "var(--bg-3)" }} />
-          : <div style={{ background: "var(--bg-3)", width: "100%", height: "100%" }} />}
+        {/* Wide art (catalog, product page or guessed), then the square art fitted. */}
+        <FallbackImg srcs={game.wide_art} last={game.image_square} alt={game.title} loading="lazy"
+          style={{ width: "100%", height: "100%", objectFit: "cover" }} />
         {onSale && <div className="disc-tag">-{game.discount_pct}%</div>}
       </div>
       <div className="body">
