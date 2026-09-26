@@ -1,0 +1,39 @@
+name: Import PlayStation Store
+
+# PS4 / PS5 games (IGDB catalog, Spanish PlayStation Store prices). See scripts/import-playstation.mts.
+# The store step reads ~1000 game pages per run, one every ~2 s: popular games daily, the rest
+# every few days. The catalog (which games exist) only changes weekly.
+
+on:
+  schedule:
+    - cron: "23 */6 * * *"   # every 6h: store pages that are due
+    - cron: "37 4 * * 2"     # Tuesdays: catalog from IGDB, then store pages
+  workflow_dispatch:
+    inputs:
+      command:
+        description: "catalog | store | run (catalog + store)"
+        default: store
+
+concurrency:
+  group: import-playstation
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Run importer
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
+          IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
+          CMD: ${{ inputs.command || (github.event.schedule == '37 4 * * 2' && 'run' || 'store') }}
+        run: node scripts/import-playstation.mts "$CMD"
