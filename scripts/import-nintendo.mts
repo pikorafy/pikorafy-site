@@ -22,6 +22,7 @@ const PRICE_URL = "https://api.ec.nintendo.com/v1/price";
 const PRICE_BATCH = 50;
 const COUNTRY = "ES";
 const MIN_CATALOG = 1000;
+const MAX_CATALOG_WRITES = 5000;     // per run, most popular first: spreads big rewrites over runs (disk I/O)
 const MAX_RELEASE_DATE = `${new Date().getUTCFullYear() + 3}-12-31`;            // fewer Switch games than this = something broke; don't write
 
 const supabase = createClient(required("SUPABASE_URL"), required("SUPABASE_SERVICE_ROLE_KEY"), {
@@ -138,6 +139,7 @@ async function importCatalog(): Promise<number> {
   const now = new Date().toISOString();
   const rows = new Map<string, Record<string, unknown>>();
   const seen = new Set<string>();
+  let deferred = 0;
   ordered.forEach((d, i) => {
     const nsuid = strs(d.nsuid_txt).find((n) => /^7001\d{10}$/.test(n))!;
     if (seen.has(nsuid)) return;                   // bundles / re-listings sharing an NSUID
@@ -168,6 +170,7 @@ async function importCatalog(): Promise<number> {
     const popularity = i + 1;
     seen.add(nsuid);
     if (before && before.hash === hash && !rankMoved(before.popularity, popularity)) return;
+    if (rows.size >= MAX_CATALOG_WRITES) { deferred++; return; }
     rows.set(nsuid, { nsuid, slug, ...fields, popularity, catalog_hash: hash, catalog_at: now });
   });
 
@@ -176,7 +179,7 @@ async function importCatalog(): Promise<number> {
     const { error } = await supabase.from("nintendo_games").upsert(list.slice(i, i + 500), { onConflict: "nsuid" });
     if (error) throw new Error(`nintendo_games upsert: ${error.message}`);
   }
-  console.log(`Catalog: ${seen.size} games, ${list.length} new or changed written, ${seen.size - list.length} unchanged.`);
+  console.log(`Catalog: ${seen.size} games, ${list.length} new or changed written, ${deferred} deferred to the next run, ${seen.size - list.length - deferred} unchanged.`);
   console.log(`Top 10 by hits: ${ordered.slice(0, 10).map((d) => str(d.title)).join(" · ")}`);
   return list.length;
 }
