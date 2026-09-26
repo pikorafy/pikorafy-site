@@ -3,6 +3,7 @@
 // Usage (Node ≥ 23.6 runs .mts directly):
 //   node scripts/import-nintendo.mts run          catalog + prices (default)
 //   node scripts/import-nintendo.mts prices       prices only (faster refresh)
+//   node scripts/import-nintendo.mts art          product-page key art for games the catalog has none for
 //
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY. No Nintendo key: both sources are public.
 //
@@ -269,6 +270,54 @@ async function importPrices(): Promise<void> {
   if (ids.length && !statuses.size) throw new Error("The price endpoint returned nothing.");
 }
 
+// ─── Product-page art ────────────────────────────────────────────────────────
+//
+// ~4k games have no wide art in the catalog. Most keep square art named
+// 1x1_<Name>_image500w.jpg next to a 16x9_ file the site derives itself; for the rest
+// (square art on assets.nintendo.eu with opaque ids) read the product page's share image
+// (og:image) once, a few per run, and store it in image_page.
+
+const PAGE_ART_PER_RUN = 150;
+const PAGE_ART_RECHECK_DAYS = 14;
+
+function ogImage(html: string): string | null {
+  for (const tag of html.match(/<meta\b[^>]*>/gi) ?? []) {
+    if (!/(property|name)\s*=\s*["'](og:image|twitter:image)["']/i.test(tag)) continue;
+    const content = tag.match(/content\s*=\s*["']([^"']+)["']/i)?.[1];
+    if (content) return content.startsWith("//") ? `https:${content}` : content;
+  }
+  return null;
+}
+
+async function importPageArt(): Promise<void> {
+  const recheck = new Date(Date.now() - PAGE_ART_RECHECK_DAYS * 86_400_000).toISOString();
+  const { data, error } = await supabase.from("nintendo_games").select("nsuid, url_path")
+    .is("image_wide", null).is("image_page", null).not("url_path", "is", null)
+    .or("image_square.is.null,image_square.not.like.*/1x1_*")
+    .or(`art_checked_at.is.null,art_checked_at.lt.${recheck}`)
+    .order("popularity").limit(PAGE_ART_PER_RUN);
+  if (error) throw new Error(`page art read: ${error.message}`);
+
+  let found = 0, failed = 0;
+  for (const g of data ?? []) {
+    const url = `https://www.nintendo.com${(g.url_path as string).startsWith("/") ? "" : "/"}${g.url_path}`;
+    let image: string | null = null;
+    try {
+      const res = await fetch(url, { headers: { Accept: "text/html", "User-Agent": "Mozilla/5.0 (compatible; PikorafyBot/1.0; +https://pikorafy.com)" } });
+      if (res.ok) image = ogImage(await res.text());
+      else failed++;
+    } catch {
+      failed++;
+    }
+    if (image) found++;
+    const { error: upError } = await supabase.from("nintendo_games")
+      .update({ image_page: image, art_checked_at: new Date().toISOString() }).eq("nsuid", g.nsuid);
+    if (upError) throw new Error(`page art update: ${upError.message}`);
+    await sleep(700);
+  }
+  console.log(`Product-page art: ${found} found of ${data?.length ?? 0} checked (${failed} pages failed).`);
+}
+
 // ─── Entry ───────────────────────────────────────────────────────────────────
 
 function required(name: string): string {
@@ -286,12 +335,16 @@ switch (cmd) {
   case "run":
     await importCatalog();
     await importPrices();
+    await importPageArt();
+    break;
+  case "art":
+    await importPageArt();
     break;
   case "prices":
     await importPrices();
     break;
   default:
-    console.error("Usage: import-nintendo.mts run | prices");
+    console.error("Usage: import-nintendo.mts run | prices | art");
     process.exit(1);
 }
 // Linking to Steam games (link_nintendo_games) comes later, once /nintendo is live.

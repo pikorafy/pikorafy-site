@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       command:
-        description: "run (catalog + prices) | prices"
+        description: "run (catalog + prices + page art) | prices | art"
         default: run
 
 concurrency:

@@ -13,6 +13,10 @@ export interface NintendoGame {
   release_date: string | null;
   image_wide: string | null;
   image_square: string | null;
+  /** Wide art from the game's product page (og:image), for games the catalog has none for. */
+  image_page: string | null;
+  /** Wide art to try in order (catalog, product page, then guessed from the square art). */
+  wide_art: string[];
   sales_status: string | null;
   price: number | null;
   regular_price: number | null;
@@ -54,7 +58,7 @@ export interface NintendoFilters {
 }
 
 const COLUMNS =
-  "nsuid, slug, title, genres, platforms, release_date, image_wide, image_square, sales_status, price, regular_price, discount_pct, discount_ends_at, currency, is_free, popularity";
+  "nsuid, slug, title, genres, platforms, release_date, image_wide, image_square, image_page, sales_status, price, regular_price, discount_pct, discount_ends_at, currency, is_free, popularity";
 const DETAIL_COLUMNS = `${COLUMNS}, developer, publisher, excerpt, url_path`;
 /** Games you can buy (or pre-order / wishlist) on the Spanish eShop. */
 const LISTED = ["onsale", "preorder", "unreleased"];
@@ -66,7 +70,16 @@ function db() {
 
 function normalize<T extends NintendoGame>(g: Record<string, unknown>): T {
   const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
-  return { ...g, price: num(g.price), regular_price: num(g.regular_price) } as T;
+  const wide = (g.image_wide ?? g.image_page ?? null) as string | null;
+  return {
+    ...g,
+    price: num(g.price),
+    regular_price: num(g.regular_price),
+    wide_art: wide ? [wide] : [
+      ...guessedWide(g.image_square as string | null, "image500w"),
+      ...guessedWide(g.image_square as string | null, "image1600w"),
+    ],
+  } as T;
 }
 
 export async function getNintendoListing(opts: {
@@ -120,7 +133,7 @@ export async function getNintendoBySlug(slug: string): Promise<NintendoGameDetai
   const { data } = await client.from("nintendo_games").select(DETAIL_COLUMNS).eq("slug", slug).maybeSingle();
   if (!data) return null;
   const g = normalize<NintendoGameDetail>(data);
-  return { ...g, key_art: nintendoKeyArt(g.image_wide ?? g.image_square) };
+  return { ...g, key_art: nintendoKeyArt(g) };
 }
 
 export async function getRelatedNintendo(game: NintendoGame, limit: number): Promise<NintendoGame[]> {
@@ -133,13 +146,30 @@ export async function getRelatedNintendo(game: NintendoGame, limit: number): Pro
 }
 
 /**
- * The catalog links 500px-wide art; Nintendo's media server usually has larger
- * renditions of the same file. Try those first, fall back to what the catalog gave.
+ * Newer games keep all their art in one folder, named by shape:
+ *   …/assets/nintendo_switch_2_games/residentevilveronica/1x1_ResidentEvilVeronica_image500w.jpg
+ *   …/assets/nintendo_switch_2_games/residentevilveronica/16x9_ResidentEvilVeronica_image1600w.jpg
+ * so a game whose catalog entry only links the square art usually has wide art next to it.
+ * These are guesses: pages try them in order and fall back to the square art.
  */
-function nintendoKeyArt(url: string | null): KeyArt | null {
-  if (!url) return null;
-  if (!/image500w/.test(url)) return { src: url, fallbacks: [] };
-  return { src: url.replace("image500w", "image1600w"), fallbacks: [url.replace("image500w", "image1280w"), url] };
+function guessedWide(square: string | null, size: string): string[] {
+  if (!square || !/\/1x1_[^/]+_image\d+w\.\w+$/.test(square)) return [];
+  const as = (shape: string, w: string) => square.replace("/1x1_", `/${shape}_`).replace(/image\d+w/, w);
+  return [as("16x9", size), as("2x1", size)];
+}
+
+/**
+ * Key art for the page hero, largest first. The catalog links 500px-wide art; Nintendo's
+ * media server usually has larger renditions of the same file. Square art comes last.
+ */
+function nintendoKeyArt(g: NintendoGame): KeyArt | null {
+  const wide = g.image_wide ?? g.image_page;
+  const larger = (u: string) => (/image500w/.test(u) ? [u.replace("image500w", "image1600w"), u.replace("image500w", "image1280w"), u] : [u]);
+  const chain = [
+    ...(wide ? larger(wide) : guessedWide(g.image_square, "image1600w")),
+    ...(g.image_square ? larger(g.image_square).slice(-1) : []),
+  ];
+  return chain.length ? { src: chain[0], fallbacks: chain.slice(1) } : null;
 }
 
 /** Nintendo's product page (English, UK site: the catalog we read). */
