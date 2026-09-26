@@ -1,5 +1,6 @@
 // Read-only probe: can we read the PlayStation Store (Spain) straight from store.playstation.com?
-// Loads two browse pages and one product page, and logs whether they load (or get blocked)
+// Loads the browse landing page, the category pages it links to and one product page,
+// and logs whether they load (or get blocked)
 // and what data is embedded in them. Writes nothing.
 //
 //   node scripts/probe-playstation.mts
@@ -79,11 +80,31 @@ async function probe(label: string, url: string): Promise<string | null> {
   return html;
 }
 
-const browse1 = await probe("Browse page 1", `${BASE}/pages/browse/1`);
-await new Promise((r) => setTimeout(r, 2000));
-await probe("Browse page 2", `${BASE}/pages/browse/2`);
-await new Promise((r) => setTimeout(r, 2000));
+// /pages/browse is a landing page (navigation only); game grids live on category pages.
+// Collect every link the embedded navigation data points to, then open category pages.
+const landing = await probe("Browse landing", `${BASE}/pages/browse`);
+const links = new Set<string>();
+for (const b of landing ? embeddedJson(landing) : []) {
+  for (const o of walk(b.data)) {
+    if (o.__typename === "EMSNavItem") console.log(`  nav item: ${JSON.stringify(o).slice(0, 300)}`);
+    for (const v of Object.values(o)) {
+      if (typeof v === "string" && /\/(category|view|pages)\//.test(v)) links.add(v);
+    }
+  }
+}
+for (const m of landing?.matchAll(/href="([^"]*\/(?:category|view)\/[^"]+)"/g) ?? []) links.add(m[1]);
+console.log(`\nLinks found (${links.size}): ${[...links].slice(0, 40).join("  ")}`);
 
-const productId = browse1?.match(/[A-Z]{2}\d{4}-[A-Z]{4}\d{5}_00-[A-Z0-9]{16}/)?.[0];
-if (productId) await probe("Product page", `${BASE}/product/${productId}`);
-else console.log("\nNo product id found on browse page 1; skipping the product page.");
+const categoryIds = [...new Set([...links].map((l) => l.match(/category\/([0-9a-f-]{36})/)?.[1]).filter((x): x is string => !!x))];
+let firstProduct: string | undefined;
+for (const id of categoryIds.slice(0, 3)) {
+  await new Promise((r) => setTimeout(r, 2000));
+  const html = await probe(`Category ${id}`, `${BASE}/category/${id}/1`);
+  firstProduct ??= html?.match(/[A-Z]{2}\d{4}-[A-Z]{4}\d{5}_00-[A-Z0-9]{16}/)?.[0];
+}
+if (firstProduct) {
+  await new Promise((r) => setTimeout(r, 2000));
+  await probe("Product page", `${BASE}/product/${firstProduct}`);
+} else {
+  console.log("\nNo product id found on category pages; skipping the product page.");
+}
