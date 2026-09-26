@@ -84,7 +84,7 @@ export default function GameListing({
     genres: (filters.genres ?? []).map(genreSlug).filter(Boolean),
     min: filters.priceMin?.toString() ?? "",
     max: filters.priceMax?.toString() ?? "",
-    hideFree: !!filters.hideFree,
+    free: filters.free ?? "show",
     platforms: filters.platforms ?? [],
     sale: !!filters.onSale,
     score: filters.minScore?.toString() ?? "",

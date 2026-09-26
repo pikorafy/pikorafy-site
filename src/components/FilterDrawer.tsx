@@ -11,7 +11,7 @@ export interface FilterState {
   genres: string[];      // slugs
   min: string;
   max: string;
-  hideFree: boolean;
+  free: "show" | "hide" | "only";
   platforms: string[];
   sale: boolean;
   score: string;         // "" | "70" | "80" | "90"
@@ -75,7 +75,7 @@ export default function FilterDrawer({
     const min = Number(next.min), max = Number(next.max);
     if (next.min !== "" && min >= 0) p.set("min", String(min));
     if (next.max !== "" && max >= 0) p.set("max", String(max));
-    if (next.hideFree) p.set("f2p", "hide");
+    if (next.free !== "show") p.set("f2p", next.free);
     if (next.platforms.length) p.set("platform", next.platforms.join(","));
     if (next.sale) p.set("sale", "1");
     if (next.score) p.set("score", next.score);
@@ -85,7 +85,7 @@ export default function FilterDrawer({
     router.push(qs ? `${action}?${qs}` : action);
   };
 
-  const cleared: FilterState = { genres: [], min: "", max: "", hideFree: false, platforms: [], sale: false, score: "" };
+  const cleared: FilterState = { genres: [], min: "", max: "", free: "show", platforms: [], sale: false, score: "" };
 
   return (
     <>
@@ -144,15 +144,17 @@ export default function FilterDrawer({
                 </section>
 
                 <section>
-                  <label className="fd-switch">
-                    <span>
-                      <b>Free-to-play games</b>
-                      <small>{state.hideFree ? "Hidden" : "Shown"}</small>
-                    </span>
-                    <input type="checkbox" role="switch" checked={!state.hideFree}
-                      onChange={(e) => setState((s) => ({ ...s, hideFree: !e.target.checked }))} />
-                    <i aria-hidden="true" />
-                  </label>
+                  <div className="fd-row">
+                    <b id={`${titleId}-f2p`}>Free-to-play games</b>
+                    <div className="fd-seg" role="radiogroup" aria-labelledby={`${titleId}-f2p`}>
+                      {(["show", "hide", "only"] as const).map((v) => (
+                        <button key={v} type="button" role="radio" aria-checked={state.free === v}
+                          onClick={() => setState((s) => ({ ...s, free: v }))}>
+                          {v === "show" ? "Show" : v === "hide" ? "Hide" : "Only"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <label className="fd-switch">
                     <span>
                       <b>On sale only</b>

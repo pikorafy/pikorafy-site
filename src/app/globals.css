@@ -469,6 +469,17 @@ body::before {
 .fd-switch input:checked + i { background: var(--good); border-color: var(--good); }
 .fd-switch input:checked + i::after { transform: translateX(18px); background: #fff; }
 .fd-switch input:focus-visible + i { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.fd-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0 10px; }
+.fd-row b { font-size: 14px; font-weight: 600; }
+.fd-seg { display: inline-flex; border: 1px solid var(--line-2); border-radius: 6px; overflow: hidden; flex: none; }
+.fd-seg button {
+  padding: 7px 12px; background: transparent; border: 0; color: var(--text-2); cursor: pointer;
+  font: 500 12px var(--ff-display); transition: background .15s, color .15s;
+}
+.fd-seg button + button { border-left: 1px solid var(--line-2); }
+.fd-seg button:hover { color: var(--text); }
+.fd-seg button[aria-checked="true"] { background: var(--accent); color: var(--accent-fg); }
+.fd-seg button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: -2px; }
 .fd-note { font-size: 12px; color: var(--text-3); margin: 16px 0 0; line-height: 1.5; }
 .fd-foot { display: flex; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--line); background: var(--bg-2); }
 .fd-foot .btn { flex: 1; justify-content: center; }

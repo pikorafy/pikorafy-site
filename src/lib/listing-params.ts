@@ -1,7 +1,7 @@
 import { GENRES, PLATFORMS, type ListingFilters, type PlatformKey } from "@/lib/catalog";
 
 // URL <-> filters for /games. Short, readable params:
-//   ?genre=rpg,indie&min=5&max=20&f2p=hide&platform=mac,xbox&sale=1&score=80
+//   ?genre=rpg,indie&min=5&max=20&f2p=hide|only&platform=mac,xbox&sale=1&score=80
 
 type Params = { [key: string]: string | string[] | undefined };
 
@@ -25,7 +25,7 @@ export function parseFilters(params: Params): ListingFilters {
     genres: genres.length ? [...new Set(genres)] : undefined,
     priceMin: price(params.min),
     priceMax: price(params.max),
-    hideFree: params.f2p === "hide" || undefined,
+    free: params.f2p === "hide" || params.f2p === "only" ? params.f2p : undefined,
     platforms: platforms.length ? [...new Set(platforms)] : undefined,
     onSale: params.sale === "1" || undefined,
     minScore: (SCORE_STEPS as readonly number[]).includes(score) ? score : undefined,
@@ -37,7 +37,7 @@ export function filterParams(f: ListingFilters, into = new URLSearchParams()): U
   if (slugs.length) into.set("genre", slugs.join(","));
   if (f.priceMin !== undefined) into.set("min", String(f.priceMin));
   if (f.priceMax !== undefined) into.set("max", String(f.priceMax));
-  if (f.hideFree) into.set("f2p", "hide");
+  if (f.free) into.set("f2p", f.free);
   if (f.platforms?.length) into.set("platform", f.platforms.join(","));
   if (f.onSale) into.set("sale", "1");
   if (f.minScore) into.set("score", String(f.minScore));
@@ -56,7 +56,7 @@ export function activeFilterChips(f: ListingFilters): { label: string; without: 
       : f.priceMin !== undefined ? `From ${eur(f.priceMin)}` : `Up to ${eur(f.priceMax!)}`;
     chips.push({ label, without: { ...f, priceMin: undefined, priceMax: undefined } });
   }
-  if (f.hideFree) chips.push({ label: "No free-to-play", without: { ...f, hideFree: undefined } });
+  if (f.free) chips.push({ label: f.free === "only" ? "Free-to-play only" : "No free-to-play", without: { ...f, free: undefined } });
   for (const p of f.platforms ?? []) {
     chips.push({ label: PLATFORMS.find((x) => x.key === p)!.label, without: { ...f, platforms: f.platforms!.filter((x) => x !== p) } });
   }
