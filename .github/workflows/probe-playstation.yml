@@ -2,19 +2,9 @@ name: Probe PlayStation Store
 
 # Read-only towards the store: checks whether store.playstation.com (Spain) can be read from
 # GitHub and what data its pages embed. See scripts/probe-playstation.mts. Run manually.
-# With "save" ticked, the fetched concept pages are pushed to the probe-data branch
-# (a scratch branch for developing the parser; safe to delete).
 
 on:
   workflow_dispatch:
-    inputs:
-      save:
-        description: Push the fetched pages to the probe-data branch
-        type: boolean
-        default: false
-
-permissions:
-  contents: write
 
 jobs:
   probe:
@@ -27,15 +17,3 @@ jobs:
           node-version: 24
       - name: Probe
         run: node scripts/probe-playstation.mts
-        env:
-          SAVE_DIR: ${{ inputs.save && '/tmp/ps' || '' }}
-      - name: Push pages to probe-data
-        if: ${{ inputs.save }}
-        run: |
-          cd /tmp/ps
-          git init -q -b probe-data
-          git config user.name "github-actions[bot]"
-          git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -q -m "PlayStation concept pages (probe)"
-          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" probe-data
