@@ -7,8 +7,10 @@ name: Import PlayStation Store
 
 on:
   schedule:
-    - cron: "23 */6 * * *"   # every 6h: store pages that are due
-    - cron: "37 4 * * *"     # daily: catalog from IGDB (up to 5000 new games), then store pages
+    # In the quiet hour between the other importers (Steam :17 every 3h; Xbox, Nintendo, ITAD
+    # at :23-:47 every 6h), so the free-plan database never serves several imports at once.
+    - cron: "35 1 * * *"          # daily 01:35: catalog from IGDB (up to 5000 new games), then store pages
+    - cron: "35 7-23/6 * * *"     # 07:35, 13:35, 19:35: store pages that are due
   workflow_dispatch:
     inputs:
       command:
@@ -36,5 +38,5 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
           IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
-          CMD: ${{ inputs.command || (github.event.schedule == '37 4 * * *' && 'run' || 'store') }}
+          CMD: ${{ inputs.command || (github.event.schedule == '35 1 * * *' && 'run' || 'store') }}
         run: node scripts/import-playstation.mts $CMD   # unquoted: "inspect 1 2" → several args
