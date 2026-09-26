@@ -1,0 +1,22 @@
+name: Probe IGDB
+
+# Read-only: checks the IGDB (Twitch) keys and what PlayStation data IGDB has.
+# See scripts/probe-igdb.mts. Run manually.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Probe
+        env:
+          IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
+          IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
+        run: node scripts/probe-igdb.mts
