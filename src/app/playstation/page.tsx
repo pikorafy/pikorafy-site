@@ -182,8 +182,9 @@ export default async function PlayStationPage({ searchParams }: { searchParams: 
           tierPicker={{
             title: "Included with PS Plus",
             param: "plus",
-            note: "Pick your tier: higher tiers include the lower ones' games.",
-            options: PLUS_TIERS.map((t) => ({ value: t, label: t[0].toUpperCase() + t.slice(1) })),
+            note: "Your tier's game catalog. Premium includes everything in Extra.",
+            // Essential has no catalog, only a few monthly games, so it isn't offered here.
+            options: [{ value: "extra", label: "Extra" }, { value: "premium", label: "Premium" }],
           }}
         />
         <form action="/playstation" method="get" role="search" className="listing-search">
