@@ -36,6 +36,7 @@ export default function FilterDrawer({
   platforms,
   scoreSteps,
   activeCount,
+  note = "Prices are for Spain (EUR), the only region tracked for now.",
 }: {
   action: string;
   query?: string;
@@ -45,6 +46,7 @@ export default function FilterDrawer({
   platforms: Option[];
   scoreSteps: readonly number[];
   activeCount: number;
+  note?: string;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -166,7 +168,7 @@ export default function FilterDrawer({
                   </label>
                 </section>
 
-                <section>
+                {platforms.length > 0 && <section>
                   <h3>Platform</h3>
                   <div className="fd-chips">
                     {platforms.map((p) => (
@@ -176,7 +178,7 @@ export default function FilterDrawer({
                       </button>
                     ))}
                   </div>
-                </section>
+                </section>}
 
                 <section>
                   <h3>Genre</h3>
@@ -190,7 +192,7 @@ export default function FilterDrawer({
                   </div>
                 </section>
 
-                <section>
+                {scoreSteps.length > 0 && <section>
                   <h3>Steam reviews</h3>
                   <div className="fd-chips">
                     <button type="button" className="chip" aria-pressed={!state.score} onClick={() => setState((s) => ({ ...s, score: "" }))}>Any</button>
@@ -201,9 +203,9 @@ export default function FilterDrawer({
                       </button>
                     ))}
                   </div>
-                </section>
+                </section>}
 
-                <p className="fd-note">Prices are for Spain (EUR), the only region tracked for now.</p>
+                <p className="fd-note">{note}</p>
               </div>
 
               <footer className="fd-foot">

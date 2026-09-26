@@ -22,11 +22,13 @@ const COLS = [
     ],
   },
   {
-    label: "Xbox & Deals",
+    label: "Consoles & Deals",
     links: [
       { name: "Xbox Games", href: "/xbox" },
       { name: "Xbox on Sale", href: "/xbox?sort=discount" },
       { name: "In Game Pass", href: "/xbox?gamepass=1" },
+      { name: "Nintendo Switch Games", href: "/nintendo" },
+      { name: "Switch on Sale", href: "/nintendo?sale=1&sort=discount" },
       { name: "All Deals", href: "/deals" },
       { name: "Browse Deals", href: "/browse" },
     ],
