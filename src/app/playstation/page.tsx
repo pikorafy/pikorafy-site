@@ -6,6 +6,8 @@ import FallbackImg from "@/components/FallbackImg";
 import {
   getPsListing,
   PLUS_TIER_LABEL,
+  PLUS_TIERS,
+  type PlusTier,
   PS_GENRES,
   PS_PLATFORMS,
   type PsFilters,
@@ -38,6 +40,9 @@ function parse(params: Params) {
   const genreSlugs = list(params.genre).filter((s) => PS_GENRES.some((g) => g.slug === s));
   const platformKeys = list(params.platform).filter((k) => PS_PLATFORMS.some((p) => p.key === k));
   const f2p = one(params.f2p);
+  // ?plus=essential|extra|premium; the older ?plus=1 meant any tier, i.e. everything Premium has.
+  const plusParam = one(params.plus);
+  const plusTier = plusParam === "1" ? "premium" : PLUS_TIERS.find((t) => t === plusParam);
   const filters: PsFilters = {
     genres: genreSlugs.length ? genreSlugs.map((s) => PS_GENRES.find((g) => g.slug === s)!.name) : undefined,
     platforms: platformKeys.length ? platformKeys.map((k) => PS_PLATFORMS.find((p) => p.key === k)!.name) : undefined,
@@ -45,7 +50,7 @@ function parse(params: Params) {
     priceMax: price(params.max),
     free: f2p === "hide" || f2p === "only" ? f2p : undefined,
     onSale: one(params.sale) === "1" || undefined,
-    plus: one(params.plus) === "1" || undefined,
+    plusTier: plusTier as PlusTier | undefined,
   };
   const sortParam = one(params.sort);
   const sort = SORTS.some((s) => s.key === sortParam) ? (sortParam as PsSort) : "popular";
@@ -74,7 +79,7 @@ function filterQuery(p: ReturnType<typeof parse>, drop?: string): URLSearchParam
   }
   if (p.filters.free && drop !== "f2p") qs.set("f2p", p.filters.free);
   if (p.filters.onSale && drop !== "sale") qs.set("sale", "1");
-  if (p.filters.plus && drop !== "plus") qs.set("plus", "1");
+  if (p.filters.plusTier && drop !== "plus") qs.set("plus", p.filters.plusTier);
   return qs;
 }
 
@@ -133,7 +138,7 @@ export default async function PlayStationPage({ searchParams }: { searchParams: 
       : []),
     ...(p.filters.free ? [{ label: p.filters.free === "only" ? "Free-to-play only" : "No free-to-play", href: without("f2p") }] : []),
     ...(p.filters.onSale ? [{ label: "On sale", href: without("sale") }] : []),
-    ...(p.filters.plus ? [{ label: "In PS Plus", href: without("plus") }] : []),
+    ...(p.filters.plusTier ? [{ label: `In ${PLUS_TIER_LABEL[p.filters.plusTier]}`, href: without("plus") }] : []),
   ];
   const onSale = games.filter((g) => (g.discount_pct ?? 0) > 0).length;
 
@@ -167,14 +172,19 @@ export default async function PlayStationPage({ searchParams }: { searchParams: 
             platforms: p.platformKeys,
             sale: !!p.filters.onSale,
             score: "",
-            gamePass: !!p.filters.plus,
+            tier: p.filters.plusTier ?? "",
           }}
           genres={PS_GENRES.map((g) => ({ value: g.slug, label: g.name }))}
           platforms={PS_PLATFORMS.map((x) => ({ value: x.key, label: x.label }))}
           scoreSteps={[]}
           activeCount={chips.length - (p.query ? 1 : 0)}
           note="Prices are from the Spanish PlayStation Store (EUR)."
-          subscription={{ label: "Included with PS Plus", onText: "PS Plus games only", param: "plus" }}
+          tierPicker={{
+            title: "Included with PS Plus",
+            param: "plus",
+            note: "Pick your tier: higher tiers include the lower ones' games.",
+            options: PLUS_TIERS.map((t) => ({ value: t, label: t[0].toUpperCase() + t.slice(1) })),
+          }}
         />
         <form action="/playstation" method="get" role="search" className="listing-search">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">

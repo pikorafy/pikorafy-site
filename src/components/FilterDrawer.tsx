@@ -15,7 +15,8 @@ export interface FilterState {
   platforms: string[];
   sale: boolean;
   score: string;         // "" | "70" | "80" | "90"
-  gamePass?: boolean;    // subscription switch: Game Pass on /xbox, PS Plus on /playstation
+  gamePass?: boolean;    // subscription switch (Game Pass on /xbox)
+  tier?: string;         // subscription tier picker ("" = all games; PS Plus tiers on /playstation)
 }
 
 interface Option { value: string; label: string }
@@ -41,6 +42,7 @@ export default function FilterDrawer({
   genreTitle = "Genre",
   gamePassToggle = false,
   subscription = gamePassToggle ? { label: "Included with Game Pass", onText: "Game Pass games only", param: "gamepass" } : null,
+  tierPicker = null,
 }: {
   action: string;
   query?: string;
@@ -57,6 +59,8 @@ export default function FilterDrawer({
   gamePassToggle?: boolean;
   /** A subscription switch with its own wording and URL param (defaults to Game Pass when gamePassToggle). */
   subscription?: { label: string; onText: string; param: string } | null;
+  /** A row of tiers (e.g. PS Plus Essential / Extra / Premium): games included with the chosen one. */
+  tierPicker?: { title: string; param: string; options: Option[]; note?: string } | null;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -92,6 +96,7 @@ export default function FilterDrawer({
     if (next.sale) p.set("sale", "1");
     if (next.score) p.set("score", next.score);
     if (next.gamePass && subscription) p.set(subscription.param, "1");
+    if (next.tier && tierPicker) p.set(tierPicker.param, next.tier);
     if (sort !== "popular") p.set("sort", sort);
     const qs = p.toString().replaceAll("%2C", ",");   // readable "genre=rpg,indie"
     setOpen(false);
@@ -187,6 +192,22 @@ export default function FilterDrawer({
                         onChange={(e) => setState((s) => ({ ...s, gamePass: e.target.checked }))} />
                       <i aria-hidden="true" />
                     </label>
+                  )}
+                  {tierPicker && (
+                    <div className="fd-row" style={{ flexWrap: "wrap", gap: 10 }}>
+                      <span>
+                        <b id={`${titleId}-tier`}>{tierPicker.title}</b>
+                        {tierPicker.note && <small style={{ display: "block", color: "var(--text-3)", marginTop: 2 }}>{tierPicker.note}</small>}
+                      </span>
+                      <div className="fd-seg" role="radiogroup" aria-labelledby={`${titleId}-tier`}>
+                        {[{ value: "", label: "All" }, ...tierPicker.options].map((o) => (
+                          <button key={o.value || "all"} type="button" role="radio" aria-checked={(state.tier ?? "") === o.value}
+                            onClick={() => setState((s) => ({ ...s, tier: o.value }))}>
+                            {o.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </section>
 

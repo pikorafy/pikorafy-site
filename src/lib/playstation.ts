@@ -55,6 +55,10 @@ export const PS_PLATFORMS = [
   { key: "ps4", label: "PS4", name: "PS4" },
 ] as const;
 
+/** PS Plus tiers, lowest first. */
+export const PLUS_TIERS = ["essential", "extra", "premium"] as const;
+export type PlusTier = (typeof PLUS_TIERS)[number];
+
 export const PLUS_TIER_LABEL: Record<string, string> = { essential: "PS Plus Essential", extra: "PS Plus Extra", premium: "PS Plus Premium" };
 
 export interface PsFilters {
@@ -64,7 +68,8 @@ export interface PsFilters {
   priceMax?: number;
   free?: "hide" | "only";
   onSale?: boolean;
-  plus?: boolean;              // included with PS Plus (any tier)
+  /** Games included with this PS Plus tier; higher tiers include the lower ones' games. */
+  plusTier?: PlusTier;
 }
 
 const COLUMNS =
@@ -104,7 +109,7 @@ export async function getPsListing(opts: {
   const f = opts.filters ?? {};
   const text = opts.query ? normalizeQuery(opts.query) : "";
   const filtered = !!text || !!(f.genres?.length || f.platforms?.length || f.priceMin !== undefined ||
-    f.priceMax !== undefined || f.free || f.onSale || f.plus);
+    f.priceMax !== undefined || f.free || f.onSale || f.plusTier);
 
   let q = client.from("playstation_games").select(COLUMNS, { count: filtered ? "exact" : "estimated" }).in("sales_status", LISTED);
   if (text) q = q.ilike("title_key", `%${text}%`);
@@ -114,7 +119,7 @@ export async function getPsListing(opts: {
   if (f.priceMax !== undefined) q = q.lte("price", f.priceMax);
   if (f.free) q = q.eq("is_free", f.free === "only");
   if (f.onSale) q = q.gt("discount_pct", 0);
-  if (f.plus) q = q.not("plus_tier", "is", null);
+  if (f.plusTier) q = q.in("plus_tier", PLUS_TIERS.slice(0, PLUS_TIERS.indexOf(f.plusTier) + 1));
 
   switch (opts.sort ?? "popular") {
     case "discount":
