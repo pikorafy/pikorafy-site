@@ -60,6 +60,22 @@ async function probe(label: string, url: string): Promise<string | null> {
   console.log(`  product ids in page: ${ids.length}${ids.length ? ` e.g. ${ids.slice(0, 3).join(", ")}` : ""}`);
   console.log(`  "€" occurrences: ${(html.match(/€/g) ?? []).length}`);
 
+  // Server-rendered product tiles, labelled with data-qa attributes, e.g.
+  //   search#productTile3#product-name, …#price#display-price, …#price#price-strikethrough
+  const tiles = new Map<string, Record<string, string>>();
+  for (const m of html.matchAll(/data-qa="([^"]*productTile(\d+)#([^"]+))"[^>]*>([^<]*)</g)) {
+    const [, , n, field, text] = m;
+    if (!text.trim()) continue;
+    const tile = tiles.get(n) ?? {};
+    tile[field] = text.trim();
+    tiles.set(n, tile);
+  }
+  const tileFields = new Set([...tiles.values()].flatMap((t) => Object.keys(t)));
+  console.log(`  product tiles: ${tiles.size}; fields: ${[...tileFields].join(", ") || "-"}`);
+  for (const t of [...tiles.values()].slice(0, 5)) console.log(`    tile: ${JSON.stringify(t)}`);
+  const hrefs = [...new Set(html.match(/href="\/es-es\/(?:product|concept)\/[^"]+"/g) ?? [])];
+  console.log(`  product/concept links: ${hrefs.length}${hrefs.length ? ` e.g. ${hrefs.slice(0, 3).join(" ")}` : ""}`);
+
   const blobs = embeddedJson(html);
   console.log(`  embedded JSON blobs: ${blobs.map((b) => b.id).join(", ") || "none"}`);
   for (const b of blobs) {
@@ -102,6 +118,9 @@ for (const id of categoryIds.slice(0, 3)) {
   const html = await probe(`Category ${id}`, `${BASE}/category/${id}/1`);
   firstProduct ??= html?.match(/[A-Z]{2}\d{4}-[A-Z]{4}\d{5}_00-[A-Z0-9]{16}/)?.[0];
 }
+await new Promise((r) => setTimeout(r, 2000));
+const search = await probe("Search 'elden ring'", `${BASE}/search/elden%20ring/1`);
+firstProduct ??= search?.match(/[A-Z]{2}\d{4}-[A-Z]{4}\d{5}_00-[A-Z0-9]{16}/)?.[0];
 if (firstProduct) {
   await new Promise((r) => setTimeout(r, 2000));
   await probe("Product page", `${BASE}/product/${firstProduct}`);
