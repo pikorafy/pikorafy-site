@@ -338,6 +338,7 @@ export const PLATFORMS = [
   { key: "mac", label: "macOS" },
   { key: "linux", label: "Linux" },
   { key: "xbox", label: "Also on Xbox" },
+  { key: "switch", label: "Also on Switch" },
 ] as const;
 export type PlatformKey = (typeof PLATFORMS)[number]["key"];
 
@@ -391,10 +392,11 @@ export async function getListing(opts: {
   if (f.onSale) q = q.gt("discount_pct", 0);
   if (f.minScore) q = q.gte("review_score_pct", f.minScore);
   if (f.platforms?.length) {
-    const pc = f.platforms.filter((p) => p !== "xbox");
+    const pc = f.platforms.filter((p) => p !== "xbox" && p !== "switch");
     const any = [
       ...(pc.length ? [`platforms.ov.{${pc.join(",")}}`] : []),
       ...(f.platforms.includes("xbox") ? ["on_xbox.is.true"] : []),
+      ...(f.platforms.includes("switch") ? ["on_nintendo.is.true"] : []),
     ];
     q = q.or(any.join(","));
   }
