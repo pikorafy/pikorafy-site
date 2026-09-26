@@ -50,14 +50,31 @@ for (const p of platforms ?? []) {
   console.log(`${p.abbreviation}: ${count?.count ?? "?"} main games (${countAll?.count ?? "?"} incl. DLC, bundles…)`);
 }
 
-// 3b. Coverage: PlayStation games with a PlayStation Store link, and with both a PS Store and a Steam link.
-for (const p of platforms ?? []) {
-  const withPs = (await igdb("games/count", `where platforms = (${p.id}) & game_type = 0 & external_games.external_game_source = 36;`)) as { count?: number } | null;
-  const withBoth = (await igdb("games/count", `where platforms = (${p.id}) & game_type = 0 & external_games.external_game_source = 36 & external_games.external_game_source = 1;`)) as { count?: number } | null;
-  console.log(`${p.abbreviation}: ${withPs?.count ?? "?"} with a PlayStation Store link, ${withBoth?.count ?? "?"} also with a Steam link`);
+// 3b. Coverage. A condition on external_games.* matches one link at a time, so "Steam & PS Store"
+// can't be asked in one count. Instead read every PlayStation Store link, then look up which of
+// those games also have a Steam link (IGDB allows 4 requests/second; 500 rows per request).
+const psGames = new Map<number, string>();   // IGDB game id → PS Store concept id
+for (let last = 0; ;) {
+  const rows = (await igdb("external_games", `fields game,uid; where external_game_source = 36 & id > ${last}; sort id asc; limit 500;`)) as
+    { id: number; game?: number; uid?: string }[] | null;
+  if (!rows?.length) break;
+  for (const r of rows) if (r.game && r.uid) psGames.set(r.game, r.uid);
+  last = rows[rows.length - 1].id;
+  await new Promise((r) => setTimeout(r, 260));
 }
-const steamWithPs = (await igdb("games/count", `where external_games.external_game_source = 1 & external_games.external_game_source = 36;`)) as { count?: number } | null;
-console.log(`All games with both a Steam and a PlayStation Store link: ${steamWithPs?.count ?? "?"}`);
+const steamOf = new Map<number, string>();   // IGDB game id → Steam app id
+const gameIds = [...psGames.keys()];
+for (let i = 0; i < gameIds.length; i += 500) {
+  const chunk = gameIds.slice(i, i + 500);
+  const rows = (await igdb("external_games", `fields game,uid; where external_game_source = 1 & game = (${chunk.join(",")}); limit 500;`)) as
+    { game?: number; uid?: string }[] | null;
+  for (const r of rows ?? []) if (r.game && r.uid && !steamOf.has(r.game)) steamOf.set(r.game, r.uid);
+  await new Promise((r) => setTimeout(r, 260));
+}
+console.log(`PlayStation Store links: ${psGames.size} games; ${steamOf.size} of them also on Steam, ${psGames.size - steamOf.size} without a Steam link`);
+console.log(`  e.g. ${[...steamOf].slice(0, 5).map(([g, app]) => `game ${g}: concept ${psGames.get(g)} ↔ Steam ${app}`).join("; ")}`);
+const both = (await igdb("games/count", `where external_games.external_game_source = [1,36];`)) as { count?: number } | null;
+console.log(`Cross-check (games whose links include both sources): ${both?.count ?? "?"}`);
 
 // 4. External store ids: which sources exist, and a few popular PS5 games with their links.
 const sources = await igdb("external_game_sources", `fields id,name; limit 100;`);
