@@ -15,7 +15,7 @@ export interface FilterState {
   platforms: string[];
   sale: boolean;
   score: string;         // "" | "70" | "80" | "90"
-  gamePass?: boolean;    // /xbox only
+  gamePass?: boolean;    // subscription switch: Game Pass on /xbox, PS Plus on /playstation
 }
 
 interface Option { value: string; label: string }
@@ -40,6 +40,7 @@ export default function FilterDrawer({
   note = "Prices are for Spain (EUR), the only region tracked for now.",
   genreTitle = "Genre",
   gamePassToggle = false,
+  subscription = gamePassToggle ? { label: "Included with Game Pass", onText: "Game Pass games only", param: "gamepass" } : null,
 }: {
   action: string;
   query?: string;
@@ -54,6 +55,8 @@ export default function FilterDrawer({
   genreTitle?: string;
   /** Show the "Included with Game Pass" switch (/xbox). */
   gamePassToggle?: boolean;
+  /** A subscription switch with its own wording and URL param (defaults to Game Pass when gamePassToggle). */
+  subscription?: { label: string; onText: string; param: string } | null;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -88,7 +91,7 @@ export default function FilterDrawer({
     if (next.platforms.length) p.set("platform", next.platforms.join(","));
     if (next.sale) p.set("sale", "1");
     if (next.score) p.set("score", next.score);
-    if (next.gamePass) p.set("gamepass", "1");
+    if (next.gamePass && subscription) p.set(subscription.param, "1");
     if (sort !== "popular") p.set("sort", sort);
     const qs = p.toString().replaceAll("%2C", ",");   // readable "genre=rpg,indie"
     setOpen(false);
@@ -174,11 +177,11 @@ export default function FilterDrawer({
                       onChange={(e) => setState((s) => ({ ...s, sale: e.target.checked }))} />
                     <i aria-hidden="true" />
                   </label>
-                  {gamePassToggle && (
+                  {subscription && (
                     <label className="fd-switch">
                       <span>
-                        <b>Included with Game Pass</b>
-                        <small>{state.gamePass ? "Game Pass games only" : "All games"}</small>
+                        <b>{subscription.label}</b>
+                        <small>{state.gamePass ? subscription.onText : "All games"}</small>
                       </span>
                       <input type="checkbox" role="switch" checked={!!state.gamePass}
                         onChange={(e) => setState((s) => ({ ...s, gamePass: e.target.checked }))} />
