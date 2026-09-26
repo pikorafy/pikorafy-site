@@ -120,7 +120,7 @@ export async function getNintendoBySlug(slug: string): Promise<NintendoGameDetai
   const { data } = await client.from("nintendo_games").select(DETAIL_COLUMNS).eq("slug", slug).maybeSingle();
   if (!data) return null;
   const g = normalize<NintendoGameDetail>(data);
-  return { ...g, key_art: nintendoKeyArt(g.image_wide) };
+  return { ...g, key_art: nintendoKeyArt(g.image_wide ?? g.image_square) };
 }
 
 export async function getRelatedNintendo(game: NintendoGame, limit: number): Promise<NintendoGame[]> {
