@@ -229,8 +229,27 @@ async function main() {
     }
   }
 
+  // 6. Steam's own store date wins for games on Steam (IGDB dates can be an early access,
+  //    a regional launch or simply stale). Our Steam import keeps games.release_date fresh.
+  //    Not when Steam's date is older than the window: then the IGDB date is a later port.
+  const steamDate = new Map<number, string>();
+  const appIds = [...new Set(steam.values())];
+  for (let i = 0; i < appIds.length; i += 300) {
+    const { data, error } = await db().from("games").select("steam_app_id, release_date")
+      .in("steam_app_id", appIds.slice(i, i + 300)).not("release_date", "is", null);
+    if (error) throw new Error(`games read: ${error.message}`);
+    for (const r of data ?? []) steamDate.set(r.steam_app_id as number, r.release_date as string);
+  }
+  let fromSteam = 0, moved = 0;
+
   const rows = kept.map((g) => {
-    const d = perGame.get(g.id)!;
+    const igdbDate = perGame.get(g.id)!;
+    const app = steam.get(g.id);
+    // Only a date inside the calendar window: an old Steam date means this is a port / re-release.
+    const windowStart = new Date(from * 1000).toISOString().slice(0, 10);
+    const sd = app && (steamDate.get(app) ?? "") >= windowStart ? steamDate.get(app) : undefined;
+    const d = sd ? { ...igdbDate, date: sd, precision: "day" as Precision } : igdbDate;
+    if (sd) { fromSteam++; if (sd !== igdbDate.date) moved++; }
     const fields = {
       slug: g.slug ?? String(g.id),
       title: g.name!.trim(),
@@ -247,6 +266,7 @@ async function main() {
     };
     return { igdb_id: g.id, ...fields, content_hash: createHash("sha1").update(JSON.stringify(fields)).digest("hex") };
   });
+  console.log(`Dates from Steam for ${fromSteam} games (${moved} differ from IGDB).`);
   const withArt = rows.filter((r) => r.art_id).length;
   console.log(`Wide art from IGDB for ${withArt} of ${rows.length}; Steam links for ${rows.filter((r) => r.steam_app_id).length}.`);
   console.log(`Top 10: ${[...rows].sort((a, b) => b.score - a.score).slice(0, 10).map((r) => `${r.title} (${r.release_date} ${r.precision}, ${r.platforms.join("/")})`).join(" · ")}`);
