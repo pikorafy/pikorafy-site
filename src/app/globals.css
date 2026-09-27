@@ -1070,3 +1070,60 @@ body::before {
   from { height: var(--radix-accordion-content-height); }
   to { height: 0; }
 }
+
+/* ─── Release calendar (/releases) ─────────────────────────────────────────── */
+.rc-tabs { display: flex; gap: 4px 14px; flex-wrap: wrap; justify-content: center; margin: 4px 0 16px; font-family: var(--ff-display); font-weight: 600; font-size: 17px; }
+.rc-tabs a { color: var(--accent-2); text-decoration: none; padding: 6px 10px; border-radius: var(--r-sm); white-space: nowrap; }
+.rc-tabs a:hover { background: var(--bg-3); }
+.rc-tabs a[aria-current="page"] { background: var(--accent); color: var(--accent-fg); }
+.rc-scroll { overflow-x: auto; margin: 0 -4px; padding: 0 4px 4px; }
+.rc-grid { display: grid; grid-template-columns: 36px repeat(7, minmax(0, 1fr)); gap: 10px 10px; min-width: 860px; }
+.rc-row { display: contents; }
+.rc-label { font-size: 12px; color: var(--text-2); text-align: center; padding-bottom: 2px; }
+.rc-wk { font-family: var(--ff-mono); font-size: 12px; color: var(--accent-2); display: flex; align-items: center; justify-content: center; }
+.rc-wk.rc-label { color: var(--text-3); font-style: italic; }
+.rc-cell { display: flex; flex-direction: column; padding: 0; border: 1px solid transparent; border-radius: var(--r-sm); background: var(--bg-2); overflow: hidden; cursor: pointer; text-align: left; color: inherit; font: inherit; }
+.rc-cell:hover { border-color: var(--line-2); }
+.rc-cell.sel { border-color: var(--accent); }
+.rc-cell.out { opacity: 0.4; }
+.rc-cell.today .rc-head { background: var(--frost); color: var(--navy-200); }
+.rc-head { display: flex; align-items: center; gap: 6px; padding: 5px 6px; background: var(--navy-100); font-size: 12px; }
+.rc-head b { font-weight: 700; min-width: 30px; }
+.rc-dashes { display: flex; gap: 3px; flex: 1; }
+.rc-dashes i, .rc-legend i { display: inline-block; height: 4px; flex: 1; max-width: 22px; border-radius: 2px; background: rgba(168,218,220,.14); }
+.rc-dashes i.on, .rc-legend i.on { background: var(--ceru-600); }
+.rc-dashes i.on.tracked, .rc-legend i.on.tracked { background: var(--good); }
+.rc-more { font-family: var(--ff-mono); font-size: 10px; color: var(--text-3); }
+.rc-art { position: relative; display: block; aspect-ratio: 16 / 9; background: var(--bg-3); }
+.rc-title { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 6px 4px; font-size: 11px; font-weight: 600; line-height: 1.2;
+  background: linear-gradient(transparent, rgba(6,11,18,.9)); color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rc-legend { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12px; color: var(--text-3); margin: 10px 0 0; }
+.rc-legend i { width: 18px; flex: none; }
+.rc-panel { margin-top: 28px; }
+.rc-panel h2 { margin-bottom: 14px; }
+.rc-list { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.rc-item { display: flex; gap: 12px; align-items: center; padding: 8px; border: 1px solid var(--line); border-radius: var(--r); background: var(--bg-2); color: inherit; text-decoration: none; }
+.rc-item.tracked:hover { border-color: var(--accent); }
+.rc-thumb { width: 120px; aspect-ratio: 16 / 9; flex-shrink: 0; border-radius: var(--r-sm); overflow: hidden; background: var(--bg-3); }
+.rc-info { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.rc-info b { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rc-plats { display: flex; gap: 4px; flex-wrap: wrap; font-family: var(--ff-mono); font-size: 10px; color: var(--text-3); text-transform: uppercase; }
+.rc-plats span { padding: 1px 4px; border: 1px solid var(--line-2); border-radius: 2px; }
+.rc-go { font-family: var(--ff-mono); font-size: 11px; color: var(--text-3); }
+.rc-item.tracked .rc-go { color: var(--good); }
+.rc-step { display: none; }
+.rc-short { display: none; }
+@media (max-width: 720px) {
+  .rc-tabs { display: none; }
+  .rc-step { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; margin: 0 0 14px; font-size: 14px; }
+  .rc-step a { color: var(--accent-2); text-decoration: none; }
+  .rc-step a:last-child { text-align: right; }
+  .rc-step b { font-family: var(--ff-display); font-size: 16px; }
+  .rc-grid { min-width: 640px; gap: 6px; grid-template-columns: 26px repeat(7, minmax(0, 1fr)); }
+  .rc-long { display: none; }
+  .rc-short { display: inline; }
+  .rc-head { padding: 4px; gap: 4px; }
+  .rc-head b { min-width: 0; font-size: 11px; }
+  .rc-dashes { display: none; }
+  .rc-title { display: none; }
+}

@@ -1,0 +1,37 @@
+name: Import release calendar
+
+# Release dates (PC, PlayStation, Xbox, Switch) from IGDB for /releases.
+# See scripts/import-releases.mts. Small and change-only; runs in the gap between imports.
+
+on:
+  schedule:
+    - cron: "50 2 * * *"   # daily 02:50 UTC (after PlayStation's 01:35 run, before Steam's 03:17)
+  workflow_dispatch:
+    inputs:
+      command:
+        description: "run | dry (fetch and log, write nothing)"
+        default: run
+
+concurrency:
+  group: import-releases
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Run importer
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
+          IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
+          CMD: ${{ inputs.command || 'run' }}
+        run: node scripts/import-releases.mts "$CMD"

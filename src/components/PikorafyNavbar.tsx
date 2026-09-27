@@ -9,6 +9,7 @@ const NAV_LINKS = [
   { label: "Xbox", href: "/xbox" },
   { label: "PlayStation", href: "/playstation" },
   { label: "Nintendo", href: "/nintendo" },
+  { label: "Releases", href: "/releases" },
   { label: "Deals", href: "/games?sale=1&sort=discount" },
   { label: "Stores", href: "/stores" },
   { label: "API", href: "/api-docs" },
