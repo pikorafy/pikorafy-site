@@ -1,4 +1,5 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { normalizeQuery, type KeyArt, type SteamScreenshot } from "@/lib/catalog";
 
@@ -108,10 +109,34 @@ export async function getPsListing(opts: {
   if (!client) return { games: [], total: 0 };
   const f = opts.filters ?? {};
   const text = opts.query ? normalizeQuery(opts.query) : "";
-  const filtered = !!text || !!(f.genres?.length || f.platforms?.length || f.priceMin !== undefined ||
-    f.priceMax !== undefined || f.free || f.onSale || f.plusTier);
+  const sort = opts.sort ?? "popular";
 
-  let q = client.from("playstation_games").select(COLUMNS, { count: filtered ? "exact" : "estimated" }).in("sales_status", LISTED);
+  let q = psWhere(client.from("playstation_games").select(COLUMNS), text, f, sort);
+  switch (sort) {
+    case "discount":
+      q = q.order("discount_pct", { ascending: false, nullsFirst: false }).order("popularity");
+      break;
+    case "price":
+      q = q.order("price").order("popularity");
+      break;
+    case "newest":
+      q = q.order("release_date", { ascending: false }).order("popularity");
+      break;
+    default:
+      q = q.order("popularity");
+  }
+
+  const from = opts.offset ?? 0;
+  const [{ data, error }, total] = await Promise.all([q.range(from, from + opts.limit - 1), countPs(text, f, sort)]);
+  // A timeout must not read as "no games": the error boundary offers a retry.
+  if (error) throw new Error(`playstation listing: ${error.message}`);
+  return { games: (data ?? []).map((g) => normalize<PsGame>(g)), total };
+}
+
+/** The listing's WHERE clause, shared by the page query and the count. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function psWhere<Q extends { [k: string]: any }>(query: Q, text: string, f: PsFilters, sort: PsSort): Q {
+  let q = query.in("sales_status", LISTED);
   if (text) q = q.ilike("title_key", `%${text}%`);
   if (f.genres?.length) q = q.overlaps("genres", f.genres);
   if (f.platforms?.length) q = q.overlaps("platforms", f.platforms);
@@ -120,28 +145,26 @@ export async function getPsListing(opts: {
   if (f.free) q = q.eq("is_free", f.free === "only");
   if (f.onSale) q = q.gt("discount_pct", 0);
   if (f.plusTier) q = q.in("plus_tier", PLUS_TIERS.slice(0, PLUS_TIERS.indexOf(f.plusTier) + 1));
-
-  switch (opts.sort ?? "popular") {
-    case "discount":
-      q = q.order("discount_pct", { ascending: false, nullsFirst: false }).order("popularity");
-      break;
-    case "price":
-      q = q.not("price", "is", null).order("price").order("popularity");
-      break;
-    case "newest":
-      q = q.not("release_date", "is", null).lte("release_date", new Date().toISOString().slice(0, 10))
-        .order("release_date", { ascending: false }).order("popularity");
-      break;
-    default:
-      q = q.order("popularity");
-  }
-
-  const from = opts.offset ?? 0;
-  const { data, count, error } = await q.range(from, from + opts.limit - 1);
-  // A timeout must not read as "no games": the error boundary offers a retry.
-  if (error) throw new Error(`playstation listing: ${error.message}`);
-  return { games: (data ?? []).map((g) => normalize<PsGame>(g)), total: count ?? 0 };
+  if (sort === "price") q = q.not("price", "is", null);
+  if (sort === "newest") q = q.not("release_date", "is", null).lte("release_date", new Date().toISOString().slice(0, 10));
+  return q;
 }
+
+/**
+ * Exact number of matching games, cached for an hour per search / filters / sort (the store
+ * data changes every few hours). An estimated count can be far off, which cut pages off the end.
+ */
+const countPs = unstable_cache(
+  async (text: string, f: PsFilters, sort: PsSort): Promise<number> => {
+    const client = db();
+    if (!client) return 0;
+    const { count, error } = await psWhere(client.from("playstation_games").select("igdb_id", { count: "exact", head: true }), text, f, sort);
+    if (error) throw new Error(`playstation count: ${error.message}`);
+    return count ?? 0;
+  },
+  ["playstation-count"],
+  { revalidate: 3600 },
+);
 
 export async function getPsBySlug(slug: string): Promise<PsGameDetail | null> {
   const client = db();
