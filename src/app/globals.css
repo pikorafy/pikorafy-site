@@ -327,9 +327,15 @@ body::before {
 .toplist-hd a { font-family: var(--ff-mono); font-size: 11px; color: var(--text-2); text-transform: uppercase; letter-spacing: .1em; white-space: nowrap; }
 .toplist-hd a:hover { color: var(--accent); }
 .toplist ol { list-style: none; margin: 0; padding: 0; }
-.toprow { display: grid; grid-template-columns: 30px 120px 1fr auto; gap: 12px; align-items: center; padding: 8px 6px; border-top: 1px solid var(--line); border-radius: 4px; text-decoration: none; color: inherit; transition: background .15s; }
-.toplist li:first-child .toprow { border-top: 0; }
-.toprow:hover { background: var(--bg-3); }
+.toprow { position: relative; isolation: isolate; overflow: hidden; display: grid; grid-template-columns: 30px 120px 1fr auto; gap: 12px; align-items: center;
+  padding: 8px 10px 8px 6px; margin-top: 4px; border-radius: 6px; text-decoration: none; color: inherit; background: var(--bg-2); }
+.toplist li:first-child .toprow { margin-top: 0; }
+/* Blurred game art behind each row, faded to the right so the price stays readable. */
+.toprow .glow { position: absolute; inset: -24px; z-index: -2; background-size: cover; background-position: center;
+  filter: blur(22px) saturate(1.6); opacity: .38; transition: opacity .2s; }
+.toprow::after { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgba(12,22,35,.15), rgba(12,22,35,.7) 75%); }
+.toprow:hover .glow { opacity: .6; }
+.toprow .rk, .toprow .nm b { text-shadow: 0 1px 3px rgba(0,0,0,.5); }
 .toprow .rk { font-family: var(--ff-mono); font-size: 18px; font-weight: 700; color: var(--text-3); text-align: center; }
 .toplist li:nth-child(-n+3) .toprow .rk { color: var(--accent); }
 .toprow img, .toprow .ph { width: 120px; height: 56px; border-radius: 4px; object-fit: cover; background: var(--bg-3); display: block; }

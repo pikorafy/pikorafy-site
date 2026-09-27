@@ -98,6 +98,8 @@ function TopList({ eyebrow, title, more, games, meta }: {
           {games.map((g, i) => (
             <li key={g.steam_app_id}>
               <Link href={`/game/${g.slug}`} className="toprow">
+                {/* The game's art, blurred, as a colour wash behind the row (same image: no extra download). */}
+                {g.header_image && <span className="glow" aria-hidden="true" style={{ backgroundImage: `url("${g.header_image}")` }} />}
                 <span className="rk">{i + 1}</span>
                 {g.header_image
                   // eslint-disable-next-line @next/next/no-img-element
