@@ -8,7 +8,8 @@
 // Reads every release date from ~6 months ago to a year ahead on PC, PlayStation, Xbox and
 // Switch, keeps one date per game (European or worldwide first, the earliest day wins) and
 // the most anticipated games per month (IGDB hypes, then ratings). Writes only rows that
-// changed and removes games that dropped out.
+// changed and removes games that dropped out. Calendar games on Steam are queued for the
+// Steam import so they get our own product page (queue_release_games).
 
 import { createHash } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
@@ -238,6 +239,11 @@ async function main() {
     if (error) throw new Error(`releases delete: ${error.message}`);
   }
   console.log(`Releases: ${rows.length} in the calendar, ${changed.length} written, ${gone.length} removed, ${rows.length - changed.length} unchanged.`);
+
+  // Their Steam apps become catalog games (our own product pages), kept while recent/upcoming.
+  const { data: queued, error: queueError } = await db().rpc("queue_release_games");
+  if (queueError) throw new Error(`queue_release_games: ${queueError.message}`);
+  console.log(`Queued ${queued} calendar games for the Steam import.`);
 }
 
 function required(name: string): string {

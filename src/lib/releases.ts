@@ -18,7 +18,8 @@ export interface Release {
   cover: string | null;
   /** Our price page, when we track the game. */
   href: string | null;
-  /** Where "Buy now" / "Pre-order" goes: our price page, else the Steam store page. */
+  /** Where "Buy now" / "Pre-order" goes: our price page; for Steam games not imported yet,
+   *  /steam/<appId>, which opens our page once the Steam import has it (else the Steam page). */
   buy: { href: string; external: boolean } | null;
 }
 
@@ -91,7 +92,7 @@ export async function getReleases(from: string, to: string, group?: PlatformGrou
       cover: r.cover_id ? igdbImage(r.cover_id as string, "t_cover_big") : null,
       href,
       buy: href ? { href, external: false }
-        : r.steam_app_id ? { href: `https://store.steampowered.com/app/${r.steam_app_id}/`, external: true } : null,
+        : r.steam_app_id ? { href: `/steam/${r.steam_app_id}`, external: false } : null,
     };
   });
 }
