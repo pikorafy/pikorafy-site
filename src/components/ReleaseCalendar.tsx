@@ -34,6 +34,10 @@ export interface CalWeek {
 
 const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const MAX_DASHES = 6;
+/** Column widths (fr) Monday → Sunday: most releases land on weekdays, so weekends are narrower. Keep in sync with .rc-grid. */
+const COL_FR = [1, 1, 1, 1, 1, 0.6, 0.6];
+const caretAt = (col: number) =>
+  `${((COL_FR.slice(0, col).reduce((a, b) => a + b, 0) + COL_FR[col] / 2) / COL_FR.reduce((a, b) => a + b, 0)) * 100}%`;
 
 function ordinal(n: number) {
   const s = n % 100 >= 11 && n % 100 <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[n % 10] ?? "th";
@@ -71,7 +75,7 @@ export default function ReleaseCalendar({ weeks }: { weeks: CalWeek[] }) {
           {weeks.map((w) => (
             <div key={w.week + w.days[0].date} className="rc-row" role="row">
               <div className="rc-wk">{w.week}</div>
-              {w.days.map((d) => {
+              {w.days.map((d, col) => {
                 const top = d.releases[0];
                 const n = d.releases.length;
                 return (
@@ -79,7 +83,7 @@ export default function ReleaseCalendar({ weeks }: { weeks: CalWeek[] }) {
                     key={d.date}
                     role="gridcell"
                     aria-selected={selected === d.date}
-                    className={`rc-cell${d.inRange ? "" : " out"}${d.isToday ? " today" : ""}${selected === d.date ? " sel" : ""}`}
+                    className={`rc-cell${col >= 5 ? " wkend" : ""}${d.inRange ? "" : " out"}${d.isToday ? " today" : ""}${selected === d.date ? " sel" : ""}`}
                   >
                     <span className="rc-head">
                       <b>{ordinal(Number(d.date.slice(8)))}</b>
@@ -97,15 +101,17 @@ export default function ReleaseCalendar({ weeks }: { weeks: CalWeek[] }) {
                           <FallbackImg srcs={top.art} last={top.cover} alt={top.title} loading="lazy"
                             style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                         )}
-                        {top && <span className="rc-title">{top.title}</span>}
                       </span>
                       <span className="rc-foot" aria-hidden="true">
-                        <span className="rc-dashes">
-                          {Array.from({ length: MAX_DASHES }, (_, i) => (
-                            <i key={i} className={i < n ? (d.releases[i].href ? "on tracked" : "on") : ""} />
-                          ))}
+                        {top && <span className="rc-title">{top.title}</span>}
+                        <span className="rc-dash-row">
+                          <span className="rc-dashes">
+                            {Array.from({ length: MAX_DASHES }, (_, i) => (
+                              <i key={i} className={i < n ? (d.releases[i].href ? "on tracked" : "on") : ""} />
+                            ))}
+                          </span>
+                          {n > MAX_DASHES && <span className="rc-more">+{n - MAX_DASHES}</span>}
                         </span>
-                        {n > MAX_DASHES && <span className="rc-more">+{n - MAX_DASHES}</span>}
                       </span>
                     </button>
                   </div>
@@ -116,7 +122,7 @@ export default function ReleaseCalendar({ weeks }: { weeks: CalWeek[] }) {
                 if (col < 0) return null;
                 const day = w.days[col];
                 return (
-                  <div ref={drop} className="rc-drop" style={{ "--col": col } as React.CSSProperties} aria-live="polite">
+                  <div ref={drop} className="rc-drop" style={{ "--caret": caretAt(col) } as React.CSSProperties} aria-live="polite">
                     <div className="rc-drop-hd">
                       <h2>{longDate(day.date)} <span>· {day.releases.length || "no"} release{day.releases.length === 1 ? "" : "s"}</span></h2>
                       <button type="button" className="rc-close" aria-label="Close" onClick={() => setSelected(null)}>✕</button>
