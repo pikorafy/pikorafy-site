@@ -15,12 +15,15 @@ export interface CalRelease {
   art: string[];
   cover: string | null;
   href: string | null;
+  buy: { href: string; external: boolean } | null;
 }
 
 export interface CalDay {
   date: string;          // YYYY-MM-DD
   inRange: boolean;      // false for the leading / trailing days of other months
   isToday: boolean;
+  /** After today: releases here are pre-orders. */
+  upcoming: boolean;
   releases: CalRelease[];
 }
 
@@ -64,32 +67,39 @@ export default function ReleaseCalendar({ weeks, initial }: { weeks: CalWeek[]; 
                 const top = d.releases[0];
                 const n = d.releases.length;
                 return (
-                  <button
+                  <div
                     key={d.date}
-                    type="button"
                     role="gridcell"
-                    className={`rc-cell${d.inRange ? "" : " out"}${d.isToday ? " today" : ""}${selected === d.date ? " sel" : ""}`}
-                    aria-label={`${longDate(d.date)}: ${n ? `${n} release${n === 1 ? "" : "s"}` : "no releases"}`}
                     aria-selected={selected === d.date}
-                    onClick={() => setSelected(d.date)}
+                    className={`rc-cell${d.inRange ? "" : " out"}${d.isToday ? " today" : ""}${selected === d.date ? " sel" : ""}`}
                   >
                     <span className="rc-head">
                       <b>{ordinal(Number(d.date.slice(8)))}</b>
-                      <span className="rc-dashes" aria-hidden="true">
-                        {Array.from({ length: MAX_DASHES }, (_, i) => (
-                          <i key={i} className={i < n ? (d.releases[i].href ? "on tracked" : "on") : ""} />
-                        ))}
+                      {top?.buy && <BuyLink buy={top.buy} upcoming={d.upcoming} title={top.title} compact />}
+                    </span>
+                    <button
+                      type="button"
+                      className="rc-pick"
+                      aria-label={`${longDate(d.date)}: ${n ? `${n} release${n === 1 ? "" : "s"}` : "no releases"}`}
+                      onClick={() => setSelected(d.date)}
+                    >
+                      <span className="rc-art">
+                        {top && (
+                          <FallbackImg srcs={top.art} last={top.cover} alt={top.title} loading="lazy"
+                            style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        )}
+                        {top && <span className="rc-title">{top.title}</span>}
                       </span>
-                      {n > MAX_DASHES && <span className="rc-more">+{n - MAX_DASHES}</span>}
-                    </span>
-                    <span className="rc-art">
-                      {top && (
-                        <FallbackImg srcs={top.art} last={top.cover} alt={top.title} loading="lazy"
-                          style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                      )}
-                      {top && <span className="rc-title">{top.title}</span>}
-                    </span>
-                  </button>
+                      <span className="rc-foot" aria-hidden="true">
+                        <span className="rc-dashes">
+                          {Array.from({ length: MAX_DASHES }, (_, i) => (
+                            <i key={i} className={i < n ? (d.releases[i].href ? "on tracked" : "on") : ""} />
+                          ))}
+                        </span>
+                        {n > MAX_DASHES && <span className="rc-more">+{n - MAX_DASHES}</span>}
+                      </span>
+                    </button>
+                  </div>
                 );
               })}
             </div>
@@ -104,7 +114,7 @@ export default function ReleaseCalendar({ weeks, initial }: { weeks: CalWeek[]; 
         <section className="rc-panel" aria-live="polite">
           <h2 className="h2" style={{ fontSize: "clamp(20px,3vw,26px)" }}>{longDate(day.date)}</h2>
           {day.releases.length ? (
-            <div className="rc-list">{day.releases.map((r) => <ReleaseItem key={r.igdb_id} r={r} />)}</div>
+            <div className="rc-list">{day.releases.map((r) => <ReleaseItem key={r.igdb_id} r={r} upcoming={day.upcoming} />)}</div>
           ) : (
             <p style={{ color: "var(--text-3)" }}>No releases we know of on this day.</p>
           )}
@@ -114,20 +124,29 @@ export default function ReleaseCalendar({ weeks, initial }: { weeks: CalWeek[]; 
   );
 }
 
-export function ReleaseItem({ r, note }: { r: CalRelease; note?: string }) {
-  const body = (
-    <>
+/** "Pre-order" before the release day, "Buy now" from then on. */
+function BuyLink({ buy, upcoming, title, compact = false }: { buy: NonNullable<CalRelease["buy"]>; upcoming: boolean; title: string; compact?: boolean }) {
+  const label = upcoming ? (compact ? "Pre-order" : "Pre-order now") : "Buy now";
+  const props = { className: `rc-cta${upcoming ? " pre" : ""}`, title: `${label}: ${title}` };
+  return buy.external
+    ? <a href={buy.href} target="_blank" rel="noopener noreferrer" {...props}>{label}</a>
+    : <Link href={buy.href} {...props}>{label}</Link>;
+}
+
+export function ReleaseItem({ r, note, upcoming }: { r: CalRelease; note?: string; upcoming: boolean }) {
+  return (
+    <div className={`rc-item${r.href ? " tracked" : ""}`}>
       <span className="rc-thumb">
         <FallbackImg srcs={r.art} last={r.cover} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
       </span>
       <span className="rc-info">
-        <b>{r.title}</b>
+        {r.href ? <Link href={r.href} className="rc-name">{r.title}</Link> : <b className="rc-name">{r.title}</b>}
         <span className="rc-plats">{r.platforms.map((p) => <span key={p}>{p}</span>)}</span>
-        <span className="rc-go">{note ? `${note} · ` : ""}{r.href ? "Prices →" : "Release only"}</span>
+        <span className="rc-go">
+          {note && <span>{note}</span>}
+          {r.buy ? <BuyLink buy={r.buy} upcoming={upcoming} title={r.title} /> : <span>Release only</span>}
+        </span>
       </span>
-    </>
+    </div>
   );
-  return r.href
-    ? <Link href={r.href} className="rc-item tracked">{body}</Link>
-    : <div className="rc-item">{body}</div>;
 }

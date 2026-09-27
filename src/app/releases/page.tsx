@@ -93,7 +93,8 @@ export default async function ReleasesPage({ searchParams }: { searchParams: Pro
           date,
           inRange: inRange(date),
           isToday: date === today,
-          releases: (days.get(date) ?? []).map(({ igdb_id, title, platforms, art, cover, href }) => ({ igdb_id, title, platforms, art, cover, href })),
+          upcoming: date > today,
+          releases: (days.get(date) ?? []).map(({ igdb_id, title, platforms, art, cover, href, buy }) => ({ igdb_id, title, platforms, art, cover, href, buy })),
         };
       }),
     });
@@ -168,7 +169,8 @@ export default async function ReleasesPage({ searchParams }: { searchParams: Pro
           </h2>
           <div className="rc-list">
             {undated.map((r) => (
-              <ReleaseItem key={r.igdb_id} r={r} note={r.precision === "quarter" ? quarterLabel : monthLabel(undatedMonth, "short")} />
+              <ReleaseItem key={r.igdb_id} r={r} upcoming={undatedMonth >= p.current}
+                note={r.precision === "quarter" ? quarterLabel : monthLabel(undatedMonth, "short")} />
             ))}
           </div>
         </section>
