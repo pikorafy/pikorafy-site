@@ -2,6 +2,7 @@
 //
 //   node scripts/import-releases.mts          import (daily)
 //   node scripts/import-releases.mts dry      fetch and log what would be written, write nothing
+//   node scripts/import-releases.mts inspect <igdbId>…   print every IGDB release date of those games
 //
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, IGDB_CLIENT_ID, IGDB_CLIENT_SECRET.
 //
@@ -31,7 +32,9 @@ const PLATFORM_NAMES: Record<string, string> = {
 const GAME_TYPES = [0, 4, 8, 9, 10, 11];   // main game, standalone expansion, remake, remaster, expanded, port
 const PREFERRED_REGIONS = [1, 8];           // IGDB release_region: Europe, worldwide
 const STEAM_SOURCE = 1;
-const dry = process.argv[2] === "dry";
+// The workflow passes "inspect 1 2" as one argument: split on spaces.
+const [cmd = "run", ...cmdArgs] = process.argv.slice(2).join(" ").trim().split(/\s+/);
+const dry = cmd === "dry";
 
 let client: SupabaseClient | null = null;
 const db = () =>
@@ -71,6 +74,7 @@ interface ReleaseDate {
   platform?: number;
   release_region?: number;
   date_format?: number;
+  status?: number;            // IGDB release_date_statuses: full release, early access, alpha, beta…
 }
 
 interface IgdbGame {
@@ -99,6 +103,16 @@ function precisionOf(format: string | undefined): Precision | null {
 
 const PRECISION_RANK: Record<Precision, number> = { day: 0, month: 1, quarter: 2, year: 3 };
 
+/**
+ * How much a date counts as "the release": full releases (or no status) first, early access
+ * only when there's nothing else; alpha / beta / test / cancelled dates are ignored (null).
+ */
+function statusRank(name: string | undefined): number | null {
+  if (!name || /full|release/i.test(name) && !/early|advance/i.test(name)) return 0;
+  if (/early|advance/i.test(name)) return 1;
+  return null;   // Alpha, Beta, Offline, Cancelled, …
+}
+
 function periodStart(r: ReleaseDate, precision: Precision): string {
   const d = new Date((r.date ?? 0) * 1000);
   const y = r.y ?? d.getUTCFullYear();
@@ -122,6 +136,24 @@ async function main() {
   const formats = await igdb<{ id: number; format?: string }[]>("date_formats", "fields id,format; limit 50;");
   const formatOf = new Map(formats.map((f) => [f.id, f.format]));
   console.log(`Date formats: ${formats.map((f) => `${f.id}=${f.format}`).join(", ")}`);
+  // Optional: without statuses every date counts as a release (the previous behaviour).
+  const statuses = await igdb<{ id: number; name?: string }[]>("release_date_statuses", "fields id,name; limit 50;")
+    .catch((err: unknown) => { console.warn(`Release statuses unavailable: ${String(err).slice(0, 200)}`); return []; });
+  const statusOf = new Map(statuses.map((st) => [st.id, st.name]));
+  console.log(`Release statuses: ${statuses.map((st) => `${st.id}=${st.name}`).join(", ")}`);
+
+  if (cmd === "inspect") {
+    for (const id of cmdArgs.filter((a) => /^\d+$/.test(a))) {
+      const rows = await igdb<(ReleaseDate & { human?: string })[]>("release_dates",
+        `fields game,date,human,platform,release_region,date_format,status; where game = ${id}; sort date asc; limit 100;`);
+      console.log(`\n=== game ${id}: ${rows.length} release dates`);
+      for (const r of rows) {
+        console.log(`  ${r.human ?? "?"} (${r.date ? new Date(r.date * 1000).toISOString().slice(0, 10) : "-"}) platform=${platformName.get(r.platform ?? -1) ?? r.platform} ` +
+          `region=${r.release_region ?? "-"} format=${formatOf.get(r.date_format ?? -1) ?? "-"} status=${statusOf.get(r.status ?? -1) ?? "-"}`);
+      }
+    }
+    return;
+  }
 
   // 1. Every release date in the window on those platforms.
   const now = Date.now();
@@ -130,7 +162,7 @@ async function main() {
   const dates: ReleaseDate[] = [];
   for (let last = 0; ;) {
     const page = await igdb<ReleaseDate[]>("release_dates",
-      `fields game,date,y,m,platform,release_region,date_format; where platform = (${[...platformName.keys()].join(",")}) & date >= ${from} & date < ${to} & id > ${last}; sort id asc; limit 500;`);
+      `fields game,date,y,m,platform,release_region,date_format,status; where platform = (${[...platformName.keys()].join(",")}) & date >= ${from} & date < ${to} & id > ${last}; sort id asc; limit 500;`);
     if (!page.length) break;
     dates.push(...page);
     last = page[page.length - 1].id;
@@ -138,25 +170,31 @@ async function main() {
   console.log(`Release dates in the window: ${dates.length}`);
   if (dates.length < MIN_RELEASES) throw new Error(`Only ${dates.length} release dates; not writing.`);
 
-  // 2. One date per game: preferred regions first, then the most precise, then the earliest.
-  const perGame = new Map<number, { date: string; precision: Precision; preferred: boolean; platforms: Set<string> }>();
+  // 2. One date per game: the full release before early access (alpha / beta / test dates
+  //    are skipped), then European / worldwide, then the most precise, then the earliest.
+  const perGame = new Map<number, { date: string; precision: Precision; status: number; preferred: boolean; platforms: Set<string> }>();
+  let skippedStatus = 0;
   for (const r of dates) {
     const precision = precisionOf(formatOf.get(r.date_format ?? -1));
     const platform = platformName.get(r.platform ?? -1);
     if (!r.game || !precision || !platform || !r.date) continue;
+    const status = statusRank(statusOf.get(r.status ?? -1));
+    if (status === null) { skippedStatus++; continue; }
     const date = periodStart(r, precision);
     const preferred = PREFERRED_REGIONS.includes(r.release_region ?? -1);
     const cur = perGame.get(r.game);
     if (!cur) {
-      perGame.set(r.game, { date, precision, preferred, platforms: new Set([platform]) });
+      perGame.set(r.game, { date, precision, status, preferred, platforms: new Set([platform]) });
       continue;
     }
     cur.platforms.add(platform);
-    const better = (preferred && !cur.preferred)
-      || (preferred === cur.preferred && (PRECISION_RANK[precision] < PRECISION_RANK[cur.precision]
-        || (precision === cur.precision && date < cur.date)));
-    if (better) Object.assign(cur, { date, precision, preferred });
+    const better = status < cur.status
+      || (status === cur.status && ((preferred && !cur.preferred)
+        || (preferred === cur.preferred && (PRECISION_RANK[precision] < PRECISION_RANK[cur.precision]
+          || (precision === cur.precision && date < cur.date)))));
+    if (better) Object.assign(cur, { date, precision, status, preferred });
   }
+  console.log(`Skipped ${skippedStatus} alpha / beta / test / cancelled dates.`);
   console.log(`Games with a release date: ${perGame.size}`);
 
   // 3. Game details (name, type, hype, art) for every candidate.

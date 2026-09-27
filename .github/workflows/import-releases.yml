@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       command:
-        description: "run | dry (fetch and log, write nothing)"
+        description: "run | dry (fetch and log, write nothing) | inspect <igdbId> (all dates of a game)"
         default: run
 
 concurrency:
