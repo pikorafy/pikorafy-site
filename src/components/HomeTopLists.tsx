@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { GENRES, getGenreTop, getMostPlayed, getRecentReleases, type ListingGame } from "@/lib/catalog";
+import HomeReleases from "@/components/HomeReleases";
 
-// Home page: two top-10 lists (most played, recent releases) and top-5s per genre,
-// straight from the catalog.
+// Home page: two top-10 lists (most played, recent releases), the upcoming release strip,
+// and top-5s per genre, straight from the catalog.
 
 const HOME_GENRES = ["Action", "RPG", "Strategy", "Adventure", "Simulation", "Indie"];
 
@@ -42,6 +43,8 @@ export default async function HomeTopLists() {
           </div>
         </div>
       </section>
+
+      <HomeReleases />
 
       <section className="section" style={{ borderTop: "1px solid var(--line)" }}>
         <div className="shell">
