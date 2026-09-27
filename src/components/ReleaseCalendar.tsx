@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import FallbackImg from "@/components/FallbackImg";
 
 // Month grid of release days (Monday–Sunday rows with ISO week numbers). Each day shows the
 // most anticipated release's wide art and one dash per release (green = we track its price);
-// clicking a day lists all of its releases below the grid.
+// clicking a day drops its full list open under that week (click again, ✕ or Esc to close).
 
 export interface CalRelease {
   igdb_id: number;
@@ -48,9 +48,17 @@ function longDate(iso: string) {
   return `${WEEKDAYS[(d.getUTCDay() + 6) % 7]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
-export default function ReleaseCalendar({ weeks, initial }: { weeks: CalWeek[]; initial: string | null }) {
-  const [selected, setSelected] = useState<string | null>(initial);
-  const day = weeks.flatMap((w) => w.days).find((d) => d.date === selected) ?? null;
+export default function ReleaseCalendar({ weeks }: { weeks: CalWeek[] }) {
+  const [selected, setSelected] = useState<string | null>(null);
+  const drop = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!selected) return;
+    drop.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setSelected(null);
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [selected]);
 
   return (
     <>
@@ -81,7 +89,8 @@ export default function ReleaseCalendar({ weeks, initial }: { weeks: CalWeek[]; 
                       type="button"
                       className="rc-pick"
                       aria-label={`${longDate(d.date)}: ${n ? `${n} release${n === 1 ? "" : "s"}` : "no releases"}`}
-                      onClick={() => setSelected(d.date)}
+                      aria-expanded={selected === d.date}
+                      onClick={() => setSelected((s) => (s === d.date ? null : d.date))}
                     >
                       <span className="rc-art">
                         {top && (
@@ -102,6 +111,24 @@ export default function ReleaseCalendar({ weeks, initial }: { weeks: CalWeek[]; 
                   </div>
                 );
               })}
+              {(() => {
+                const col = w.days.findIndex((d) => d.date === selected);
+                if (col < 0) return null;
+                const day = w.days[col];
+                return (
+                  <div ref={drop} className="rc-drop" style={{ "--col": col } as React.CSSProperties} aria-live="polite">
+                    <div className="rc-drop-hd">
+                      <h2>{longDate(day.date)} <span>· {day.releases.length || "no"} release{day.releases.length === 1 ? "" : "s"}</span></h2>
+                      <button type="button" className="rc-close" aria-label="Close" onClick={() => setSelected(null)}>✕</button>
+                    </div>
+                    {day.releases.length ? (
+                      <div className="rc-list">{day.releases.map((r) => <ReleaseItem key={r.igdb_id} r={r} upcoming={day.upcoming} />)}</div>
+                    ) : (
+                      <p style={{ color: "var(--text-3)", margin: 0 }}>No releases we know of on this day.</p>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           ))}
         </div>
@@ -110,16 +137,6 @@ export default function ReleaseCalendar({ weeks, initial }: { weeks: CalWeek[]; 
         <i className="on tracked" /> We track its price <i className="on" /> Release only · one dash per release, most anticipated first
       </p>
 
-      {day && (
-        <section className="rc-panel" aria-live="polite">
-          <h2 className="h2" style={{ fontSize: "clamp(20px,3vw,26px)" }}>{longDate(day.date)}</h2>
-          {day.releases.length ? (
-            <div className="rc-list">{day.releases.map((r) => <ReleaseItem key={r.igdb_id} r={r} upcoming={day.upcoming} />)}</div>
-          ) : (
-            <p style={{ color: "var(--text-3)" }}>No releases we know of on this day.</p>
-          )}
-        </section>
-      )}
     </>
   );
 }

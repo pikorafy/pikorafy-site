@@ -100,7 +100,6 @@ export default async function ReleasesPage({ searchParams }: { searchParams: Pro
     });
   }
   const shown = weeks.flatMap((w) => w.days);
-  const initial = shown.find((d) => d.isToday)?.date ?? shown.find((d) => d.inRange && d.releases.length)?.date ?? null;
 
   const undated = releases.filter((r) =>
     (r.precision === "month" && r.release_date.slice(0, 7) === undatedMonth) ||
@@ -160,7 +159,7 @@ export default async function ReleasesPage({ searchParams }: { searchParams: Pro
         ))}
       </div>
 
-      <ReleaseCalendar weeks={weeks} initial={initial} />
+      <ReleaseCalendar weeks={weeks} />
 
       {undated.length > 0 && (
         <section style={{ marginTop: 40 }}>
