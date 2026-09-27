@@ -36,7 +36,7 @@ const FAQ_ITEMS = [
   ],
   [
     "How often do prices update?",
-    "Live indexes (Steam, GOG, Epic) refresh every 14 seconds via the CheapShark API. You're looking at a price that's at most a few minutes old.",
+    "Prices come straight from the stores: Steam, the Xbox Store, the PlayStation Store and the Nintendo eShop, plus IsThereAnyDeal for the other PC stores. Popular games are refreshed every few hours; each price shows when it was last checked.",
   ],
   [
     "What's the difference between a key and a direct purchase?",

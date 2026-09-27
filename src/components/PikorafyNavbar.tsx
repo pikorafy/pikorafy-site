@@ -9,8 +9,7 @@ const NAV_LINKS = [
   { label: "Xbox", href: "/xbox" },
   { label: "PlayStation", href: "/playstation" },
   { label: "Nintendo", href: "/nintendo" },
-  { label: "Deals", href: "/deals" },
-  { label: "Browse", href: "/browse" },
+  { label: "Deals", href: "/games?sale=1&sort=discount" },
   { label: "Stores", href: "/stores" },
   { label: "API", href: "/api-docs" },
 ];
@@ -75,12 +74,12 @@ export default function PikorafyNavbar() {
             <button className="icon-btn" onClick={toggleTheme} title="Toggle theme">
               {dark ? "☾" : "☀"}
             </button>
-            <Link href="/deals" className="icon-btn" title="Wishlist" style={{ display: "grid" }}>
+            <Link href="/games?sale=1&sort=discount" className="icon-btn" title="Wishlist" style={{ display: "grid" }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 21s-7-4.5-9.5-9C.7 8.5 2.5 4.5 6.5 4c2.2 0 3.7 1.2 5.5 3.2C13.8 5.2 15.3 4 17.5 4c4 .5 5.8 4.5 4 8-2.5 4.5-9.5 9-9.5 9z" />
               </svg>
             </Link>
-            <Link href="/deals" className="btn btn-primary">
+            <Link href="/games?sale=1&sort=discount" className="btn btn-primary">
               Get Deals
             </Link>
             {/* Mobile hamburger */}
