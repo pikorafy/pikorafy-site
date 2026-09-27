@@ -1,7 +1,6 @@
 name: Import Steam catalog
 
-# Runs outside Vercel on purpose: no function time limit, and it avoids the
-# 403s that CheapShark returns to Vercel's IPs. See scripts/import-steam.mts.
+# Runs outside Vercel on purpose: no function time limit. See scripts/import-steam.mts.
 
 on:
   schedule:

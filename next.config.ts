@@ -10,6 +10,9 @@ const nextConfig: NextConfig = {
       { source: "/blog/:path*", destination: "/", permanent: true },
       { source: "/quiz", destination: "/games", permanent: true },
       { source: "/gaming", destination: "/games", permanent: true },
+      // The old deal pages; deals now come from our own catalog.
+      { source: "/deals", destination: "/games?sale=1&sort=discount", permanent: true },
+      { source: "/browse", destination: "/games", permanent: true },
     ];
   },
   images: {

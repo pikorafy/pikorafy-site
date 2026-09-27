@@ -18,7 +18,6 @@ import { LOW_TONE, priceTone } from "@/lib/price-tone";
 import { MetaStat, MetaStats, PriceTile, PriceTiles } from "@/components/HeroStats";
 import { cleanXboxTitle, getSubscriptionNames, getXboxForSteamApp, subscriptionLabels, type XboxGame } from "@/lib/xbox";
 import { xboxPlatforms } from "@/components/XboxOffers";
-import GameDetailClient from "./GameDetailClient";
 import GameMedia from "./GameMedia";
 import PlayersChart from "./PlayersChart";
 import PriceChart from "./PriceChart";
@@ -36,10 +35,6 @@ interface GamePageProps {
   params: Promise<{ slug: string }>;
 }
 
-// Numeric IDs are CheapShark game IDs from older deal links; they keep the
-// original client-rendered page so existing URLs don't break.
-const isLegacyId = (slug: string) => /^\d+$/.test(slug);
-
 export async function generateStaticParams() {
   const slugs = await getTopGameSlugs(PRERENDER_COUNT);
   return slugs.map((slug) => ({ slug }));
@@ -49,13 +44,7 @@ export async function generateMetadata({ params }: GamePageProps): Promise<Metad
   const { slug } = await params;
   const game = await getGameBySlug(slug);
 
-  if (!game) {
-    if (!isLegacyId(slug)) return {};
-    return {
-      title: `Game #${slug} — Best Price & Value Analysis | Pikorafy`,
-      description: `Compare prices across 30+ stores for game ${slug}. Find the cheapest deal, track price history, and set alerts.`,
-    };
-  }
+  if (!game) return {};
 
   const [prices, content] = await Promise.all([
     getGamePrices(game.steam_app_id),
@@ -100,7 +89,6 @@ export default async function GamePage({ params }: GamePageProps) {
   const game = await getGameBySlug(slug);
 
   if (!game) {
-    if (isLegacyId(slug)) return <GameDetailClient gameId={slug} />;
     notFound();
   }
 
