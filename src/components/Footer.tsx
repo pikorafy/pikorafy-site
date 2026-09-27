@@ -31,6 +31,7 @@ const COLS = [
       { name: "In PS Plus Extra", href: "/playstation?plus=extra" },
       { name: "Nintendo Switch Games", href: "/nintendo" },
       { name: "Switch on Sale", href: "/nintendo?sale=1&sort=discount" },
+      { name: "Release Calendar", href: "/releases" },
       { name: "PC Deals", href: "/games?sale=1&sort=discount" },
     ],
   },
