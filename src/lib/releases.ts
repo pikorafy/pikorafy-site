@@ -18,6 +18,8 @@ export interface Release {
   cover: string | null;
   /** Our price page, when we track the game. */
   href: string | null;
+  /** Where "Buy now" / "Pre-order" goes: our price page, else the Steam store page. */
+  buy: { href: string; external: boolean } | null;
 }
 
 export const PLATFORM_GROUPS = [
@@ -77,6 +79,7 @@ export async function getReleases(from: string, to: string, group?: PlatformGrou
       s?.header_image, p?.image_wide, n?.image_wide ?? n?.image_page,
       r.art_id ? igdbImage(r.art_id as string, "t_screenshot_big") : null,
     ].filter((u): u is string => typeof u === "string" && !!u);
+    const href = s ? `/game/${s.slug}` : p ? `/playstation/${p.slug}` : n ? `/nintendo/${n.slug}` : null;
     return {
       igdb_id: r.igdb_id as number,
       title: r.title as string,
@@ -86,7 +89,9 @@ export async function getReleases(from: string, to: string, group?: PlatformGrou
       score: r.score as number,
       art,
       cover: r.cover_id ? igdbImage(r.cover_id as string, "t_cover_big") : null,
-      href: s ? `/game/${s.slug}` : p ? `/playstation/${p.slug}` : n ? `/nintendo/${n.slug}` : null,
+      href,
+      buy: href ? { href, external: false }
+        : r.steam_app_id ? { href: `https://store.steampowered.com/app/${r.steam_app_id}/`, external: true } : null,
     };
   });
 }
