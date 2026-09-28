@@ -5,7 +5,8 @@
 //   node scripts/import-nintendo.mts prices       prices only (faster refresh)
 //   node scripts/import-nintendo.mts art          product-page key art for games the catalog has none for
 //
-// Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY. No Nintendo key: both sources are public.
+// Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, IGDB_CLIENT_ID, IGDB_CLIENT_SECRET (popularity).
+//      No Nintendo key: both Nintendo sources are public.
 //      MAX_GAMES (optional): how many games to track, most popular first, default 2500.
 //      Games released in the last 90 days or upcoming are kept too (release calendar dates);
 //      the rest are removed.
@@ -19,6 +20,7 @@
 
 import { createHash } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
+import { titleKey } from "./lib/title-key.mts";
 
 const CATALOG_URL = "https://searching.nintendo-europe.com/en/select";
 const CATALOG_PAGE = 1000;
@@ -149,6 +151,45 @@ async function storedGames(): Promise<Map<string, Stored>> {
 const rankMoved = (before: number | null, after: number) =>
   before === null || Math.abs(before - after) > Math.max(25, before * 0.1);
 
+// ─── Popularity (IGDB) ───────────────────────────────────────────────────────
+
+/**
+ * Title key → popularity of IGDB's Switch / Switch 2 games: rating count (weighted) plus
+ * hypes (follows before release). The best-scoring game wins when titles collide.
+ */
+async function switchPopularity(): Promise<Map<string, number>> {
+  const id = required("IGDB_CLIENT_ID");
+  const tokenRes = await fetch(`https://id.twitch.tv/oauth2/token?client_id=${id}&client_secret=${required("IGDB_CLIENT_SECRET")}&grant_type=client_credentials`, { method: "POST" });
+  const token = ((await tokenRes.json()) as { access_token?: string }).access_token;
+  if (!token) throw new Error(`IGDB token: HTTP ${tokenRes.status}`);
+  const igdb = async <T,>(endpoint: string, body: string): Promise<T> => {
+    for (let attempt = 0; ; attempt++) {
+      await new Promise((r) => setTimeout(r, 260));
+      const res = await fetch(`https://api.igdb.com/v4/${endpoint}`, { method: "POST", headers: { "Client-ID": id, Authorization: `Bearer ${token}` }, body });
+      if (res.ok) return (await res.json()) as T;
+      if (attempt >= 3 || (res.status !== 429 && res.status < 500)) throw new Error(`IGDB ${endpoint}: HTTP ${res.status}`);
+      await new Promise((r) => setTimeout(r, 2000 * 2 ** attempt));
+    }
+  };
+  const platforms = await igdb<{ id: number }[]>("platforms", `fields id; where name = ("Nintendo Switch","Nintendo Switch 2"); limit 5;`);
+  const out = new Map<string, number>();
+  for (let last = 0; ;) {
+    const rows = await igdb<{ id: number; name?: string; alternative_names?: { name?: string }[]; total_rating_count?: number; hypes?: number }[]>("games",
+      `fields id,name,alternative_names.name,total_rating_count,hypes; where platforms = (${platforms.map((p) => p.id).join(",")}) & id > ${last}; sort id asc; limit 500;`);
+    if (!rows.length) break;
+    for (const g of rows) {
+      const s = (g.total_rating_count ?? 0) * 50 + (g.hypes ?? 0);
+      if (!s) continue;
+      for (const n of [g.name, ...(g.alternative_names ?? []).map((a) => a.name)]) {
+        const k = n ? titleKey(n) : "";
+        if (k && s > (out.get(k) ?? 0)) out.set(k, s);
+      }
+    }
+    last = rows[rows.length - 1].id;
+  }
+  return out;
+}
+
 async function importCatalog(): Promise<number> {
   const all = await fetchCatalog();
   const games = all.filter(isSwitch);
@@ -164,10 +205,15 @@ async function importCatalog(): Promise<number> {
   console.log(`Games with wide art: ${games.filter((d) => wideImage(d)).length}, square only: ${games.filter((d) => !wideImage(d) && squareImage(d)).length}`);
   if (games.length < MIN_CATALOG) throw new Error(`Only ${games.length} Switch games found; not writing. Check the fields above.`);
 
-  // Popularity: the index's hit counter (hits_i), then newest first.
+  // Popularity: the index's own hit counter is 0 for every game, so rank by IGDB instead
+  // (ratings, and follows for upcoming games, of the Switch game with the same title), like
+  // the PlayStation catalog; then the hit counter; then newest first.
+  const igdbScore = await switchPopularity();
+  const score = (d: SolrDoc) => igdbScore.get(titleKey(str(d.title) ?? "")) ?? 0;
   const hits = (d: SolrDoc) => (typeof d.hits_i === "number" ? d.hits_i : 0);
   const ordered = [...games].sort((a, b) =>
-    hits(b) - hits(a) || (releaseDate(b) ?? "").localeCompare(releaseDate(a) ?? ""));
+    score(b) - score(a) || hits(b) - hits(a) || (releaseDate(b) ?? "").localeCompare(releaseDate(a) ?? ""));
+  console.log(`IGDB popularity found for ${games.filter((d) => score(d) > 0).length} of ${games.length} Switch games.`);
 
   const stored = await storedGames();
   const taken = new Set([...stored.values()].map((g) => g.slug));
@@ -224,7 +270,7 @@ async function importCatalog(): Promise<number> {
     }
   }
   console.log(`Catalog: tracking ${seen.size} games (top ${MAX_GAMES} + recent releases), ${list.length} new or changed written, ${deferred} deferred to the next run, ${seen.size - list.length - deferred} unchanged, ${seen.size >= MIN_CATALOG ? gone.length : 0} removed.`);
-  console.log(`Top 10 by hits: ${ordered.slice(0, 10).map((d) => str(d.title)).join(" · ")}`);
+  console.log(`Top 25: ${ordered.slice(0, 25).map((d) => str(d.title)).join(" · ")}`);
   return list.length;
 }
 
