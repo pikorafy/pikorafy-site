@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { getTitleForStore } from "@/lib/titles";
 import {
   getNintendoBySlug,
   getRelatedNintendo,
@@ -52,6 +53,9 @@ export default async function NintendoGamePage({ params }: NintendoPageProps) {
   const { slug } = await params;
   const game = await getNintendoBySlug(slug);
   if (!game) notFound();
+  // Linked to a shared game: that page has every platform (this one opens on the Switch tab).
+  const title = await getTitleForStore("nintendo", game.nsuid);
+  if (title) redirect(`/game/${title.slug}#switch`);
 
   const related = await getRelatedNintendo(game, 6);
   const cur = game.currency ?? "EUR";

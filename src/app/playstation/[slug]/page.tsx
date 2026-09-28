@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { getTitleForStore } from "@/lib/titles";
 import { getPsBySlug, getRelatedPs, PLUS_TIER_LABEL, psStoreUrl, type PsGameDetail } from "@/lib/playstation";
 import { LOW_TONE, priceTone } from "@/lib/price-tone";
 import { MetaStat, MetaStats, PriceTile, PriceTiles } from "@/components/HeroStats";
@@ -46,6 +47,9 @@ export default async function PsGamePage({ params }: PsPageProps) {
   const { slug } = await params;
   const game = await getPsBySlug(slug);
   if (!game) notFound();
+  // Linked to a shared game: that page has every platform (this one opens on the PlayStation tab).
+  const title = await getTitleForStore("playstation", game.igdb_id);
+  if (title) redirect(`/game/${title.slug}#playstation`);
 
   const related = await getRelatedPs(game, 6);
   const cur = game.currency ?? "EUR";
