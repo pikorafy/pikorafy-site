@@ -11,7 +11,7 @@ interface SearchResult {
   href: string;
   name: string;
   image: string | null;
-  platform: "PC" | "Xbox";
+  platforms: string[];
   price: number | null;
   regularPrice: number | null;
   discountPct: number | null;
@@ -101,7 +101,7 @@ export default function SiteSearch({ inputRef, onDone }: {
                   : <span className="sd-thumb" />}
                 <div style={{ minWidth: 0 }}>
                   <div className="ttl">{g.name}</div>
-                  <div className="meta">{[g.platform === "Xbox" ? "Xbox" : "PC", ...g.genres].join(" · ")}</div>
+                  <div className="meta">{[g.platforms.join(" / "), ...g.genres].filter(Boolean).join(" · ")}</div>
                 </div>
                 <div className="price">
                   {g.isFree ? "Free" : g.price !== null ? money(g.price) : "—"}
