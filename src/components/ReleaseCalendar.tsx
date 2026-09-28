@@ -36,8 +36,12 @@ const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Satur
 const MAX_DASHES = 6;
 /** Column widths (fr) Monday → Sunday: most releases land on weekdays, so weekends are narrower. Keep in sync with .rc-grid. */
 const COL_FR = [1, 1, 1, 1, 1, 0.6, 0.6];
-const caretAt = (col: number) =>
-  `${((COL_FR.slice(0, col).reduce((a, b) => a + b, 0) + COL_FR[col] / 2) / COL_FR.reduce((a, b) => a + b, 0)) * 100}%`;
+const FR_TOTAL = COL_FR.reduce((a, b) => a + b, 0);
+/** A day column's centre across the dropdown, which spans the seven day columns and the gaps between them (--rc-gap). */
+const caretAt = (col: number) => {
+  const frac = (COL_FR.slice(0, col).reduce((a, b) => a + b, 0) + COL_FR[col] / 2) / FR_TOTAL;
+  return `calc((100% - ${COL_FR.length - 1} * var(--rc-gap)) * ${frac.toFixed(5)} + ${col} * var(--rc-gap))`;
+};
 
 function ordinal(n: number) {
   const s = n % 100 >= 11 && n % 100 <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[n % 10] ?? "th";
