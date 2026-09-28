@@ -1,0 +1,37 @@
+name: Link titles
+
+# One game across stores: links Steam, Xbox, PlayStation and Nintendo items to a shared
+# title (IGDB). See scripts/link-titles.mts. Daily, after the release calendar import.
+
+on:
+  schedule:
+    - cron: "37 3 * * *"   # daily 03:37 UTC
+  workflow_dispatch:
+    inputs:
+      command:
+        description: "run | dry (compute and log, write nothing)"
+        default: run
+
+concurrency:
+  group: link-titles
+  cancel-in-progress: false
+
+jobs:
+  link:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Link titles
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
+          IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
+          CMD: ${{ inputs.command || 'run' }}
+        run: node scripts/link-titles.mts "$CMD"
