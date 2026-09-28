@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       section:
-        description: "browse | sitemap | igdb (empty = all)"
+        description: "browse | search | sitemap | igdb (empty = all)"
         default: browse
 
 jobs:
