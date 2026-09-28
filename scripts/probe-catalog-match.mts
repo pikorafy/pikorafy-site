@@ -22,14 +22,40 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const chunks = <T,>(xs: T[], n: number) => Array.from({ length: Math.ceil(xs.length / n) }, (_, i) => xs.slice(i * n, i * n + n));
 const pct = (n: number, d: number) => `${d ? Math.round((n / d) * 100) : 0}%`;
 
-/** Loose title key: lower case, no marks or punctuation, no edition / platform suffixes. */
+/**
+ * Loose title key: lower case, no marks or punctuation, and no store decorations: platform
+ * names ("Xbox One & Xbox Series X|S", "for Nintendo Switch 2", "(Windows)"), edition names
+ * ("Standard / Deluxe / Gold / Complete … Edition"), previews, launchers and "+ DLC" tails.
+ */
 const norm = (s: string) => s.toLowerCase()
   .replace(/[™®©]/g, "")
-  .replace(/\b(nintendo switch( 2)?|switch( 2)?) edition\b/g, "")
-  .replace(/\b(for )?nintendo switch( 2)?\b/g, "")
-  .replace(/\b(standard|digital|deluxe|complete|definitive|ultimate|gold|goty|game of the year) edition\b/g, "")
+  .replace(/\s*[-–:]?\s*\(?(game preview|early access|launcher)\)?\s*$/g, "")
+  .replace(/\s*\+\s*[^+]*\(dlc\)\s*$/g, "")
+  .replace(/\bxbox( one)?( ?(&|and|y|\/) ?xbox)? series x ?\| ?s\b|\bxbox series x ?\| ?s\b|\bxbox one\b|\bxbox\b/g, " ")
+  .replace(/\((windows|pc)\)|\bfor windows( 10)?\b|\bwindows edition\b/g, " ")
+  .replace(/\b(nintendo switch( 2)?|switch( 2)?) edition\b|\b(for )?nintendo switch( 2)?\b/g, " ")
+  .replace(/\b(standard|digital|deluxe|digital deluxe|complete|definitive|ultimate|gold|premium|special|collector'?s|launch|cross-gen|vault|anniversary|enhanced|remastered|goty|game of the year|holiday play) edition\b/g, " ")
   .normalize("NFKD").replace(/[̀-ͯ]/g, "")
   .replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").trim();
+
+/** IGDB games on the given platforms, indexed by loose title (name and alternative names). */
+async function titleIndex(platforms: number[]): Promise<Map<string, number[]>> {
+  const index = new Map<string, number[]>();
+  for (let last = 0; ;) {
+    const rows = await igdb<{ id: number; name?: string; alternative_names?: { name?: string }[] }[]>("games",
+      `fields id,name,alternative_names.name; where platforms = (${platforms.join(",")}) & game_type = (0,4,8,9,10,11) & id > ${last}; sort id asc; limit ${BATCH};`);
+    if (!rows.length) break;
+    for (const g of rows) {
+      for (const n of [g.name, ...(g.alternative_names ?? []).map((a) => a.name)]) {
+        if (!n) continue;
+        const k = norm(n);
+        if (k) index.set(k, [...new Set([...(index.get(k) ?? []), g.id])]);
+      }
+    }
+    last = rows[rows.length - 1].id;
+  }
+  return index;
+}
 
 // ─── Our catalogs ────────────────────────────────────────────────────────────
 
@@ -101,29 +127,28 @@ for (const s of src(/nintendo|eshop/i)) {
 // …else by title against IGDB's Switch games.
 const switchPlatforms = await igdb<{ id: number; name: string }[]>("platforms", `fields id,name; where name ~ *"Switch"*; limit 10;`);
 console.log(`Switch platforms on IGDB: ${JSON.stringify(switchPlatforms)}`);
-const byTitle = new Map<string, number[]>();
-if (switchPlatforms.length) {
-  for (let last = 0; ;) {
-    const rows = await igdb<{ id: number; name?: string; alternative_names?: { name?: string }[] }[]>("games",
-      `fields id,name,alternative_names.name; where platforms = (${switchPlatforms.map((p) => p.id).join(",")}) & id > ${last}; sort id asc; limit ${BATCH};`);
-    if (!rows.length) break;
-    for (const g of rows) {
-      for (const n of [g.name, ...(g.alternative_names ?? []).map((a) => a.name)]) {
-        if (!n) continue;
-        const k = norm(n);
-        if (k) byTitle.set(k, [...new Set([...(byTitle.get(k) ?? []), g.id])]);
-      }
-    }
-    last = rows[rows.length - 1].id;
-  }
-  console.log(`IGDB Switch games indexed by title: ${byTitle.size} title keys`);
-}
+const byTitle = switchPlatforms.length ? await titleIndex(switchPlatforms.map((p) => p.id)) : new Map<string, number[]>();
+console.log(`IGDB Switch games indexed by title: ${byTitle.size} title keys`);
 let ninByTitle = 0, ninAmbiguous = 0;
 for (const g of nin) {
   if (ninMap.has(g.nsuid)) continue;
   const hits = byTitle.get(norm(g.title)) ?? [];
   if (hits.length === 1) { ninMap.set(g.nsuid, hits[0]); ninByTitle++; }
   else if (hits.length > 1) ninAmbiguous++;
+}
+
+// Xbox products IGDB has no store link for: by title against IGDB's Xbox One / Series / PC games.
+const xboxPlatforms = await igdb<{ id: number; name: string }[]>("platforms", `fields id,name; where name = ("Xbox One","Xbox Series X|S","PC (Microsoft Windows)"); limit 5;`);
+console.log(`Xbox / PC platforms on IGDB: ${JSON.stringify(xboxPlatforms)}`);
+const xboxTitles = await titleIndex(xboxPlatforms.map((p) => p.id));
+console.log(`IGDB Xbox / PC games indexed by title: ${xboxTitles.size} title keys`);
+let xboxByTitle = 0, xboxAmbiguous = 0;
+const xboxTitleMatched: { title: string; key: string }[] = [];
+for (const x of xbox) {
+  if (xboxMap.has(x.product_id)) continue;
+  const hits = xboxTitles.get(norm(x.title)) ?? [];
+  if (hits.length === 1) { xboxMap.set(x.product_id, hits[0]); xboxByTitle++; xboxTitleMatched.push({ title: x.title, key: norm(x.title) }); }
+  else if (hits.length > 1) xboxAmbiguous++;
 }
 
 // ─── Report ──────────────────────────────────────────────────────────────────
@@ -134,7 +159,8 @@ const xboxPrimary = xbox.filter((x) => x.is_primary);
 const xboxHit = xbox.filter((x) => xboxMap.has(x.product_id)).length;
 const xboxGroupHit = new Set(xbox.filter((x) => xboxMap.has(x.product_id)).map((x) => x.group_key)).size;
 console.log(`  Steam        ${steamHit} / ${steam.length} (${pct(steamHit, steam.length)})`);
-console.log(`  Xbox         ${xboxHit} / ${xbox.length} products (${pct(xboxHit, xbox.length)}) · ${xboxGroupHit} / ${xboxPrimary.length} edition groups have at least one linked product (${pct(xboxGroupHit, xboxPrimary.length)}) · ${xboxCloud.size} via the Game Pass cloud source`);
+console.log(`  Xbox         ${xboxHit} / ${xbox.length} products (${pct(xboxHit, xbox.length)}): ${xboxHit - xboxByTitle} by store link (${xboxCloud.size} of them via Game Pass cloud), ${xboxByTitle} by title, ${xboxAmbiguous} ambiguous titles left out · ${xboxGroupHit} / ${xboxPrimary.length} edition groups linked (${pct(xboxGroupHit, xboxPrimary.length)})`);
+console.log(`    title matches, e.g. ${xboxTitleMatched.slice(0, 12).map((m) => `"${m.title}" → "${m.key}"`).join(" · ")}`);
 console.log(`  PlayStation  ${ps.length} / ${ps.length} (100%, the catalog comes from IGDB)`);
 console.log(`  Nintendo     ${ninMap.size} / ${nin.length} (${pct(ninMap.size, nin.length)}): ${ninMap.size - ninByTitle} by IGDB link, ${ninByTitle} by title, ${ninAmbiguous} ambiguous titles left out`);
 
@@ -171,6 +197,17 @@ const agree = (rows: { igdb?: number; steam: number | null }[], label: string) =
   console.log(`  ${label}: ${rows.filter((r) => r.steam !== null).length} linked by title today · ${same}/${both.length} agree with IGDB (${pct(same, both.length)}) · ${newLinks} more links IGDB would add`);
 };
 agree(xbox.map((x) => ({ igdb: xboxMap.get(x.product_id), steam: x.steam_app_id })), "Xbox → Steam");
+{
+  // Where today's title link and IGDB disagree: which side is right?
+  const steamName = new Map(steam.map((g) => [g.steam_app_id, g.name]));
+  const igdbSteamName = new Map<number, string>();
+  for (const g of steam) { const id = steamMap.get(String(g.steam_app_id)); if (id && !igdbSteamName.has(id)) igdbSteamName.set(id, g.name); }
+  const diffs = xbox.filter((x) => x.is_primary && x.steam_app_id !== null && xboxMap.get(x.product_id) && steamIgdb(x.steam_app_id)
+    && xboxMap.get(x.product_id) !== steamIgdb(x.steam_app_id))
+    .sort((a, b) => (a.popularity_rank ?? 1e9) - (b.popularity_rank ?? 1e9)).slice(0, 30);
+  console.log(`  Xbox → Steam disagreements (top 30 by popularity): Xbox title → today's Steam link | Steam game on the same IGDB game as the Xbox product`);
+  for (const x of diffs) console.log(`    ${x.title} → ${steamName.get(x.steam_app_id!) ?? x.steam_app_id} | ${igdbSteamName.get(xboxMap.get(x.product_id)!) ?? "(no Steam game in our catalog)"}`);
+}
 agree(nin.map((g) => ({ igdb: ninMap.get(g.nsuid), steam: g.steam_app_id })), "Nintendo → Steam");
 agree(ps.map((g) => ({ igdb: g.igdb_id, steam: g.steam_app_id })), "PlayStation → Steam");
 
