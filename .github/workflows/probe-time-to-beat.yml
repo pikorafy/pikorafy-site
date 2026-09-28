@@ -1,0 +1,31 @@
+name: Probe time to beat
+
+# Read-only: how many of our top games have IGDB "time to beat" data.
+# See scripts/probe-time-to-beat.mts. Run manually.
+
+on:
+  workflow_dispatch:
+    inputs:
+      top:
+        description: "How many games, by popularity rank"
+        default: "1000"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Probe
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
+          IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
+          TOP: ${{ inputs.top }}
+        run: node scripts/probe-time-to-beat.mts "$TOP"
