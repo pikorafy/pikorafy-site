@@ -106,3 +106,83 @@ export async function getTitleBundle(title: Title): Promise<TitleBundle> {
 
 /** IGDB image URL for an image id (t_cover_big, t_1080p, t_screenshot_big…). */
 export const igdbImage = (id: string, size: string) => `https://images.igdb.com/igdb/image/upload/${size}/${id}.jpg`;
+
+// ─── Search ──────────────────────────────────────────────────────────────────
+
+export interface TitleHit {
+  slug: string;
+  name: string;
+  image: string | null;
+  platforms: string[];              // PC · PlayStation · Xbox · Switch, in that order
+  price: number | null;             // lowest current price across the linked stores
+  regularPrice: number | null;
+  discountPct: number | null;
+  isFree: boolean;
+  genres: string[];
+}
+
+const STORE_LABEL: Record<Store, string> = { steam: "PC", playstation: "PlayStation", xbox: "Xbox", nintendo: "Switch" };
+const STORE_ORDER: Store[] = ["steam", "playstation", "xbox", "nintendo"];
+
+/**
+ * Games on any store whose name contains `text` (already normalized): titles starting with
+ * it first, then games on more stores (a rough popularity signal), then shorter names.
+ */
+export async function searchTitles(text: string, limit: number): Promise<TitleHit[]> {
+  const client = db();
+  if (!client || !text) return [];
+  const pattern = `%${text.replace(/[%_,()*\\]/g, " ").trim().replace(/\s+/g, "%")}%`;
+  const { data: rows } = await client.from("titles").select("id, slug, name, genres, cover_id, art_id")
+    .ilike("title_key", pattern).limit(60);
+  if (!rows?.length) return [];
+
+  const ids = rows.map((r) => r.id as number);
+  const { data: links } = await client.from("title_links").select("title_id, store, store_id").in("title_id", ids);
+  const byTitle = new Map<number, { store: Store; id: string }[]>();
+  for (const l of links ?? []) byTitle.set(l.title_id as number, [...(byTitle.get(l.title_id as number) ?? []), { store: l.store as Store, id: l.store_id as string }]);
+
+  const key = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const ranked = rows
+    .map((r) => ({ r, stores: new Set((byTitle.get(r.id as number) ?? []).map((l) => l.store)) }))
+    .sort((a, b) =>
+      Number(!key(a.r.name as string).startsWith(text)) - Number(!key(b.r.name as string).startsWith(text)) ||
+      b.stores.size - a.stores.size || (a.r.name as string).length - (b.r.name as string).length)
+    .slice(0, limit);
+
+  // Current prices and Steam art for the shown games, one query per store.
+  const wanted = (store: Store) => ranked.flatMap(({ r }) => (byTitle.get(r.id as number) ?? []).filter((l) => l.store === store).map((l) => l.id));
+  interface Priced { price: number | null; regular_price: number | null; discount_pct: number | null; is_free: boolean | null }
+  const fetchPrices = async (table: string, idCol: string, extra: string, ids: (string | number)[]) =>
+    ids.length ? ((await client.from(table).select(`${idCol}, price, regular_price, discount_pct, is_free${extra}`).in(idCol, ids)).data ?? []) as unknown as (Priced & Record<string, unknown>)[] : [];
+  const [steam, xbox, ps, nin] = await Promise.all([
+    fetchPrices("game_listing", "steam_app_id", ", header_image", wanted("steam").map(Number)),
+    fetchPrices("xbox_games", "product_id", "", wanted("xbox")),
+    fetchPrices("playstation_games", "igdb_id", "", wanted("playstation").map(Number)),
+    fetchPrices("nintendo_games", "nsuid", "", wanted("nintendo")),
+  ]);
+  const priceOf = new Map<string, Priced & { header_image?: string | null }>();
+  for (const p of steam) priceOf.set(`steam:${p.steam_app_id}`, p);
+  for (const p of xbox) priceOf.set(`xbox:${p.product_id}`, p);
+  for (const p of ps) priceOf.set(`playstation:${p.igdb_id}`, p);
+  for (const p of nin) priceOf.set(`nintendo:${p.nsuid}`, p);
+  const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
+
+  return ranked.map(({ r, stores }) => {
+    const offers = (byTitle.get(r.id as number) ?? []).map((l) => priceOf.get(`${l.store}:${l.id}`)).filter((p): p is Priced => !!p);
+    const priced = offers.filter((p) => num(p.price) !== null).sort((a, b) => num(a.price)! - num(b.price)!);
+    const best = priced[0];
+    const steamArt = (byTitle.get(r.id as number) ?? []).filter((l) => l.store === "steam")
+      .map((l) => priceOf.get(`steam:${l.id}`)?.header_image).find(Boolean);
+    return {
+      slug: r.slug as string,
+      name: r.name as string,
+      image: steamArt ?? (r.art_id ? igdbImage(r.art_id as string, "t_screenshot_med") : r.cover_id ? igdbImage(r.cover_id as string, "t_cover_small") : null),
+      platforms: STORE_ORDER.filter((s) => stores.has(s)).map((s) => STORE_LABEL[s]),
+      price: best ? num(best.price) : null,
+      regularPrice: best ? num(best.regular_price) : null,
+      discountPct: best ? num(best.discount_pct) : null,
+      isFree: !best && offers.some((p) => p.is_free),
+      genres: ((r.genres as string[] | null) ?? []).slice(0, 2),
+    };
+  });
+}
