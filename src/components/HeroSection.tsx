@@ -1,23 +1,4 @@
-"use client";
-
-import { useState, useRef, useEffect } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import type { SiteStats } from "@/lib/catalog";
-
-interface SearchResult {
-  href: string;
-  name: string;
-  image: string | null;
-  platform: "PC" | "Xbox";
-  price: number | null;
-  regularPrice: number | null;
-  discountPct: number | null;
-  isFree: boolean;
-  genres: string[];
-}
-
-const money = (n: number) => new Intl.NumberFormat("en-IE", { style: "currency", currency: "EUR" }).format(n);
 
 const count = (n: number) => n.toLocaleString("en");
 
@@ -31,49 +12,6 @@ export default function HeroSection({ stats }: { stats: SiteStats | null }) {
         { num: "Hourly", lbl: "Price refresh" },
       ]
     : [];
-  const searchable = stats ? stats.steamGames + stats.xboxGames : 0;
-  const router = useRouter();
-  const [query, setQuery] = useState("");
-  const [open, setOpen] = useState(false);
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [searchedFor, setSearchedFor] = useState<string | null>(null);
-  const wrapRef = useRef<HTMLDivElement>(null);
-
-  // Live results from the catalog (debounced); an empty box shows the most popular games.
-  useEffect(() => {
-    if (!open) return;
-    const q = query.trim();
-    const ctrl = new AbortController();
-    const t = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/games/search?q=${encodeURIComponent(q)}`, { signal: ctrl.signal });
-        const body = (await res.json()) as { results: SearchResult[] };
-        setResults(body.results);
-        setSearchedFor(q);
-      } catch {
-        /* aborted or offline: keep the previous results */
-      }
-    }, q ? 180 : 0);
-    return () => { clearTimeout(t); ctrl.abort(); };
-  }, [query, open]);
-
-  useEffect(() => {
-    const fn = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", fn);
-    return () => document.removeEventListener("mousedown", fn);
-  }, []);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (query.trim()) {
-      setOpen(false);
-      router.push(`/games?q=${encodeURIComponent(query.trim())}`);
-    }
-  };
 
   return (
     <section className="hero shell">
@@ -96,65 +34,6 @@ export default function HeroSection({ stats }: { stats: SiteStats | null }) {
             Pikorafy compares game prices across {stats ? `${stats.stores} stores` : "official stores and key shops"} —
             Steam, GOG, Humble, the Xbox Store, the Nintendo eShop and more — so you never pay full price again.
           </p>
-
-          {/* Search */}
-          <form onSubmit={handleSubmit}>
-            <div className="searchbar" ref={wrapRef}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="11" cy="11" r="7" />
-                <path d="m21 21-4-4" />
-              </svg>
-              <input
-                placeholder={searchable ? `Search ${count(searchable)} games — try "Elden Ring"` : 'Search games — try "Elden Ring"'}
-                value={query}
-                onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
-                onFocus={() => setOpen(true)}
-              />
-              <span className="search-hint">⌘ K</span>
-
-              {open && (
-                <div className="search-dropdown">
-                  <div className="sd-section">{query.trim() ? "matches" : "most popular"}</div>
-                  {results.map((g) => (
-                    <Link key={g.href} className="sd-row sd-game" href={g.href} onClick={() => setOpen(false)}>
-                      {g.image
-                        // eslint-disable-next-line @next/next/no-img-element
-                        ? <img src={g.image} alt="" className="sd-thumb" loading="lazy" />
-                        : <span className="sd-thumb" />}
-                      <div style={{ minWidth: 0 }}>
-                        <div className="ttl">{g.name}</div>
-                        <div className="meta">{[g.platform === "Xbox" ? "Xbox" : "PC", ...g.genres].join(" · ")}</div>
-                      </div>
-                      <div className="price">
-                        {g.isFree ? "Free" : g.price !== null ? money(g.price) : "—"}
-                        {(g.discountPct ?? 0) > 0 && <span className="sd-disc">-{g.discountPct}%</span>}
-                      </div>
-                    </Link>
-                  ))}
-                  {query.trim() && searchedFor === query.trim() && results.length === 0 && (
-                    <div className="sd-row" style={{ gridTemplateColumns: "1fr" }}>
-                      <span className="meta">No games match “{query.trim()}”.</span>
-                    </div>
-                  )}
-                  <div className="sd-section" style={{ marginTop: 4 }}>jump to</div>
-                  <Link
-                    className="sd-row"
-                    href={query.trim() ? `/games?q=${encodeURIComponent(query.trim())}` : "/games?sort=discount"}
-                    onClick={() => setOpen(false)}
-                    style={{ gridTemplateColumns: "1fr auto" }}
-                  >
-                    <div>
-                      <span style={{ fontFamily: "var(--ff-mono)", fontSize: 12, fontWeight: 600 }}>
-                        {query.trim() ? "all-results" : "biggest-discounts"}
-                      </span>
-                      {" "}<span className="meta">— {query.trim() ? `every game matching “${query.trim()}”` : "all games sorted by discount"}</span>
-                    </div>
-                    <div className="meta">→</div>
-                  </Link>
-                </div>
-              )}
-            </div>
-          </form>
 
           {/* Stats */}
           {statRow.length > 0 && <div className="hero-stats">
