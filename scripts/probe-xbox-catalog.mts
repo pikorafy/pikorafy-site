@@ -8,8 +8,9 @@
 //
 // 1. xbox.com's "browse all games" service (emerald.xboxservices.com), paged with a token.
 // 2. xbox.com's sitemap: every store product page, product id in the URL.
-// 3. The Microsoft Store recommendation lists the importer already supports (switched off
-//    because they didn't answer from GitHub).
+
+import { gunzipSync } from "node:zlib";
+import { randomBytes } from "node:crypto";
 
 const UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
 const PRODUCT_ID = /\b(9[A-Z0-9]{11}|BT[A-Z0-9]{10}|C[A-Z0-9]{11})\b/g;
@@ -19,7 +20,10 @@ const short = (s: string, n = 400) => s.replace(/\s+/g, " ").slice(0, n);
 async function get(url: string, init: RequestInit = {}) {
   try {
     const res = await fetch(url, { ...init, headers: { "User-Agent": UA, Accept: "application/json, text/xml, */*", ...(init.headers ?? {}) }, signal: AbortSignal.timeout(30_000) });
-    return { status: res.status, type: res.headers.get("content-type") ?? "-", text: await res.text() };
+    const buf = Buffer.from(await res.arrayBuffer());
+    // Sitemap files are .xml.gz; gunzip them unless the server already did.
+    const text = buf[0] === 0x1f && buf[1] === 0x8b ? gunzipSync(buf).toString("utf8") : buf.toString("utf8");
+    return { status: res.status, type: res.headers.get("content-type") ?? "-", text };
   } catch (err) {
     return { status: 0, type: "-", text: `failed: ${String(err).slice(0, 200)}` };
   }
@@ -39,7 +43,8 @@ async function browse(locale: string, filters: unknown, token: string | null) {
   const channel = `BROWSE_CHANNELID=_FILTERS=${b64(filters)}`;
   const r = await get(`https://emerald.xboxservices.com/xboxcomfd/browse?locale=${locale}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-ms-api-version": "1.1", Origin: "https://www.xbox.com", Referer: "https://www.xbox.com/" },
+    // MS-CV: a correlation id xbox.com sends with every request ("<16 base64 chars>.0").
+    headers: { "Content-Type": "application/json", "x-ms-api-version": "1.1", "MS-CV": `${randomBytes(12).toString("base64url").slice(0, 16)}.0`, Origin: "https://www.xbox.com", Referer: "https://www.xbox.com/" },
     body: JSON.stringify({ Filters: b64(filters), ReturnFilters: false, ChannelKeyToBeUsedInResponse: channel, EncodedContinuationToken: token, ChannelId: "" }),
   });
   let body: any = null;
@@ -79,39 +84,35 @@ for (const v of BROWSE_VARIANTS) {
 
 // ─── 2. xbox.com sitemap ─────────────────────────────────────────────────────
 
+// Product pages are in pdp-<locale>-sitemap-N.xml.gz; count them for Spain and the US.
 console.log("\n══ 2. xbox.com sitemap ══");
 const locs = (xml: string) => [...xml.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)].map((m) => m[1]);
-for (const root of ["https://www.xbox.com/sitemap.xml", "https://www.xbox.com/robots.txt"]) {
-  const r = await get(root);
-  console.log(`\n── ${root}\n  HTTP ${r.status} · ${r.type} · ${r.text.length} chars`);
-  if (root.endsWith("robots.txt")) {
-    const maps = r.text.split("\n").filter((l) => /^sitemap:/i.test(l)).map((l) => l.replace(/^sitemap:\s*/i, "").trim());
-    console.log(`  sitemaps listed: ${maps.length}\n  ${maps.slice(0, 15).join("\n  ")}`);
-    continue;
-  }
-  const children = locs(r.text);
-  console.log(`  entries: ${children.length}\n  ${children.slice(0, 15).join("\n  ")}`);
-  // Open the child sitemaps that look like game / store pages and count product ids.
-  const gameMaps = children.filter((u) => /game|store|product/i.test(u)).slice(0, 8);
-  const ids = new Set<string>();
-  for (const u of gameMaps) {
-    await sleep(500);
-    const c = await get(u);
-    const urls = locs(c.text);
-    const found = urls.flatMap((x) => x.toUpperCase().match(PRODUCT_ID) ?? []);
-    found.forEach((id) => ids.add(id));
-    console.log(`  ${u}: HTTP ${c.status}, ${urls.length} URLs, ${new Set(found).size} product ids · e.g. ${urls.slice(0, 2).join(" ")}`);
-  }
-  if (gameMaps.length) console.log(`  distinct product ids across those sitemaps: ${ids.size}`);
+const index = await get("https://www.xbox.com/sitemap.xml");
+const files = locs(index.text);
+const kinds = new Map<string, number>();
+for (const f of files) {
+  const kind = f.match(/sitemap\/([a-z]+)-/)?.[1] ?? "other";
+  kinds.set(kind, (kinds.get(kind) ?? 0) + 1);
 }
+console.log(`  HTTP ${index.status} · ${files.length} sitemap files · by kind: ${[...kinds].map(([k, n]) => `${k} ${n}`).join(", ")}`);
 
-// ─── 3. Microsoft Store recommendation lists ─────────────────────────────────
-
-console.log("\n══ 3. Microsoft Store lists (reco-public) ══");
-for (const list of ["MostPlayed", "New", "TopPaid"]) {
-  const r = await get(`https://reco-public.rec.mp.microsoft.com/channels/Reco/V8.0/Lists/Computed/${list}?Market=ES&Language=EN&ItemTypes=Game&deviceFamily=Windows.Xbox&count=200&skipitems=0`);
-  let body: any = null;
-  try { body = JSON.parse(r.text); } catch { /* not JSON */ }
-  console.log(`  ${list}: HTTP ${r.status} · ${body ? `${body.Items?.length ?? 0} items, total ${body.PagingInfo?.TotalItems ?? "?"}` : short(r.text, 200)}`);
-  await sleep(500);
+for (const locale of ["es-ES", "en-US"]) {
+  const mine = files.filter((f) => f.includes(`/pdp-${locale}-sitemap-`));
+  const ids = new Set<string>();
+  const paths = new Map<string, number>();       // URL shape → count, e.g. /es-ES/games/store/…
+  let urls = 0;
+  for (const f of mine) {
+    await sleep(400);
+    const r = await get(f);
+    const list = locs(r.text);
+    urls += list.length;
+    for (const u of list) {
+      const shape = u.replace(/^https:\/\/www\.xbox\.com/, "").split("/").slice(0, 3).join("/");
+      paths.set(shape, (paths.get(shape) ?? 0) + 1);
+      for (const id of u.toUpperCase().match(PRODUCT_ID) ?? []) ids.add(id);
+    }
+    if (f === mine[0]) console.log(`\n── ${locale}: ${mine.length} files · first file HTTP ${r.status}, ${list.length} URLs\n  e.g. ${list.slice(0, 4).join("\n       ")}`);
+  }
+  console.log(`  ${locale}: ${urls} URLs, ${ids.size} distinct product ids`);
+  console.log(`  URL shapes: ${[...paths].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([p, n]) => `${p} ${n}`).join(" · ")}`);
 }
