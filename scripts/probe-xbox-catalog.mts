@@ -2,12 +2,13 @@
 // Read-only probe: which official Microsoft source could list the whole Xbox games catalog
 // (today we only find ~700 games through OpenXBL's lists and Game Pass)? For each source it
 // prints the HTTP status, how many games it reports and a few titles or ids. Writes nothing,
-// needs no key.
+// needs no key (the IGDB part uses IGDB_CLIENT_ID / IGDB_CLIENT_SECRET when set).
 //
 //   node scripts/probe-xbox-catalog.mts
 //
 // 1. xbox.com's "browse all games" service (emerald.xboxservices.com), paged with a token.
 // 2. xbox.com's sitemap: every store product page, product id in the URL.
+// 3. IGDB: how many Xbox One / Series games exist, and how many carry a Microsoft Store id.
 
 import { gunzipSync } from "node:zlib";
 import { randomBytes } from "node:crypto";
@@ -115,4 +116,50 @@ for (const locale of ["es-ES", "en-US"]) {
   }
   console.log(`  ${locale}: ${urls} URLs, ${ids.size} distinct product ids`);
   console.log(`  URL shapes: ${[...paths].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([p, n]) => `${p} ${n}`).join(" · ")}`);
+}
+
+// ─── 3. IGDB: how many Xbox games exist, and which carry a Microsoft Store id ──
+
+console.log("\n══ 3. IGDB ══");
+const IGDB_ID = process.env.IGDB_CLIENT_ID?.trim();
+const IGDB_SECRET = process.env.IGDB_CLIENT_SECRET?.trim();
+if (!IGDB_ID || !IGDB_SECRET) {
+  console.log("  skipped: IGDB_CLIENT_ID / IGDB_CLIENT_SECRET not set");
+} else {
+  const tok = await fetch(`https://id.twitch.tv/oauth2/token?client_id=${IGDB_ID}&client_secret=${IGDB_SECRET}&grant_type=client_credentials`, { method: "POST" });
+  const token = ((await tok.json()) as { access_token?: string }).access_token;
+  const igdb = async (endpoint: string, query: string): Promise<any> => {
+    await sleep(300);
+    const res = await fetch(`https://api.igdb.com/v4/${endpoint}`, {
+      method: "POST", headers: { "Client-ID": IGDB_ID, Authorization: `Bearer ${token}`, Accept: "application/json" }, body: query,
+    });
+    return res.ok ? res.json() : { error: `HTTP ${res.status} ${short(await res.text(), 200)}` };
+  };
+  if (!token) console.log(`  IGDB token: HTTP ${tok.status}`);
+  else {
+    const platforms = await igdb("platforms", `fields id,name; where name = ("Xbox Series X|S","Xbox One","Xbox 360"); limit 5;`);
+    console.log(`  platforms: ${JSON.stringify(platforms)}`);
+    const ids = Array.isArray(platforms) ? platforms.map((p: any) => p.id as number) : [];
+    // Main games, standalone expansions, remakes, remasters, expanded games, ports.
+    const mainTypes = "(0,4,8,9,10,11)";
+    for (const p of Array.isArray(platforms) ? platforms : []) {
+      const all = await igdb("games/count", `where platforms = (${p.id}) & game_type = ${mainTypes};`);
+      const released = await igdb("games/count", `where platforms = (${p.id}) & game_type = ${mainTypes} & first_release_date < ${Math.floor(new Date().getTime() / 1000)};`);
+      console.log(`  ${p.name}: ${all.count ?? JSON.stringify(all)} games (${released.count ?? "?"} released)`);
+    }
+    if (ids.length) {
+      const modern = ids.filter((_, i) => !/360/.test(platforms[i].name)).join(",");
+      const either = await igdb("games/count", `where platforms = (${modern}) & game_type = ${mainTypes};`);
+      console.log(`  Xbox One or Series (either): ${either.count ?? JSON.stringify(either)} games`);
+    }
+    // Store links: which external_game_sources look like Microsoft / Xbox, and how many links each has.
+    const sources = await igdb("external_game_sources", "fields id,name; limit 100;");
+    const ms = Array.isArray(sources) ? sources.filter((s: any) => /microsoft|xbox/i.test(s.name)) : [];
+    console.log(`  Microsoft / Xbox link sources: ${JSON.stringify(ms)}`);
+    for (const s of ms) {
+      const n = await igdb("external_games/count", `where external_game_source = ${s.id};`);
+      const sample = await igdb("external_games", `fields uid,url,game.name; where external_game_source = ${s.id}; sort id desc; limit 4;`);
+      console.log(`  ${s.name} (${s.id}): ${n.count ?? JSON.stringify(n)} links · e.g. ${Array.isArray(sample) ? sample.map((x: any) => `${x.game?.name ?? "?"} → ${x.uid}`).join(" · ") : JSON.stringify(sample)}`);
+    }
+  }
 }

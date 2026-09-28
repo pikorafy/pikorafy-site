@@ -16,4 +16,7 @@ jobs:
         with:
           node-version: 24
       - name: Probe
+        env:
+          IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
+          IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
         run: node scripts/probe-xbox-catalog.mts
