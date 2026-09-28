@@ -43,13 +43,16 @@ const BROWSE_VARIANTS: { name: string; locale: string; filters: unknown }[] = [
   { name: "PC games", locale: "en-US", filters: { PlayWith: { id: "PlayWith", choices: [{ id: "PC" }] } } },
 ];
 
-async function browse(locale: string, filters: unknown, token: string | null) {
+/** Request field the next-page token goes in; the probe tries each until the page moves on. */
+let TOKEN_FIELD = "EncodedCT";
+
+async function browse(locale: string, filters: unknown, token: string | null, field = TOKEN_FIELD) {
   const channel = `BROWSE_CHANNELID=_FILTERS=${b64(filters)}`;
   const r = await get(`https://emerald.xboxservices.com/xboxcomfd/browse?locale=${locale}`, {
     method: "POST",
     // MS-CV: a correlation id xbox.com sends with every request ("<16 base64 chars>.0").
     headers: { "Content-Type": "application/json", "x-ms-api-version": "1.1", "MS-CV": `${randomBytes(12).toString("base64url").slice(0, 16)}.0`, Origin: "https://www.xbox.com", Referer: "https://www.xbox.com/" },
-    body: JSON.stringify({ Filters: b64(filters), ReturnFilters: false, ChannelKeyToBeUsedInResponse: channel, EncodedContinuationToken: token, ChannelId: "" }),
+    body: JSON.stringify({ Filters: b64(filters), ReturnFilters: false, ChannelKeyToBeUsedInResponse: channel, ChannelId: "", ...(token ? { [field]: token } : {}) }),
   });
   let body: any = null;
   try { body = JSON.parse(r.text); } catch { /* not JSON */ }
@@ -83,6 +86,22 @@ function shape(o: any, depth = 0): string {
 
 if (run("browse")) {
 console.log("══ 1. xbox.com browse (emerald.xboxservices.com) ══");
+// Which request field takes the next-page token? The right one returns page 2, not page 1 again.
+{
+  const first = await browse("en-US", {}, null);
+  const firstIds = new Set(first.ids);
+  console.log(`\n── token field test (page 1: ${first.ids.length} products)`);
+  let picked = false;
+  for (const field of ["EncodedCT", "encodedCT", "EncodedContinuationToken", "ContinuationToken", "ct"]) {
+    await sleep(700);
+    const p2 = await browse("en-US", {}, first.next, field);
+    const fresh = p2.ids.filter((id) => !firstIds.has(id)).length;
+    const skip = p2.next ? JSON.parse(Buffer.from(p2.next, "base64").toString("utf8")).SkipCount : "?";
+    console.log(`  ${field.padEnd(26)} HTTP ${p2.status} · ${p2.ids.length} products, ${fresh} new · next SkipCount ${skip}${p2.status !== 200 ? ` · ${short(p2.text, 150)}` : ""}`);
+    if (fresh > 0 && !picked) { TOKEN_FIELD = field; picked = true; }
+  }
+  console.log(picked ? `  → using ${TOKEN_FIELD}` : "  → no field moved to page 2");
+}
 for (const v of BROWSE_VARIANTS) {
   const first = await browse(v.locale, v.filters, null);
   console.log(`\n── ${v.name} (${v.locale})\n  HTTP ${first.status} · ${first.type}`);
