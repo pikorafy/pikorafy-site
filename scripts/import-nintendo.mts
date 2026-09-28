@@ -6,6 +6,9 @@
 //   node scripts/import-nintendo.mts art          product-page key art for games the catalog has none for
 //
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY. No Nintendo key: both sources are public.
+//      MAX_GAMES (optional): how many games to track, most popular first, default 2500.
+//      Games released in the last 90 days or upcoming are kept too (release calendar dates);
+//      the rest are removed.
 //
 // Two sources:
 //  - Nintendo Europe's search index (Solr, the one nintendo.com's own game search uses)
@@ -24,6 +27,8 @@ const PRICE_BATCH = 50;
 const COUNTRY = "ES";
 const MIN_CATALOG = 1000;
 const MAX_CATALOG_WRITES = 5000;     // per run, most popular first: spreads big rewrites over runs (disk I/O)
+const MAX_GAMES = Number(process.env.MAX_GAMES) || 2500;   // tracked games (database size and load)
+const RECENT_FROM = new Date(new Date().getTime() - 90 * 86_400_000).toISOString().slice(0, 10);
 const MAX_RELEASE_DATE = `${new Date().getUTCFullYear() + 3}-12-31`;            // fewer Switch games than this = something broke; don't write
 
 const supabase = createClient(required("SUPABASE_URL"), required("SUPABASE_SERVICE_ROLE_KEY"), {
@@ -175,6 +180,7 @@ async function importCatalog(): Promise<number> {
     if (seen.has(nsuid)) return;                   // bundles / re-listings sharing an NSUID
     const title = (str(d.title) ?? "").trim();
     if (!title) return;
+    if (i >= MAX_GAMES && !((releaseDate(d) ?? "") >= RECENT_FROM)) return;   // beyond the cap and not recent
     const before = stored.get(nsuid);
     let slug = before?.slug;
     if (!slug) {
@@ -209,7 +215,15 @@ async function importCatalog(): Promise<number> {
     const { error } = await supabase.from("nintendo_games").upsert(list.slice(i, i + 500), { onConflict: "nsuid" });
     if (error) throw new Error(`nintendo_games upsert: ${error.message}`);
   }
-  console.log(`Catalog: ${seen.size} games, ${list.length} new or changed written, ${deferred} deferred to the next run, ${seen.size - list.length - deferred} unchanged.`);
+  // Games that fell out of the top MAX_GAMES (and aren't recent) are removed.
+  const gone = [...stored.keys()].filter((n) => !seen.has(n));
+  if (seen.size >= MIN_CATALOG) {
+    for (let i = 0; i < gone.length; i += 500) {
+      const { error } = await supabase.from("nintendo_games").delete().in("nsuid", gone.slice(i, i + 500));
+      if (error) throw new Error(`nintendo_games delete: ${error.message}`);
+    }
+  }
+  console.log(`Catalog: tracking ${seen.size} games (top ${MAX_GAMES} + recent releases), ${list.length} new or changed written, ${deferred} deferred to the next run, ${seen.size - list.length - deferred} unchanged, ${seen.size >= MIN_CATALOG ? gone.length : 0} removed.`);
   console.log(`Top 10 by hits: ${ordered.slice(0, 10).map((d) => str(d.title)).join(" · ")}`);
   return list.length;
 }
