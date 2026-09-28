@@ -181,6 +181,14 @@ function xboxKeyArt(images: { ImagePurpose?: string; Uri?: string }[], game: Xbo
   return chain.length ? { src: chain[0], fallbacks: chain.slice(1) } : null;
 }
 
+/** Store products by id (for the shared game page: the products linked to a title). */
+export async function getXboxProducts(ids: string[]): Promise<XboxGame[]> {
+  const client = db();
+  if (!client || !ids.length) return [];
+  const { data } = await client.from("xbox_games").select(COLUMNS).in("product_id", ids);
+  return (data ?? []).map(normalize<XboxGame>);
+}
+
 /** Every Store product in a title's group (editions, Xbox One / Series X|S / PC versions). */
 export async function getXboxEditions(groupKey: string): Promise<XboxGame[]> {
   const client = db();

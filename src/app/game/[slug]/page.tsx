@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import {
   getGameBySlug,
   getGameContent,
@@ -23,6 +23,8 @@ import GameMedia from "./GameMedia";
 import PlayersChart from "./PlayersChart";
 import PriceChart from "./PriceChart";
 import TimeAgo from "./TimeAgo";
+import TitlePage, { titleMetadata } from "./TitlePage";
+import { getTitleBundle, getTitleBySlug, getTitleForStore, type TitleBundle } from "@/lib/titles";
 
 // Catalog pages are prerendered for the most popular games and generated on
 // first visit for the rest; either way they refresh at most once an hour
@@ -41,11 +43,34 @@ export async function generateStaticParams() {
   return slugs.map((slug) => ({ slug }));
 }
 
+/**
+ * What /game/<slug> shows. A shared title (one game across Steam, PlayStation, Xbox and
+ * Switch) has its own page; a Steam slug linked to a title moves there (old links keep
+ * working); a Steam game not linked yet keeps its Steam-only page.
+ */
+async function resolve(slug: string): Promise<
+  { kind: "title"; bundle: TitleBundle } | { kind: "redirect"; to: string } | { kind: "steam"; game: Game } | null
+> {
+  const steam = await getGameBySlug(slug);
+  if (steam) {
+    const t = await getTitleForStore("steam", steam.steam_app_id);
+    if (t && t.slug !== slug) return { kind: "redirect", to: `/game/${t.slug}` };
+    if (!t) return { kind: "steam", game: steam };
+  }
+  const title = await getTitleBySlug(slug);
+  return title ? { kind: "title", bundle: await getTitleBundle(title) } : null;
+}
+
 export async function generateMetadata({ params }: GamePageProps): Promise<Metadata> {
   const { slug } = await params;
-  const game = await getGameBySlug(slug);
-
-  if (!game) return {};
+  const found = await resolve(slug);
+  if (!found || found.kind === "redirect") return {};
+  if (found.kind === "title") {
+    const steamId = found.bundle.steam?.steam_app_id;
+    const [prices, written] = steamId ? await Promise.all([getGamePrices(steamId), getGameContent(steamId, "en")]) : [[], null];
+    return titleMetadata(found.bundle, prices, !!written);
+  }
+  const game = found.game;
 
   const [prices, content] = await Promise.all([
     getGamePrices(game.steam_app_id),
@@ -87,11 +112,11 @@ export async function generateMetadata({ params }: GamePageProps): Promise<Metad
 
 export default async function GamePage({ params }: GamePageProps) {
   const { slug } = await params;
-  const game = await getGameBySlug(slug);
-
-  if (!game) {
-    notFound();
-  }
+  const found = await resolve(slug);
+  if (!found) notFound();
+  if (found.kind === "redirect") redirect(found.to);
+  if (found.kind === "title") return <TitlePage bundle={found.bundle} />;
+  const game = found.game;
 
   const prices = await getGamePrices(game.steam_app_id);
   const currency = prices[0]?.currency ?? "EUR";

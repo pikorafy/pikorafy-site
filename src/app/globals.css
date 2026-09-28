@@ -891,6 +891,18 @@ body::before {
 .offers { border:1px solid var(--line); border-radius:var(--r); overflow:hidden; }
 .xbox-included { margin:-6px 0 14px; font-size:14px; color:var(--text-2); }
 .xbox-included span { color:var(--good); font-weight:700; margin-right:4px; }
+
+/* Shared game page: platform tabs over the offers, one offers table per store group. */
+.pt-tabs { display:flex; gap:6px; margin:0 0 18px; border-bottom:1px solid var(--line); overflow-x:auto; }
+.pt-tab { display:flex; flex-direction:column; align-items:flex-start; gap:2px; padding:10px 16px 12px; background:none; border:0;
+  border-bottom:3px solid transparent; margin-bottom:-1px; color:var(--text-2); cursor:pointer; font:inherit; white-space:nowrap; }
+.pt-tab:hover { color:var(--text); }
+.pt-tab[aria-selected="true"] { color:var(--text); border-bottom-color:var(--accent); }
+.pt-tab-label { font-family:var(--ff-display); font-weight:700; font-size:16px; }
+.pt-tab-note { font-family:var(--ff-mono); font-size:11px; color:var(--text-3); }
+.pt-tab[aria-selected="true"] .pt-tab-note { color:var(--accent-2); }
+.offer-group + .offer-group { margin-top:26px; }
+.offer-group-title { font-family:var(--ff-mono); font-size:11px; font-weight:600; color:var(--text-3); text-transform:uppercase; letter-spacing:0.14em; margin:0 0 10px; }
 .offers .hd, .offers .row { display:grid; grid-template-columns:38px 1.6fr 1fr 1fr 1fr 110px; gap:14px; align-items:center; padding:0 18px; min-height:60px; }
 .offers .hd { background:var(--bg-3); padding:12px 18px; font-family:var(--ff-mono); font-size:10px; color:var(--text-3); text-transform:uppercase; letter-spacing:0.12em; border-bottom:1px solid var(--line); }
 .offers .row { background:var(--bg-elev); border-bottom:1px solid var(--line); }
