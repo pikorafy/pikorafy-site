@@ -1,19 +1,20 @@
 name: Import Xbox catalog
 
 # Xbox / Microsoft Store games for /xbox. See scripts/import-xbox.mts.
-# Discovery: OpenXBL lists first (popularity; free key 150 req/h, ~12 per run),
-# then the public Game Pass catalog for breadth.
+# Discovery: xbox.com's browse lists (top console and top PC games, most popular first), plus the public
+# Game Pass catalogs for tags. Top games are checked every run, the rest once a day;
+# only changed products are written.
 
 on:
   schedule:
     - cron: "23 */6 * * *"   # every 6h: refresh prices and pick up new games
   workflow_dispatch:
     inputs:
+      per_platform:
+        description: "Top games per platform (console, PC) to track"
+        default: "2500"
       pages:
-        description: "OpenXBL pages per list (25 each; extra source)"
-        default: "2"
-      per_store_list:
-        description: "Games per Microsoft Store list (0 = skip; endpoint unreachable from GitHub)"
+        description: "OpenXBL pages per list (optional extra source, 0 = off)"
         default: "0"
 
 concurrency:
@@ -23,7 +24,7 @@ concurrency:
 jobs:
   import:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -36,6 +37,6 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           OPENXBL_API_KEY: ${{ secrets.OPENXBL_API_KEY }}
-          PAGES: ${{ inputs.pages || '2' }}
-          PER_LIST: ${{ inputs.per_store_list || '0' }}
-        run: node scripts/import-xbox.mts run "$PAGES" "$PER_LIST"
+          PER_PLATFORM: ${{ inputs.per_platform || '2500' }}
+          PAGES: ${{ inputs.pages || '0' }}
+        run: node scripts/import-xbox.mts run "$PER_PLATFORM" "$PAGES"
