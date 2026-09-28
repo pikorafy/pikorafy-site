@@ -4,7 +4,7 @@
 // prints the HTTP status, how many games it reports and a few titles or ids. Writes nothing,
 // needs no key (the IGDB part uses IGDB_CLIENT_ID / IGDB_CLIENT_SECRET when set).
 //
-//   node scripts/probe-xbox-catalog.mts
+//   node scripts/probe-xbox-catalog.mts [browse|sitemap|igdb]   (default: all three)
 //
 // 1. xbox.com's "browse all games" service (emerald.xboxservices.com), paged with a token.
 // 2. xbox.com's sitemap: every store product page, product id in the URL.
@@ -12,6 +12,9 @@
 
 import { gunzipSync } from "node:zlib";
 import { randomBytes } from "node:crypto";
+
+const ONLY = process.argv[2]?.trim() || "";
+const run = (section: string) => !ONLY || ONLY === section;
 
 const UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
 const PRODUCT_ID = /\b(9[A-Z0-9]{11}|BT[A-Z0-9]{10}|C[A-Z0-9]{11})\b/g;
@@ -53,9 +56,30 @@ async function browse(locale: string, filters: unknown, token: string | null) {
   const ch: any = body ? Object.values(body.channels ?? {})[0] : null;
   const ids: string[] = (ch?.products ?? []).map((p: any) => p.productId).filter(Boolean);
   const titles = new Map<string, string>((body?.productSummaries ?? []).map((s: any) => [s.productId, s.title]));
-  return { ...r, body, ids, titles, total: ch?.totalItems as number | undefined, next: (ch?.encodedContinuationToken as string | undefined) ?? null };
+  const tokens = findTokens(body);
+  return { ...r, body, ch, ids, titles, total: ch?.totalItems as number | undefined, tokens, next: tokens[0]?.value ?? null };
 }
 
+/** Every string field anywhere in the response whose name looks like a paging token. */
+function findTokens(o: any, path = "", out: { path: string; value: string }[] = []) {
+  if (!o || typeof o !== "object") return out;
+  for (const [k, v] of Object.entries(o)) {
+    const p = path ? `${path}.${k}` : k;
+    if (typeof v === "string" && v && /token|continuation|cursor|next|skip/i.test(k)) out.push({ path: p, value: v });
+    else if (v && typeof v === "object" && !Array.isArray(v)) findTokens(v, p, out);
+  }
+  return out;
+}
+
+/** The response's shape: keys, with array lengths, two levels deep (product lists left out). */
+function shape(o: any, depth = 0): string {
+  if (!o || typeof o !== "object") return typeof o;
+  if (Array.isArray(o)) return `[${o.length}]`;
+  if (depth >= 2) return "{…}";
+  return `{ ${Object.entries(o).map(([k, v]) => `${k}: ${Array.isArray(v) ? `[${v.length}]` : v && typeof v === "object" ? shape(v, depth + 1) : JSON.stringify(v)?.slice(0, 60)}`).join(", ")} }`;
+}
+
+if (run("browse")) {
 console.log("══ 1. xbox.com browse (emerald.xboxservices.com) ══");
 for (const v of BROWSE_VARIANTS) {
   const first = await browse(v.locale, v.filters, null);
@@ -64,7 +88,13 @@ for (const v of BROWSE_VARIANTS) {
     console.log(`  no products. ${first.body ? `keys: ${Object.keys(first.body).join(", ")}` : ""}\n  ${short(first.text)}`);
     continue;
   }
-  console.log(`  totalItems: ${first.total ?? "?"} · first page: ${first.ids.length} · next page token: ${first.next ? "yes" : "no"}`);
+  console.log(`  totalItems: ${first.total ?? "?"} · first page: ${first.ids.length} · token-like fields: ${first.tokens.map((t) => `${t.path} (${t.value.length} chars)`).join(", ") || "none"}`);
+  if (v === BROWSE_VARIANTS[0]) {
+    const { channels, productSummaries, ...rest } = first.body ?? {};
+    console.log(`  response: ${shape({ ...rest, productSummaries })}`);
+    console.log(`  channel: ${shape(first.ch)}`);
+    console.log(`  channels keys: ${Object.keys(channels ?? {}).join(" | ")}`);
+  }
   console.log(`  e.g. ${first.ids.slice(0, 6).map((id) => `${first.titles.get(id) ?? "?"} (${id})`).join(" · ")}`);
   // Follow a few pages to check the paging really moves on.
   const seen = new Set(first.ids);
@@ -83,9 +113,12 @@ for (const v of BROWSE_VARIANTS) {
   await sleep(1000);
 }
 
+}
+
 // ─── 2. xbox.com sitemap ─────────────────────────────────────────────────────
 
 // Product pages are in pdp-<locale>-sitemap-N.xml.gz; count them for Spain and the US.
+if (run("sitemap")) {
 console.log("\n══ 2. xbox.com sitemap ══");
 const locs = (xml: string) => [...xml.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/g)].map((m) => m[1]);
 const index = await get("https://www.xbox.com/sitemap.xml");
@@ -118,8 +151,11 @@ for (const locale of ["es-ES", "en-US"]) {
   console.log(`  URL shapes: ${[...paths].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([p, n]) => `${p} ${n}`).join(" · ")}`);
 }
 
+}
+
 // ─── 3. IGDB: how many Xbox games exist, and which carry a Microsoft Store id ──
 
+if (run("igdb")) {
 console.log("\n══ 3. IGDB ══");
 const IGDB_ID = process.env.IGDB_CLIENT_ID?.trim();
 const IGDB_SECRET = process.env.IGDB_CLIENT_SECRET?.trim();
@@ -162,4 +198,5 @@ if (!IGDB_ID || !IGDB_SECRET) {
       console.log(`  ${s.name} (${s.id}): ${n.count ?? JSON.stringify(n)} links · e.g. ${Array.isArray(sample) ? sample.map((x: any) => `${x.game?.name ?? "?"} → ${x.uid}`).join(" · ") : JSON.stringify(sample)}`);
     }
   }
+}
 }
