@@ -1,0 +1,19 @@
+name: Probe Xbox catalog
+
+# Read-only: which official Microsoft source lists the whole Xbox games catalog.
+# See scripts/probe-xbox-catalog.mts. Run manually.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Probe
+        run: node scripts/probe-xbox-catalog.mts
