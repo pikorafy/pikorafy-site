@@ -129,12 +129,12 @@ const switchPlatforms = await igdb<{ id: number; name: string }[]>("platforms", 
 console.log(`Switch platforms on IGDB: ${JSON.stringify(switchPlatforms)}`);
 const byTitle = switchPlatforms.length ? await titleIndex(switchPlatforms.map((p) => p.id)) : new Map<string, number[]>();
 console.log(`IGDB Switch games indexed by title: ${byTitle.size} title keys`);
-let ninByTitle = 0, ninAmbiguous = 0;
+// Title candidates are resolved after collapsing IGDB versions (see canonical() below).
+const ninCandidates = new Map<string, number[]>();
 for (const g of nin) {
   if (ninMap.has(g.nsuid)) continue;
   const hits = byTitle.get(norm(g.title)) ?? [];
-  if (hits.length === 1) { ninMap.set(g.nsuid, hits[0]); ninByTitle++; }
-  else if (hits.length > 1) ninAmbiguous++;
+  if (hits.length) ninCandidates.set(g.nsuid, hits);
 }
 
 // Xbox products IGDB has no store link for: by title against IGDB's Xbox One / Series / PC games.
@@ -142,14 +142,69 @@ const xboxPlatforms = await igdb<{ id: number; name: string }[]>("platforms", `f
 console.log(`Xbox / PC platforms on IGDB: ${JSON.stringify(xboxPlatforms)}`);
 const xboxTitles = await titleIndex(xboxPlatforms.map((p) => p.id));
 console.log(`IGDB Xbox / PC games indexed by title: ${xboxTitles.size} title keys`);
-let xboxByTitle = 0, xboxAmbiguous = 0;
-const xboxTitleMatched: { title: string; key: string }[] = [];
+const xboxCandidates = new Map<string, number[]>();
 for (const x of xbox) {
   if (xboxMap.has(x.product_id)) continue;
   const hits = xboxTitles.get(norm(x.title)) ?? [];
-  if (hits.length === 1) { xboxMap.set(x.product_id, hits[0]); xboxByTitle++; xboxTitleMatched.push({ title: x.title, key: norm(x.title) }); }
-  else if (hits.length > 1) xboxAmbiguous++;
+  if (hits.length) xboxCandidates.set(x.product_id, hits);
 }
+
+// ─── One game per IGDB family ────────────────────────────────────────────────
+//
+// IGDB gives editions (version_parent: Complete / GOTY / Anniversary…) and ports and
+// expanded games (game_type 11 / 10, parent_game: the Xbox One or Switch version…) their
+// own ids. They're the same game for us, so each id collapses to its root. Remakes and
+// remasters (8, 9) stay separate: they're sold as different products.
+interface Meta { id: number; name?: string; game_type?: number; version_parent?: number; parent_game?: number }
+const meta = new Map<number, Meta>();
+async function loadMeta(ids: number[]) {
+  const missing = [...new Set(ids)].filter((id) => !meta.has(id));
+  for (const batch of chunks(missing, BATCH)) {
+    const rows = await igdb<Meta[]>("games", `fields id,name,game_type,version_parent,parent_game; where id = (${batch.join(",")}); limit ${BATCH};`);
+    for (const r of rows) meta.set(r.id, r);
+  }
+}
+const COLLAPSE_TYPES = new Set([10, 11]);   // expanded game, port
+const parentOf = (m: Meta | undefined) =>
+  m?.version_parent ?? (m?.game_type !== undefined && COLLAPSE_TYPES.has(m.game_type) ? m.parent_game : undefined);
+const allIds = [
+  ...steamMap.values(), ...xboxMap.values(), ...ninMap.values(), ...ps.map((g) => g.igdb_id),
+  ...[...xboxCandidates.values()].flat(), ...[...ninCandidates.values()].flat(),
+];
+await loadMeta(allIds);
+for (let round = 0; round < 3; round++) await loadMeta([...meta.values()].map(parentOf).filter((x): x is number => !!x));
+const canonical = (id: number): number => {
+  let cur = id;
+  for (let i = 0; i < 5; i++) { const p = parentOf(meta.get(cur)); if (!p || !meta.has(p)) break; cur = p; }
+  return cur;
+};
+let collapsed = 0;
+for (const m of [steamMap, xboxMap, ninMap] as Map<string, number>[]) {
+  for (const [k, v] of m) { const c = canonical(v); if (c !== v) { collapsed++; m.set(k, c); } }
+}
+const psCanon = new Map(ps.map((g) => [g.igdb_id, canonical(g.igdb_id)]));
+collapsed += [...psCanon].filter(([a, b]) => a !== b).length;
+console.log(`IGDB versions collapsed: ${collapsed} store links moved from an edition / port / expanded entry to its root game.`);
+
+// Title candidates: a match when they all collapse to one game.
+const ambiguousSamples: string[] = [];
+const resolve = (cands: Map<string, number[]>, map: Map<string, number>, title: (key: string) => string) => {
+  let byTitleHits = 0, ambiguous = 0;
+  for (const [key, hits] of cands) {
+    const roots = [...new Set(hits.map(canonical))];
+    if (roots.length === 1) { map.set(key, roots[0]); byTitleHits++; }
+    else {
+      ambiguous++;
+      if (ambiguousSamples.length < 20) ambiguousSamples.push(`${title(key)} → ${roots.slice(0, 4).map((r) => `${meta.get(r)?.name ?? r} [type ${meta.get(r)?.game_type ?? "?"}]`).join(" / ")}`);
+    }
+  }
+  return { byTitleHits, ambiguous };
+};
+const xboxTitleOf = new Map(xbox.map((x) => [x.product_id, x.title]));
+const ninTitleOf = new Map(nin.map((g) => [g.nsuid, g.title]));
+const { byTitleHits: xboxByTitle, ambiguous: xboxAmbiguous } = resolve(xboxCandidates, xboxMap, (k) => `Xbox: ${xboxTitleOf.get(k)}`);
+const { byTitleHits: ninByTitle, ambiguous: ninAmbiguous } = resolve(ninCandidates, ninMap, (k) => `Nintendo: ${ninTitleOf.get(k)}`);
+const xboxTitleMatched = [...xboxCandidates.keys()].filter((k) => xboxMap.has(k)).map((k) => ({ title: xboxTitleOf.get(k)!, key: norm(xboxTitleOf.get(k)!) }));
 
 // ─── Report ──────────────────────────────────────────────────────────────────
 
@@ -176,7 +231,7 @@ const stores = new Map<number, Set<string>>();
 const mark = (igdbId: number | undefined, store: string) => { if (igdbId) stores.set(igdbId, (stores.get(igdbId) ?? new Set()).add(store)); };
 for (const g of steam) mark(steamMap.get(String(g.steam_app_id)), "Steam");
 for (const x of xbox) mark(xboxMap.get(x.product_id), "Xbox");
-for (const g of ps) mark(g.igdb_id, "PlayStation");
+for (const g of ps) mark(psCanon.get(g.igdb_id), "PlayStation");
 for (const g of nin) mark(ninMap.get(g.nsuid), "Nintendo");
 const byCount = [1, 2, 3, 4].map((n) => [...stores.values()].filter((s) => s.size === n).length);
 console.log(`  ${stores.size} distinct IGDB games · on 1 store ${byCount[0]} · 2 stores ${byCount[1]} · 3 stores ${byCount[2]} · all 4 ${byCount[3]}`);
@@ -209,7 +264,10 @@ agree(xbox.map((x) => ({ igdb: xboxMap.get(x.product_id), steam: x.steam_app_id 
   for (const x of diffs) console.log(`    ${x.title} → ${steamName.get(x.steam_app_id!) ?? x.steam_app_id} | ${igdbSteamName.get(xboxMap.get(x.product_id)!) ?? "(no Steam game in our catalog)"}`);
 }
 agree(nin.map((g) => ({ igdb: ninMap.get(g.nsuid), steam: g.steam_app_id })), "Nintendo → Steam");
-agree(ps.map((g) => ({ igdb: g.igdb_id, steam: g.steam_app_id })), "PlayStation → Steam");
+agree(ps.map((g) => ({ igdb: psCanon.get(g.igdb_id), steam: g.steam_app_id })), "PlayStation → Steam");
+
+console.log("\n══ Titles that match more than one IGDB game (left out) ══");
+for (const a of ambiguousSamples) console.log(`  ${a}`);
 
 console.log("\n══ Most popular games IGDB doesn't link ══");
 const unmatched = <T,>(rows: T[], rank: (r: T) => number | null, hit: (r: T) => boolean, name: (r: T) => string) =>
