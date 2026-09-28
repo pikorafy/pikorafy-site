@@ -234,6 +234,26 @@ export async function getPlayerHistory(appId: number): Promise<PlayerPoint[]> {
   return [...byDay].map(([day, peak]) => ({ day, peak }));
 }
 
+export interface TimeToBeat {
+  igdb_slug: string | null;
+  main_min: number;
+  extras_min: number | null;
+  full_min: number | null;
+  submissions: number;
+}
+
+/** "How long to beat": IGDB player times that passed the import's checks (scripts/lib/time-to-beat.mts). */
+export async function getTimeToBeat(appId: number): Promise<TimeToBeat | null> {
+  const client = db();
+  if (!client) return null;
+  const { data } = await client
+    .from("game_time_to_beat")
+    .select("igdb_slug, main_min, extras_min, full_min, submissions")
+    .eq("steam_app_id", appId)
+    .maybeSingle();
+  return (data as TimeToBeat | null) ?? null;
+}
+
 /** Published editorial/LLM copy. Drafts are never shown. */
 export async function getGameContent(appId: number, locale: "en" | "es"): Promise<GameContent | null> {
   const client = db();
