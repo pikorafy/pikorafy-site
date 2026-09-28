@@ -4,11 +4,14 @@
 // prints the HTTP status, how many games it reports and a few titles or ids. Writes nothing,
 // needs no key (the IGDB part uses IGDB_CLIENT_ID / IGDB_CLIENT_SECRET when set).
 //
-//   node scripts/probe-xbox-catalog.mts [browse|sitemap|igdb]   (default: all three)
+//   node scripts/probe-xbox-catalog.mts [browse|search|sitemap|igdb]   (default: all)
 //
 // 1. xbox.com's "browse all games" service (emerald.xboxservices.com), paged with a token.
 // 2. xbox.com's sitemap: every store product page, product id in the URL.
 // 3. IGDB: how many Xbox One / Series games exist, and how many carry a Microsoft Store id.
+// 4. Microsoft Store search (storeedgefd, what OpenXBL's /marketplace/search wraps): pages
+//    with a cursor ("o=<offset>&b=<last id>" in base64); can an empty or wildcard query list
+//    every game?
 
 import { gunzipSync } from "node:zlib";
 import { randomBytes } from "node:crypto";
@@ -233,4 +236,44 @@ if (!IGDB_ID || !IGDB_SECRET) {
     }
   }
 }
+}
+
+// ─── 4. Microsoft Store search (storeedgefd) ─────────────────────────────────
+
+if (run("search")) {
+  console.log("\n══ 4. Microsoft Store search (storeedgefd) ══");
+  const base = "https://storeedgefd.dsx.mp.microsoft.com/v9.0/search";
+  const search = async (query: string, cursor: string | null) => {
+    const qs = new URLSearchParams({ market: "ES", locale: "es-ES", deviceFamily: "Windows.Xbox", query, mediaType: "games", productTypes: "games", facets: "false" });
+    if (cursor) qs.set("cursor", cursor);
+    const r = await get(`${base}?${qs}`);
+    let body: any = null;
+    try { body = JSON.parse(r.text); } catch { /* not JSON */ }
+    const results: any[] = body?.Payload?.SearchResults ?? [];
+    const next = body?.Payload?.NextUri ? new URL(body.Payload.NextUri, "https://x").searchParams.get("cursor") : null;
+    return { ...r, body, results, next };
+  };
+  for (const query of ["", "*", "a", "the"]) {
+    const first = await search(query, null);
+    console.log(`\n── query "${query}": HTTP ${first.status} · ${first.results.length} results · next cursor: ${first.next ? Buffer.from(first.next, "base64").toString("utf8").slice(0, 60) : "none"}`);
+    if (first.status !== 200 || !first.results.length) { console.log(`  ${first.body ? `keys: ${Object.keys(first.body).join(", ")} · Payload: ${shape(first.body.Payload)}` : ""}\n  ${short(first.text, 300)}`); await sleep(800); continue; }
+    console.log(`  e.g. ${first.results.slice(0, 6).map((x) => `${x.Title} (${x.ProductId})`).join(" · ")}`);
+    // Follow the cursor a few pages, then jump deep by building "o=<offset>".
+    const seen = new Set(first.results.map((x) => x.ProductId));
+    let cursor = first.next, pages = 1;
+    while (cursor && pages < 5) {
+      await sleep(800);
+      const page = await search(query, cursor);
+      const fresh = page.results.filter((x) => !seen.has(x.ProductId)).length;
+      page.results.forEach((x) => seen.add(x.ProductId));
+      pages++;
+      console.log(`  page ${pages}: HTTP ${page.status}, ${page.results.length} results, ${fresh} new · cursor ${page.next ? Buffer.from(page.next, "base64").toString("utf8").slice(0, 40) : "none"}`);
+      cursor = page.next;
+    }
+    for (const offset of [1000, 5000, 15000]) {
+      await sleep(800);
+      const deep = await search(query, Buffer.from(`o=${offset}`).toString("base64"));
+      console.log(`  jump to offset ${offset}: HTTP ${deep.status}, ${deep.results.length} results · e.g. ${deep.results.slice(0, 3).map((x) => x.Title).join(" · ")}`);
+    }
+  }
 }
