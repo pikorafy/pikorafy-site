@@ -1,0 +1,37 @@
+name: Import time to beat
+
+# "How long to beat" times from IGDB for game pages. See scripts/import-time-to-beat.mts.
+# Weekly; times move slowly. Writes only rows that changed.
+
+on:
+  schedule:
+    - cron: "59 4 * * 0"   # Sundays 04:59 UTC, a quiet slot between the other importers
+  workflow_dispatch:
+    inputs:
+      command:
+        description: "run | dry (fetch and log, write nothing)"
+        default: run
+
+concurrency:
+  group: import-time-to-beat
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Run importer
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
+          IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
+          CMD: ${{ inputs.command || 'run' }}
+        run: node scripts/import-time-to-beat.mts "$CMD"

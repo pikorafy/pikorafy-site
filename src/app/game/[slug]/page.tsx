@@ -8,6 +8,7 @@ import {
   getPlayerHistory,
   getPriceHistory,
   getRelatedGames,
+  getTimeToBeat,
   getTopGameSlugs,
   type Game,
   type GamePrice,
@@ -94,13 +95,14 @@ export default async function GamePage({ params }: GamePageProps) {
 
   const prices = await getGamePrices(game.steam_app_id);
   const currency = prices[0]?.currency ?? "EUR";
-  const [history, content, related, players, xbox, subNames] = await Promise.all([
+  const [history, content, related, players, xbox, subNames, ttb] = await Promise.all([
     getPriceHistory(game.steam_app_id, currency),
     getGameContent(game.steam_app_id, "en"),
     getRelatedGames(game, 6),
     getPlayerHistory(game.steam_app_id),
     getXboxForSteamApp(game.steam_app_id),
     getSubscriptionNames(),
+    getTimeToBeat(game.steam_app_id),
   ]);
   const xboxBest = xbox.find((x) => x.price !== null);
   const xboxIncluded = subscriptionLabels(xbox, subNames);
@@ -355,6 +357,24 @@ export default async function GamePage({ params }: GamePageProps) {
             </div>
           )}
 
+          {ttb && (
+            <div className="aside-card">
+              <h4>How long to beat</h4>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
+                <TimeStat minutes={ttb.main_min} label="Main story" />
+                {ttb.extras_min !== null && <TimeStat minutes={ttb.extras_min} label="Main + extras" />}
+                {ttb.full_min !== null && <TimeStat minutes={ttb.full_min} label="100%" />}
+              </div>
+              <p style={{ color: "var(--text-3)", fontSize: 12, margin: "14px 0 0", lineHeight: 1.5 }}>
+                Average of {ttb.submissions} player times on{" "}
+                {ttb.igdb_slug
+                  ? <a href={`https://www.igdb.com/games/${ttb.igdb_slug}`} target="_blank" rel="noopener noreferrer" style={{ color: "inherit" }}>IGDB</a>
+                  : "IGDB"}
+                . Your time may vary.
+              </p>
+            </div>
+          )}
+
           <div className="aside-card">
             <h4>Game info</h4>
             <dl style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "8px 16px", margin: 0, fontSize: 13 }}>
@@ -450,6 +470,23 @@ function MiniStat({ value, label }: { value: number; label: string }) {
   return (
     <div>
       <div style={{ fontFamily: "var(--ff-mono)", fontSize: 20, fontWeight: 700 }}>{value.toLocaleString("en")}</div>
+      <div style={{ fontFamily: "var(--ff-mono)", fontSize: 10, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.12em" }}>{label}</div>
+    </div>
+  );
+}
+
+/** 45 min · 12 h · 33½ h (rounded to the half hour; whole hours from 50 h). */
+function formatPlaytime(minutes: number): string {
+  if (minutes < 60) return `${Math.max(5, Math.round(minutes / 5) * 5)} min`;
+  const halves = Math.round(minutes / 30);
+  if (minutes >= 50 * 60 || halves % 2 === 0) return `${Math.round(minutes / 60)} h`;
+  return `${Math.floor(halves / 2)}½ h`;
+}
+
+function TimeStat({ minutes, label }: { minutes: number; label: string }) {
+  return (
+    <div>
+      <div style={{ fontFamily: "var(--ff-mono)", fontSize: 20, fontWeight: 700 }}>{formatPlaytime(minutes)}</div>
       <div style={{ fontFamily: "var(--ff-mono)", fontSize: 10, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.12em" }}>{label}</div>
     </div>
   );
