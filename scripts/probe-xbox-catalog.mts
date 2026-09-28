@@ -57,7 +57,9 @@ async function browse(locale: string, filters: unknown, token: string | null) {
   const ids: string[] = (ch?.products ?? []).map((p: any) => p.productId).filter(Boolean);
   const titles = new Map<string, string>((body?.productSummaries ?? []).map((s: any) => [s.productId, s.title]));
   const tokens = findTokens(body);
-  return { ...r, body, ch, ids, titles, total: ch?.totalItems as number | undefined, tokens, next: tokens[0]?.value ?? null };
+  // The next-page token is channel.encodedCT: base64 JSON {"HasMore":true,"SkipCount":25,"TotalCount":…}.
+  const next = (ch?.encodedCT as string | undefined) ?? tokens[0]?.value ?? null;
+  return { ...r, body, ch, ids, titles, total: ch?.totalItems as number | undefined, tokens, next };
 }
 
 /** Every string field anywhere in the response whose name looks like a paging token. */
@@ -65,7 +67,7 @@ function findTokens(o: any, path = "", out: { path: string; value: string }[] = 
   if (!o || typeof o !== "object") return out;
   for (const [k, v] of Object.entries(o)) {
     const p = path ? `${path}.${k}` : k;
-    if (typeof v === "string" && v && /token|continuation|cursor|next|skip/i.test(k)) out.push({ path: p, value: v });
+    if (typeof v === "string" && v && /token|continuation|cursor|next|skip|CT$/i.test(k)) out.push({ path: p, value: v });
     else if (v && typeof v === "object" && !Array.isArray(v)) findTokens(v, p, out);
   }
   return out;
@@ -110,6 +112,19 @@ for (const v of BROWSE_VARIANTS) {
     console.log(`  page ${pages}: ${page.ids.length} products, ${fresh} new`);
   }
   console.log(`  ${seen.size} distinct products over ${pages} pages`);
+  if (first.next) {
+    const decoded = Buffer.from(first.next, "base64").toString("utf8");
+    console.log(`  token decoded: ${short(decoded, 200)}`);
+    // Jump deep by building the token ourselves: does the list really reach the end?
+    for (const skip of [5000, (first.total ?? 100) - 30]) {
+      await sleep(800);
+      let tok: any;
+      try { tok = JSON.parse(decoded); } catch { tok = {}; }
+      const built = Buffer.from(JSON.stringify({ ...tok, HasMore: true, SkipCount: skip })).toString("base64");
+      const deep = await browse(v.locale, v.filters, built);
+      console.log(`  jump to ${skip}: HTTP ${deep.status}, ${deep.ids.length} products, more after: ${deep.next ? Buffer.from(deep.next, "base64").toString("utf8").slice(0, 60) : "no"} · e.g. ${deep.ids.slice(0, 3).map((id) => deep.titles.get(id) ?? id).join(" · ")}`);
+    }
+  }
   await sleep(1000);
 }
 
