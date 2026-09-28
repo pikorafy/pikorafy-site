@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import SiteSearch from "@/components/SiteSearch";
 
 const NAV_LINKS = [
   { label: "Games", href: "/games" },
@@ -19,6 +20,21 @@ export default function PikorafyNavbar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dark, setDark] = useState(true);
+  // Narrower screens: the search sits behind an icon and opens as a row under the menu.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchInput = useRef<HTMLInputElement>(null);
+
+  // Close the search row and the mobile menu when the page changes.
+  const [lastPath, setLastPath] = useState(pathname);
+  if (pathname !== lastPath) {
+    setLastPath(pathname);
+    setSearchOpen(false);
+    setMobileOpen(false);
+  }
+
+  useEffect(() => {
+    if (searchOpen) searchInput.current?.focus();
+  }, [searchOpen]);
 
   useEffect(() => {
     const stored = localStorage.getItem("pkfy:theme");
@@ -39,8 +55,9 @@ export default function PikorafyNavbar() {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        const inp = document.querySelector<HTMLInputElement>(".searchbar input");
-        if (inp) { inp.focus(); inp.select(); }
+        setSearchOpen(true);
+        searchInput.current?.focus();
+        searchInput.current?.select();
       }
     };
     window.addEventListener("keydown", handler);
@@ -70,8 +87,23 @@ export default function PikorafyNavbar() {
             ))}
           </nav>
 
+          {/* Search: inline on wide screens, a row under the menu (behind the icon) otherwise */}
+          <div className={`nav-search${searchOpen ? " open" : ""}`}>
+            <SiteSearch inputRef={searchInput} onDone={() => setSearchOpen(false)} />
+          </div>
+
           {/* Right tools */}
           <div className="nav-tools">
+            <button
+              className="icon-btn nav-search-toggle"
+              onClick={() => setSearchOpen((o) => !o)}
+              aria-label={searchOpen ? "Close search" : "Search games"}
+              aria-expanded={searchOpen}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                {searchOpen ? <path d="M18 6L6 18M6 6l12 12" /> : <><circle cx="11" cy="11" r="7" /><path d="m21 21-4-4" /></>}
+              </svg>
+            </button>
             <button className="icon-btn" onClick={toggleTheme} title="Toggle theme">
               {dark ? "☾" : "☀"}
             </button>
@@ -79,9 +111,6 @@ export default function PikorafyNavbar() {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 21s-7-4.5-9.5-9C.7 8.5 2.5 4.5 6.5 4c2.2 0 3.7 1.2 5.5 3.2C13.8 5.2 15.3 4 17.5 4c4 .5 5.8 4.5 4 8-2.5 4.5-9.5 9-9.5 9z" />
               </svg>
-            </Link>
-            <Link href="/games?sale=1&sort=discount" className="btn btn-primary">
-              Get Deals
             </Link>
             {/* Mobile hamburger */}
             <button
