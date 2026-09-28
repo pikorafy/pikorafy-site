@@ -1,7 +1,7 @@
 name: Import Xbox catalog
 
 # Xbox / Microsoft Store games for /xbox. See scripts/import-xbox.mts.
-# Discovery: xbox.com's browse list (every game, most popular first), plus the public
+# Discovery: xbox.com's browse lists (top console and top PC games, most popular first), plus the public
 # Game Pass catalogs for tags. Top games are checked every run, the rest once a day;
 # only changed products are written.
 
@@ -10,9 +10,9 @@ on:
     - cron: "23 */6 * * *"   # every 6h: refresh prices and pick up new games
   workflow_dispatch:
     inputs:
-      max_games:
-        description: "How many games to track, most popular first (store has ~17,600)"
-        default: "5000"
+      per_platform:
+        description: "Top games per platform (console, PC) to track"
+        default: "2500"
       pages:
         description: "OpenXBL pages per list (optional extra source, 0 = off)"
         default: "0"
@@ -37,6 +37,6 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           OPENXBL_API_KEY: ${{ secrets.OPENXBL_API_KEY }}
-          MAX_GAMES: ${{ inputs.max_games || '5000' }}
+          PER_PLATFORM: ${{ inputs.per_platform || '2500' }}
           PAGES: ${{ inputs.pages || '0' }}
-        run: node scripts/import-xbox.mts run "$MAX_GAMES" "$PAGES"
+        run: node scripts/import-xbox.mts run "$PER_PLATFORM" "$PAGES"

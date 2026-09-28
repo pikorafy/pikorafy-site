@@ -1,23 +1,11 @@
--- Full Xbox catalog (~17,600 games from xbox.com's browse service instead of ~700 from
--- OpenXBL lists and Game Pass). Rows must stay small and writes change-only:
---  - no more `raw` Store payload (~4 KB a row): the importer now stores the subscription ids
---    and the two key-art images the site reads from it;
+-- Xbox from xbox.com's browse lists: the top 2,500 console and top 2,500 PC games (a
+-- limited sample with full product data while we're on the free database plan). Rows keep
+-- their data; the writes are what gets lighter:
 --  - content_hash lets the importer skip unchanged products;
 --  - apply_xbox_ranks() moves popularity ranks only when they change noticeably;
 --  - refresh_xbox_catalog() no longer rewrites every row on every run.
 
-alter table public.xbox_games
-  add column if not exists titled_art   text,   -- TitledHeroArt (16:9, title on it)
-  add column if not exists poster_art   text,   -- Poster (portrait)
-  add column if not exists content_hash text;
-
--- Key art out of the stored payload before it goes.
-update public.xbox_games x set
-  titled_art = coalesce(x.titled_art, (select i->>'Uri' from jsonb_array_elements(coalesce(x.raw->'LocalizedProperties'->0->'Images', '[]')) i
-                                        where i->>'ImagePurpose' = 'TitledHeroArt' limit 1)),
-  poster_art = coalesce(x.poster_art, (select i->>'Uri' from jsonb_array_elements(coalesce(x.raw->'LocalizedProperties'->0->'Images', '[]')) i
-                                        where i->>'ImagePurpose' = 'Poster' limit 1))
-where x.raw is not null;
+alter table public.xbox_games add column if not exists content_hash text;
 
 -- Two identical indexes on steam_app_id.
 drop index if exists public.xbox_games_steam_app_idx;
@@ -36,14 +24,27 @@ language sql set search_path = '' as $$
 $$;
 revoke execute on function public.apply_xbox_ranks(jsonb) from public, anon, authenticated;
 
--- Recompute groups, primaries and Steam links. Called after every import. Subscriptions
--- now come from the importer; every update skips rows that wouldn't change.
+-- Recompute groups, subscriptions, primaries and Steam links. Called after every import;
+-- every update now skips rows that wouldn't change.
 create or replace function public.refresh_xbox_catalog() returns integer
 language plpgsql set search_path = '' as $$
 declare linked integer;
 begin
-  update public.xbox_games x set group_key = public.norm_game_title(x.title)
-   where x.group_key is distinct from public.norm_game_title(x.title);
+  with derived as (
+    select x2.product_id,
+           public.norm_game_title(x2.title) gk,
+           array(
+             select distinct r->>'BigId'
+               from jsonb_array_elements(coalesce(x2.raw->'DisplaySkuAvailabilities', '[]')) s,
+                    jsonb_array_elements(coalesce(s->'Availabilities', '[]')) av,
+                    jsonb_array_elements(case when jsonb_typeof(av->'Remediations') = 'array' then av->'Remediations' else '[]' end) r
+              where r->>'Type' = 'Upsell' and r->>'BigId' is not null
+              order by 1) subs
+      from public.xbox_games x2)
+  update public.xbox_games x set group_key = d.gk, subscriptions = d.subs
+    from derived d
+   where d.product_id = x.product_id
+     and (x.group_key, x.subscriptions) is distinct from (d.gk, d.subs);
 
   -- Primary per group: priced > plain title (no edition / platform suffix) > most popular > cheapest.
   with ranked as (

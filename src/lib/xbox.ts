@@ -51,7 +51,7 @@ export type XboxSort = "popular" | "discount" | "price" | "rating";
 
 const COLUMNS =
   "product_id, slug, title, categories, platforms, rating, rating_count, box_art, hero_art, price, regular_price, discount_pct, currency, is_free, popularity_rank, store_url, lists, steam_app_id, group_key, is_primary, edition_count, group_min_price, subscriptions";
-const DETAIL_COLUMNS = `${COLUMNS}, developer, publisher, short_description, release_date, screenshots, trailers, titled_art, poster_art`;
+const DETAIL_COLUMNS = `${COLUMNS}, developer, publisher, short_description, release_date, screenshots, trailers, images:raw->LocalizedProperties->0->Images`;
 
 function db() {
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return null;
@@ -147,11 +147,11 @@ export async function getXboxBySlug(slug: string): Promise<XboxGameDetail | null
   if (!client) return null;
   const { data } = await client.from("xbox_games").select(DETAIL_COLUMNS).eq("slug", slug).maybeSingle();
   if (!data) return null;
-  const { titled_art, poster_art, ...row } = data as Record<string, unknown> & { titled_art: string | null; poster_art: string | null };
+  const { images, ...row } = data as Record<string, unknown> & { images?: { ImagePurpose?: string; Uri?: string }[] | null };
   const [game] = await withGameSlugs([normalize<XboxGameDetail>(row)]);
   return {
     ...game,
-    key_art: xboxKeyArt(titled_art, poster_art, game),
+    key_art: xboxKeyArt(images ?? [], game),
     screenshots: Array.isArray(game.screenshots) ? game.screenshots.filter(Boolean) : [],
     trailers: Array.isArray(game.trailers) ? game.trailers.filter((t) => t?.hls) : [],
   };
@@ -169,10 +169,13 @@ export async function getXboxForSteamApp(appId: number): Promise<XboxGame[]> {
     (a.price === null ? 1 : 0) - (b.price === null ? 1 : 0) || (a.price ?? 0) - (b.price ?? 0) || a.title.length - b.title.length);
 }
 
-/** Store art with the title on it: TitledHeroArt (16:9), else the box art, else the poster. */
-function xboxKeyArt(titled: string | null, poster: string | null, game: XboxGame): KeyArt | null {
-  const https = (u: string | null) => (u ? (u.startsWith("//") ? `https:${u}` : u) : null);
-  const chain = [https(titled), game.box_art, https(poster)]
+/** Store art with the title on it: TitledHeroArt (16:9), else the box art. */
+function xboxKeyArt(images: { ImagePurpose?: string; Uri?: string }[], game: XboxGame): KeyArt | null {
+  const uri = (purpose: string) => {
+    const u = images.find((i) => i.ImagePurpose === purpose && i.Uri)?.Uri;
+    return u ? (u.startsWith("//") ? `https:${u}` : u) : null;
+  };
+  const chain = [uri("TitledHeroArt"), game.box_art ?? uri("BoxArt"), uri("Poster")]
     .filter((u): u is string => !!u)
     .map((u, i) => `${u}?w=${i === 0 ? 1920 : 1080}`);
   return chain.length ? { src: chain[0], fallbacks: chain.slice(1) } : null;
