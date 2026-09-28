@@ -1,17 +1,23 @@
 // Xbox / Microsoft Store → Supabase (`xbox_games`), listed on /xbox.
 //
 // Usage (Node ≥ 23.6 runs .mts directly):
-//   node scripts/import-xbox.mts run [openXblPages] [perStoreList]   (defaults 2, 0 = skip Store lists)
+//   node scripts/import-xbox.mts run [maxGames] [openXblPages]   (defaults 5000, 0)
 //
-// Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, OPENXBL_API_KEY
+// Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, OPENXBL_API_KEY (only with openXblPages > 0)
 //
-// Two sources:
-//  - OpenXBL marketplace lists (most-played, top-paid, deals, …) to discover which
-//    games to track. Free key = 150 requests/hour; a run uses ~6 lists × pages.
+// Sources:
+//  - xbox.com's "browse all games" service (emerald.xboxservices.com): every game in the
+//    Spanish store (~17,600), most popular first, 25 a page. Its order is our popularity rank.
+//  - The public Game Pass catalogs, to tag Game Pass games.
 //  - Microsoft's public Store catalog (displaycatalog) for details and EUR prices,
-//    20 products per request. OpenXBL ignores market params (always US/USD), so
-//    prices must come from here with market=ES.
+//    20 products per request.
+//  - OpenXBL marketplace lists: optional, off by default (the browse list covers them).
+//
+// Light on the database: the top games are checked every run, the rest once a day (a
+// quarter of them per 6-hourly run); only products whose content changed are written, and
+// ranks only when a game moved noticeably (apply_xbox_ranks).
 
+import { createHash } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 
 const MARKET = "ES";
@@ -19,11 +25,15 @@ const CURRENCY = "EUR";
 const LANGUAGE = "en-us";            // English text for the English site
 const LISTS = ["most-played", "top-paid", "best-rated", "deals", "new", "coming-soon"] as const;
 const DETAILS_BATCH = 20;
+const BROWSE_PAGE = 25;
+const BROWSE_DELAY_MS = 350;
+const HOT_RANKS = 1000;              // checked every run; the rest once a day
+const SLICES = 4;                    // runs a day (every 6h): each one checks a quarter of the rest
 
 const supabase = createClient(required("SUPABASE_URL"), required("SUPABASE_SERVICE_ROLE_KEY"), {
   auth: { persistSession: false },
 });
-const XBL_KEY = required("OPENXBL_API_KEY");
+const XBL_KEY = process.env.OPENXBL_API_KEY?.trim() ?? "";
 
 // ─── OpenXBL discovery ───────────────────────────────────────────────────────
 
@@ -38,6 +48,7 @@ interface Discovered {
 let xblSpent = 0;
 
 async function xbl<T>(path: string): Promise<T> {
+  if (!XBL_KEY) throw new Error("OPENXBL_API_KEY is not set");
   const res = await fetch(`https://api.xbl.io/v2${path}`, {
     headers: { "X-Authorization": XBL_KEY, Accept: "application/json" },
   });
@@ -55,13 +66,54 @@ interface XblListPage {
   };
 }
 
-// ─── Microsoft Store lists + Game Pass (primary discovery) ────────────────────
+// ─── xbox.com browse (primary discovery) ─────────────────────────────────────
 //
-// OpenXBL's list endpoints all return the same 25 products and ignore paging, so
-// the main source is the Store's own public recommendation lists (as used by
-// xbox.com), which page up to 200 items. Game Pass comes from the public catalog.
+// The service behind xbox.com/games/all-games. POST with a base64 filter ("{}" = every
+// game); the next page's token is channel.encodedCT, sent back as EncodedCT. It needs an
+// MS-CV correlation header like the site sends.
 
-const RECO_LISTS = ["MostPlayed", "TopPaid", "TopFree", "BestRated", "New", "Deal"] as const;
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function discoverBrowse(d: Discovery, max: number) {
+  const filters = Buffer.from("{}").toString("base64");
+  let token: string | null = null, pages = 0, total = 0;
+  while (d.found.size < max) {
+    const res = await fetch(`https://emerald.xboxservices.com/xboxcomfd/browse?locale=es-ES`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json", Accept: "application/json", "x-ms-api-version": "1.1",
+        "MS-CV": `${Math.random().toString(36).slice(2, 18).padEnd(16, "0")}.0`,
+        Origin: "https://www.xbox.com", Referer: "https://www.xbox.com/",
+      },
+      body: JSON.stringify({ Filters: filters, ReturnFilters: false, ChannelKeyToBeUsedInResponse: `BROWSE_CHANNELID=_FILTERS=${filters}`, ChannelId: "", ...(token ? { EncodedCT: token } : {}) }),
+    });
+    if (!res.ok) throw new Error(`browse page ${pages + 1}: HTTP ${res.status}`);
+    const body = (await res.json()) as {
+      channels?: Record<string, { products?: { productId: string }[]; encodedCT?: string; totalItems?: number }>;
+      productSummaries?: { productId: string; title?: string; availableOn?: string[] }[];
+    };
+    const channel = Object.values(body.channels ?? {})[0];
+    const summaries = new Map((body.productSummaries ?? []).map((s) => [s.productId, s]));
+    const ids = (channel?.products ?? []).map((p) => p.productId);
+    for (const id of ids) {
+      const s = summaries.get(id);
+      d.add(id, "browse", s?.title, s?.availableOn ?? []);
+    }
+    pages++;
+    total = channel?.totalItems ?? total;
+    const more = channel?.encodedCT && ids.length === BROWSE_PAGE;
+    if (!more) break;
+    token = channel!.encodedCT!;
+    await sleep(BROWSE_DELAY_MS);
+  }
+  console.log(`xbox.com browse: ${pages} pages, ${d.found.size} games (store total ${total}).`);
+  if (d.found.size < Math.min(max, 1000)) throw new Error(`browse found only ${d.found.size} games; not trusting it`);
+}
+
+// ─── Game Pass (tags) ────────────────────────────────────────────────────────
+//
+// The public Game Pass catalogs, to tag which games are in Game Pass.
+
 const GAME_PASS_LISTS = {
   "game-pass-console": "f6f1f99f-9b49-4ccd-b3bf-4d9767a77f5e",
   "game-pass-pc": "fdd9e2a7-0fee-49f6-ad69-4354098401ff",
@@ -80,28 +132,6 @@ class Discovery {
     }
     this.found.set(id, { productId: id, title: title ?? id, lists: new Set([list]), firstSeen: this.order++, availableOn });
     return true;
-  }
-}
-
-async function discoverStoreLists(d: Discovery, perList: number) {
-  for (const list of RECO_LISTS) {
-    let added = 0, seen = 0;
-    try {
-      for (let skip = 0; skip < perList; skip += 200) {
-        const count = Math.min(200, perList - skip);
-        const url = `https://reco-public.rec.mp.microsoft.com/channels/Reco/V8.0/Lists/Computed/${list}?Market=${MARKET}&Language=EN&ItemTypes=Game&deviceFamily=Windows.Xbox&count=${count}&skipitems=${skip}`;
-        const res = await fetch(url, { headers: { Accept: "application/json" } });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const body = (await res.json()) as { Items?: { Id?: string }[]; PagingInfo?: { TotalItems?: number } };
-        const items = (body.Items ?? []).map((i) => i.Id).filter((id): id is string => !!id);
-        seen += items.length;
-        for (const id of items) if (d.add(id, list.toLowerCase())) added++;
-        if (items.length < count || skip + count >= (body.PagingInfo?.TotalItems ?? Infinity)) break;
-      }
-      console.log(`Store ${list}: ${seen} products, ${added} new`);
-    } catch (err) {
-      console.warn(`Store ${list}: failed (${String(err)})`);
-    }
   }
 }
 
@@ -251,8 +281,13 @@ function mapProduct(p: CatalogProduct, d: Discovered | undefined) {
     discount_pct: list !== null && msrp && msrp > list ? Math.round((1 - list / msrp) * 100) : 0,
     currency: price?.CurrencyCode ?? null,
     is_free: list === 0,
-    raw: slimRaw(p),
-    fetched_at: new Date().toISOString(),
+    // Subscriptions that include the game (Game Pass tiers, EA Play…): the Store products an
+    // "Upsell" remediation points at. Names are resolved by resolveSubscriptions().
+    subscriptions: [...new Set((p.DisplaySkuAvailabilities ?? []).flatMap((s) => s.Availabilities ?? [])
+      .flatMap((a) => a.Remediations ?? []).filter((r) => r.Type === "Upsell" && r.BigId).map((r) => r.BigId!))].sort(),
+    titled_art: pickImage(images, ["TitledHeroArt"]),
+    poster_art: pickImage(images, ["Poster"]),
+    raw: null,                        // the full Store payload is no longer kept (row size)
   };
 }
 
@@ -262,7 +297,7 @@ function mapProduct(p: CatalogProduct, d: Discovered | undefined) {
 // at the subscription's own Store product. Resolve those ids to names.
 
 async function resolveSubscriptions() {
-  // refresh_xbox_catalog() has already copied each product's upsell ids into `subscriptions`.
+  // The importer stores each product's upsell ids in `subscriptions`.
   const { data: rows } = await supabase.from("xbox_games").select("subscriptions").neq("subscriptions", "{}").limit(5000);
   const ids = new Set((rows ?? []).flatMap((r) => (r.subscriptions as string[]) ?? []));
   const list = [...ids];
@@ -284,28 +319,6 @@ async function resolveSubscriptions() {
   console.log(`Subscriptions: ${names.map((n) => `${n.big_id}=${n.name}`).join(", ") || "none"}`);
 }
 
-/**
- * Only what the site reads back from `raw`: images (key art) and SKU availabilities
- * (prices and Game Pass / EA Play entitlements, see refresh_xbox_catalog()). The full
- * Store response is ~20 KB per product and kept the table 10× larger than needed.
- */
-function slimRaw(p: CatalogProduct) {
-  return {
-    ProductId: p.ProductId,
-    LocalizedProperties: [{ Images: p.LocalizedProperties?.[0]?.Images ?? [] }],
-    DisplaySkuAvailabilities: (p.DisplaySkuAvailabilities ?? []).map((s) => ({
-      Sku: { Properties: { IsTrial: s.Sku?.Properties?.IsTrial } },
-      Availabilities: (s.Availabilities ?? []).map((a) => ({
-        Actions: a.Actions,
-        Remediations: a.Remediations ?? undefined,
-        Properties: { MerchandisingTags: a.Properties?.MerchandisingTags },
-        OrderManagementData: { Price: a.OrderManagementData?.Price },
-        Conditions: { ClientConditions: a.Conditions?.ClientConditions },
-      })),
-    })),
-  };
-}
-
 // ─── Slugs ───────────────────────────────────────────────────────────────────
 
 function slugify(name: string): string {
@@ -324,21 +337,37 @@ function slugify(name: string): string {
 
 // ─── Run ─────────────────────────────────────────────────────────────────────
 
-async function run(pagesPerList: number, perStoreList: number) {
-  // Order matters: popularity_rank = discovery order. OpenXBL's lists are the only
-  // real popularity signal, so they go first; Game Pass adds breadth after them.
-  // (The Store reco lists are unreachable from GitHub runners, so they're opt-in.)
+async function run(maxGames: number, pagesPerList: number) {
+  // Order matters: popularity_rank = discovery order. xbox.com's browse list is ranked
+  // by popularity; Game Pass and the optional OpenXBL lists only add tags after it.
   const d = new Discovery();
-  const found = await discover(pagesPerList, d);
-  if (perStoreList > 0) await discoverStoreLists(d, perStoreList);
+  await discoverBrowse(d, maxGames);
   await discoverGamePass(d);
-  const ids = [...found.keys()];
+  if (pagesPerList > 0) await discover(pagesPerList, d);
+  const found = d.found;
 
-  const { data: existing } = await supabase.from("xbox_games").select("product_id, slug");
-  const slugOf = new Map((existing ?? []).map((r) => [r.product_id as string, r.slug as string]));
-  const taken = new Set(slugOf.values());
+  // What we already have: slugs stay stable, hashes tell what changed.
+  const existing = new Map<string, { slug: string; hash: string | null; rank: number | null }>();
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase.from("xbox_games")
+      .select("product_id, slug, content_hash, popularity_rank").order("product_id").range(from, from + 999);
+    if (error) throw new Error(`xbox_games read: ${error.message}`);
+    for (const r of data ?? []) existing.set(r.product_id as string, { slug: r.slug as string, hash: r.content_hash as string | null, rank: r.popularity_rank as number | null });
+    if ((data ?? []).length < 1000) break;
+  }
+  const taken = new Set([...existing.values()].map((e) => e.slug));
 
-  let saved = 0, withPrice = 0, failedBatches = 0;
+  // Which products to look up this run: new ones, the top HOT_RANKS, and this run's quarter
+  // of the rest (so every game is checked once a day with four runs a day).
+  const slice = Math.floor(new Date().getTime() / (6 * 3_600_000)) % SLICES;
+  const sliceOf = (id: string) => [...id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % SLICES;
+  const ids = [...found.values()]
+    .filter((g) => !existing.has(g.productId) || g.firstSeen < HOT_RANKS || sliceOf(g.productId) === slice)
+    .map((g) => g.productId);
+  console.log(`Checking ${ids.length} of ${found.size} products this run (slice ${slice + 1}/${SLICES}; ${[...found.keys()].filter((id) => !existing.has(id)).length} new).`);
+
+  let written = 0, unchanged = 0, withPrice = 0, failedBatches = 0, skippedKinds = 0;
+  const checked = new Set<string>();
   for (let i = 0; i < ids.length; i += DETAILS_BATCH) {
     const batch = ids.slice(i, i + DETAILS_BATCH);
     let products: CatalogProduct[];
@@ -347,45 +376,59 @@ async function run(pagesPerList: number, perStoreList: number) {
     } catch (err) {
       failedBatches++;
       console.warn(`catalog batch ${i / DETAILS_BATCH + 1}: ${String(err)}`);
+      if (failedBatches >= 15 && written + unchanged === 0) throw new Error("catalog keeps failing; stopping");
       continue;
     }
 
-    const rows = products
-      .filter((p) => !p.ProductKind || p.ProductKind === "Game")
-      .map((p) => {
-        const d = found.get(p.ProductId);
-        const row = mapProduct(p, d);
-        let slug = slugOf.get(p.ProductId);                   // keep existing slugs stable
-        if (!slug) {
-          slug = slugify(row.title) || p.ProductId.toLowerCase();
-          if (taken.has(slug)) slug = `${slug}-${p.ProductId.toLowerCase()}`;
-          taken.add(slug);
-          slugOf.set(p.ProductId, slug);
-        }
-        if (row.price !== null) withPrice++;
-        return {
-          ...row,
-          slug,
-          popularity_rank: d ? d.firstSeen + 1 : null,
-          lists: d ? [...d.lists] : [],
-          store_url: `https://www.xbox.com/es-ES/games/store/${slug}/${p.ProductId}`,
-        };
-      });
+    const rows = [];
+    for (const p of products) {
+      if (p.ProductKind && p.ProductKind !== "Game") { skippedKinds++; continue; }
+      checked.add(p.ProductId);
+      const g = found.get(p.ProductId);
+      const row = mapProduct(p, g);
+      if (row.price !== null) withPrice++;
+      const before = existing.get(p.ProductId);
+      let slug = before?.slug;                                  // keep existing slugs stable
+      if (!slug) {
+        slug = slugify(row.title) || p.ProductId.toLowerCase();
+        if (taken.has(slug)) slug = `${slug}-${p.ProductId.toLowerCase()}`;
+        taken.add(slug);
+      }
+      const content = {
+        ...row,
+        slug,
+        lists: g ? [...g.lists].filter((l) => l !== "browse").sort() : [],
+        store_url: `https://www.xbox.com/es-ES/games/store/${slug}/${p.ProductId}`,
+      };
+      const hash = createHash("sha1").update(JSON.stringify(content)).digest("hex");
+      if (before?.hash === hash) { unchanged++; continue; }
+      rows.push({ ...content, content_hash: hash, popularity_rank: g ? g.firstSeen + 1 : null, fetched_at: new Date().toISOString() });
+    }
 
     if (rows.length) {
       const { error } = await supabase.from("xbox_games").upsert(rows, { onConflict: "product_id" });
       if (error) throw new Error(`xbox_games upsert: ${error.message}`);
-      saved += rows.length;
+      written += rows.length;
     }
   }
 
-  // Group editions, pick each group's primary product, read subscriptions, match groups to Steam games.
+  // Ranks of everything we list, changed only when a game moved noticeably.
+  const ranks = [...found.values()].filter((g) => existing.has(g.productId) || checked.has(g.productId))
+    .map((g) => ({ product_id: g.productId, rank: g.firstSeen + 1 }));
+  let rankMoves = 0;
+  for (let i = 0; i < ranks.length; i += 2000) {
+    const { data, error } = await supabase.rpc("apply_xbox_ranks", { rows: ranks.slice(i, i + 2000) });
+    if (error) console.warn(`apply_xbox_ranks: ${error.message}`);
+    else rankMoves += (data as number) ?? 0;
+  }
+
+  // Group editions, pick each group's primary product, match groups to Steam games.
   const { data: linked, error: linkError } = await supabase.rpc("refresh_xbox_catalog");
   if (linkError) console.warn(`refresh_xbox_catalog: ${linkError.message}`);
   await resolveSubscriptions();
 
-  console.log(`Saved ${saved} Xbox games (${withPrice} with a price), ${failedBatches} catalog batches failed, ${xblSpent} OpenXBL requests used, ${linked ?? "?"} linked to Steam.`);
-  if (saved === 0) process.exit(1);
+  console.log(`Checked ${checked.size} games (${withPrice} with a price, ${skippedKinds} non-games skipped): ${written} written, ${unchanged} unchanged, ${rankMoves} rank moves, ${failedBatches} catalog batches failed, ${xblSpent} OpenXBL requests, ${linked ?? "?"} linked to Steam.`);
+  if (checked.size === 0) process.exit(1);
 }
 
 function required(name: string): string {
@@ -396,8 +439,8 @@ function required(name: string): string {
 
 const [cmd, arg] = process.argv.slice(2);
 switch (cmd) {
-  case "run": await run(Number(arg ?? 2), Number(process.argv[4] ?? 0)); break;
+  case "run": await run(Number(arg) || 5000, Number(process.argv[4] ?? 0)); break;
   default:
-    console.error("Usage: import-xbox.mts run [openXblPages] [perStoreList]");
+    console.error("Usage: import-xbox.mts run [maxGames] [openXblPages]");
     process.exit(1);
 }
