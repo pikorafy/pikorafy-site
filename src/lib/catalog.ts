@@ -453,6 +453,17 @@ export async function getListing(opts: {
 
 const HOME_COLUMNS = `${LISTING_COLUMNS}, current_players, release_date`;
 
+/**
+ * Runs a home page list query, retrying once. Throws if it still fails: during the hourly
+ * refresh Next.js then keeps serving the last good page instead of caching an empty list.
+ */
+async function homeList(run: () => PromiseLike<{ data: unknown; error: { message: string } | null }>, what: string): Promise<ListingGame[]> {
+  let res = await run();
+  if (res.error) res = await run();
+  if (res.error) throw new Error(`home ${what}: ${res.error.message}`);
+  return toListing(res.data as Record<string, unknown>[] | null);
+}
+
 function toListing(rows: Record<string, unknown>[] | null): ListingGame[] {
   return (rows ?? []).map((g) => ({
     ...g,
@@ -465,11 +476,10 @@ function toListing(rows: Record<string, unknown>[] | null): ListingGame[] {
 export async function getMostPlayed(limit: number): Promise<ListingGame[]> {
   const client = db();
   if (!client) return [];
-  const { data } = await client.from("game_listing").select(HOME_COLUMNS)
+  return homeList(() => client.from("game_listing").select(HOME_COLUMNS)
     .not("current_players", "is", null)
     .order("current_players", { ascending: false })
-    .limit(limit);
-  return toListing(data);
+    .limit(limit), "most played");
 }
 
 /**
@@ -479,24 +489,23 @@ export async function getMostPlayed(limit: number): Promise<ListingGame[]> {
 export async function getRecentReleases(limit: number): Promise<ListingGame[]> {
   const client = db();
   if (!client) return [];
-  const { data } = await client.from("game_listing").select(HOME_COLUMNS)
-    .lte("release_date", new Date().toISOString().slice(0, 10))
+  const today = new Date().toISOString().slice(0, 10);
+  return homeList(() => client.from("game_listing").select(HOME_COLUMNS)
+    .lte("release_date", today)
     .eq("coming_soon", false)
     .gte("review_count", 500)
     .order("release_date", { ascending: false })
-    .limit(limit);
-  return toListing(data);
+    .limit(limit), "recent releases");
 }
 
 /** Most popular games in a genre. */
 export async function getGenreTop(genre: string, limit: number): Promise<ListingGame[]> {
   const client = db();
   if (!client) return [];
-  const { data } = await client.from("game_listing").select(HOME_COLUMNS)
+  return homeList(() => client.from("game_listing").select(HOME_COLUMNS)
     .contains("genres", [genre])
     .order("popularity_rank", { ascending: true })
-    .limit(limit);
-  return toListing(data);
+    .limit(limit), `${genre} top`);
 }
 
 /** Catalog slug for a Steam app, used to route old deal links to the new pages. */
