@@ -9,7 +9,9 @@
 //
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, IGDB_CLIENT_ID, IGDB_CLIENT_SECRET (catalog).
 //      STORE_PAGES (optional): store pages per run, default 1000.
-//      MAX_GAMES (optional): how many games to track, most popular first, default 15000.
+//      MAX_GAMES (optional): how many games to track, most popular first, default 2500.
+//      Games released in the last 90 days or upcoming are kept too (release calendar dates);
+//      the rest are removed.
 //
 // Two sources:
 //  - IGDB (Twitch API): every game with a PlayStation Store link gives its store concept id,
@@ -34,7 +36,8 @@ const PS_STORE_SOURCE = 36;           // IGDB external_game_source: "Playstation
 const STEAM_SOURCE = 1;
 const PS_PLATFORMS: Record<number, string> = { 48: "PS4", 167: "PS5" };
 const GAME_TYPES = [0, 4, 8, 9, 10, 11];   // main game, standalone expansion, remake, remaster, expanded, port
-const MAX_GAMES = Number(process.env.MAX_GAMES) || 15000;  // tracked games, most popular first (DB and store load)
+const MAX_GAMES = Number(process.env.MAX_GAMES) || 2500;   // tracked games, most popular first (DB and store load)
+const RECENT_FROM = Math.floor(new Date().getTime() / 1000) - 90 * 86_400;   // unix seconds
 const MIN_CATALOG = 5000;
 const MAX_CATALOG_WRITES = 5000;      // per run, most popular first: the first fill takes one daily run per 5000
 const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36";
@@ -184,7 +187,7 @@ async function importCatalog(): Promise<void> {
   const known = await knownSteamApps();
   const score = (g: IgdbGame) => (stored.get(g.id)?.ratingCount ?? 0) * 10 + (g.total_rating_count ?? 0) * 50 + (g.hypes ?? 0);
   const ordered = [...games.values()].sort((a, b) => score(b) - score(a) || (b.first_release_date ?? 0) - (a.first_release_date ?? 0))
-    .slice(0, MAX_GAMES);
+    .filter((g, i) => i < MAX_GAMES || (g.first_release_date ?? 0) >= RECENT_FROM);
 
   const taken = new Set([...stored.values()].map((g) => g.slug));
   const now = new Date().toISOString();
@@ -223,6 +226,14 @@ async function importCatalog(): Promise<void> {
     if (error) throw new Error(`playstation_games write: ${error.message}`);
     await sleep(500);
   }
+  // Games that fell out of the top MAX_GAMES (and aren't recent) are removed.
+  const keep = new Set(ordered.map((g) => g.id));
+  const gone = [...stored.keys()].filter((id) => !keep.has(id));
+  for (let i = 0; i < gone.length; i += 500) {
+    const { error } = await db().from("playstation_games").delete().in("igdb_id", gone.slice(i, i + 500));
+    if (error) throw new Error(`playstation_games delete: ${error.message}`);
+  }
+  if (gone.length) console.log(`Removed ${gone.length} games that fell out of the top ${MAX_GAMES}.`);
   const fresh = rows.filter((r) => !stored.has(r.igdb_id as number)).length;
   console.log(`Catalog: tracking the top ${ordered.length} of ${games.size} games, ${fresh} new and ${rows.length - fresh} changed written, ${deferred} deferred to the next run, ${unchanged} unchanged.`);
   console.log(`Top 10: ${ordered.slice(0, 10).map((g) => g.name).join(" · ")}`);
