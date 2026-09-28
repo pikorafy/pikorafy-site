@@ -5,6 +5,10 @@ name: Probe Xbox catalog
 
 on:
   workflow_dispatch:
+    inputs:
+      section:
+        description: "browse | sitemap | igdb (empty = all)"
+        default: browse
 
 jobs:
   probe:
@@ -19,4 +23,5 @@ jobs:
         env:
           IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
           IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
-        run: node scripts/probe-xbox-catalog.mts
+          SECTION: ${{ inputs.section }}
+        run: node scripts/probe-xbox-catalog.mts "$SECTION"
