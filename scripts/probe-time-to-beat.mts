@@ -25,9 +25,9 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // ─── Our top games (by popularity rank) ──────────────────────────────────────
 
 const db = createClient(required("SUPABASE_URL"), required("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false } });
-const games: { steam_app_id: number; name: string; popularity_rank: number; categories: string[] | null; genres: string[] | null }[] = [];
+const games: { steam_app_id: number; name: string; popularity_rank: number; is_free: boolean | null; categories: string[] | null; genres: string[] | null }[] = [];
 for (let from = 0; from < TOP; from += 1000) {
-  const { data, error } = await db.from("games").select("steam_app_id,name,popularity_rank,categories,genres")
+  const { data, error } = await db.from("games").select("steam_app_id,name,popularity_rank,is_free,categories,genres")
     .eq("type", "game").not("popularity_rank", "is", null)
     .order("popularity_rank", { ascending: true }).range(from, Math.min(from + 1000, TOP) - 1);
   if (error) { console.log(`Supabase: ${error.message}`); process.exit(1); }
@@ -83,12 +83,12 @@ const pct = (n: number, d: number) => `${d ? Math.round((n / d) * 100) : 0}%`;
 const rows = games.map((g) => {
   const igdbId = igdbBySteam.get(g.steam_app_id);
   const raw = igdbId ? ttbByGame.get(igdbId) : undefined;
-  const story = eligible(g.categories, g.genres);
+  const story = eligible(g);
   return { ...g, igdbId, raw, story, verdict: (story ? judge(raw) : { ok: false, reason: "not a story game" }) as Verdict };
 });
 
 console.log(`\nMatched to IGDB: ${rows.filter((r) => r.igdbId).length} / ${rows.length}`);
-console.log(`Story games (Single-player, not MMO): ${rows.filter((r) => r.story).length} / ${rows.length}`);
+console.log(`Story games (see eligible()): ${rows.filter((r) => r.story).length} / ${rows.length}`);
 console.log("\nShown after the checks, by rank (of all games · of story games · with 100% time):");
 for (const top of [...BUCKETS.filter((b) => b < rows.length), rows.length]) {
   const slice = rows.slice(0, top);

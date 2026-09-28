@@ -5,7 +5,7 @@
 //
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, IGDB_CLIENT_ID, IGDB_CLIENT_SECRET.
 //
-// Maps our story games (Steam "Single-player", no MMOs) to IGDB through their Steam app ids,
+// Maps our story games (see eligible() in lib/time-to-beat.mts) to IGDB through their Steam app ids,
 // reads IGDB's player-submitted times and keeps only those that pass the checks in
 // lib/time-to-beat.mts. Writes only rows that changed and removes games that no longer pass.
 
@@ -58,10 +58,10 @@ const chunks = <T,>(xs: T[], n: number) => Array.from({ length: Math.ceil(xs.len
 
 const steamIds: number[] = [];
 for (let from = 0; ; from += 1000) {
-  const { data, error } = await db.from("games").select("steam_app_id,categories,genres")
+  const { data, error } = await db.from("games").select("steam_app_id,is_free,categories,genres")
     .eq("type", "game").order("steam_app_id").range(from, from + 999);
   if (error) throw new Error(`games: ${error.message}`);
-  for (const g of data ?? []) if (eligible(g.categories, g.genres)) steamIds.push(g.steam_app_id);
+  for (const g of data ?? []) if (eligible(g)) steamIds.push(g.steam_app_id);
   if ((data ?? []).length < 1000) break;
 }
 console.log(`Story games in the catalog: ${steamIds.length}`);
