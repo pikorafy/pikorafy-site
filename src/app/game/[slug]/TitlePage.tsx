@@ -43,6 +43,8 @@ interface Offer {
   regular: number | null;
   discount: number | null;
   url: string | null;
+  /** The store's product name, when it says more than the game's name (edition, bundle). */
+  listing?: string;
   note?: string;
   sponsored?: boolean;
 }
@@ -189,6 +191,13 @@ export function versionMetadata(b: TitleBundle, version: Version, d: VersionData
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
+const FAMILY_LINK: Record<string, { label: string; href: string }> = {
+  pc: { label: "PC", href: "/games" },
+  playstation: { label: "PlayStation", href: "/playstation" },
+  xbox: { label: "Xbox", href: "/xbox" },
+  nintendo: { label: "Nintendo", href: "/nintendo" },
+};
+
 export default async function TitlePage({ bundle: b, version }: { bundle: TitleBundle; version: Version }) {
   const { versions, data, pcPrices } = await loadVersionPage(b);
   const d = data.get(version)!;
@@ -205,14 +214,26 @@ export default async function TitlePage({ bundle: b, version }: { bundle: TitleB
 
   const name = b.title.name;
   const info = VERSIONS[version];
+  const family = FAMILY_LINK[info.family];
   const bestOfficial = cheapest(d.official);
   const bestKeyshop = cheapest(d.keyshops);
   const best = cheapest([...d.official, ...d.keyshops]);
+  const low = history.length ? Math.min(...history.map((p) => p.price)) : null;
   const genres = b.title.genres.length ? b.title.genres : steam?.genres ?? [];
   const summary = b.title.summary ?? steam?.steam_description ?? b.xbox?.short_description ?? null;
+  const developer = steam?.developers.join(", ") || b.xbox?.developer || b.nintendo[0]?.developer || "";
+  const publisher = steam?.publishers.join(", ") || b.xbox?.publisher || b.playstation[0]?.publisher || b.nintendo[0]?.publisher || "";
+  const editions = d.editions.length > 1 ? d.editions : [];
+  const offerCount = d.official.length + d.keyshops.length;
+  const hasAbout = !!(content?.summary || summary || content?.verdict);
 
+  // Portrait IGDB cover first, then the store's art; the wide art is the backdrop.
+  const cover = uniq([...(b.title.cover_id ? [igdbImage(b.title.cover_id, "t_cover_big_2x")] : []), ...d.art]);
   const hasMedia = d.art.length > 0 || d.media.trailers.length > 0 || d.media.screenshots.length > 0;
   const mediaSource = d.store ? { label: d.store.label.replace(/^View on /, ""), url: d.store.url } : { label: "IGDB", url: `https://www.igdb.com/games/${b.title.slug}` };
+
+  // The version columns: one per platform family, newest console on top.
+  const families = uniq(versions.map((v) => VERSIONS[v].family));
 
   return (
     <>
@@ -222,22 +243,161 @@ export default async function TitlePage({ bundle: b, version }: { bundle: TitleB
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd(b, version, d, versions)).replace(/</g, "\\u003c") }}
       />
 
-      {/* ─── Hero ─────────────────────────────────────────────────────── */}
-      <section className="vp-hero-wrap">
+      {/* ─── Hero: cover | title, versions, verdict | prices ──────────── */}
+      <section className="pp-hero">
         {d.art.length > 0 && (
-          <div className="vp-bg" aria-hidden>
+          <div className="pp-art" aria-hidden>
             <FallbackImg srcs={d.art} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           </div>
         )}
-        <div className="shell vp-inner">
-          <div className="crumbs vp-crumbs">
-            <Link href="/">Home</Link> / <Link href="/games">Games</Link> / <span>{name}</span>
+        <div className="shell pp-hero-inner">
+          <div className="pp-crumbs">
+            <Link href="/">Home</Link> / <Link href={family.href}>{family.label}</Link> / <span>{info.label}</span>
+          </div>
+          <div className="pp-hero-grid">
+            <div className={`pp-cover pf-${info.family}`}>
+              <span className="pp-strip">{info.long}</span>
+              {cover.length > 0
+                ? <FallbackImg srcs={cover} alt={`${name} cover`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                : <div className="pp-cover-empty">{name}</div>}
+            </div>
+
+            <div className="pp-main">
+              <h1>{name}</h1>
+              <div className="pp-meta">
+                {(publisher || developer) && <span>{uniq([developer, publisher].filter(Boolean)).join(" · ")}</span>}
+                {d.release && <span>Released {longDate(d.release)}</span>}
+                {genres.length > 0 && <span>{genres.slice(0, 3).join(" · ")}</span>}
+              </div>
+              {versions.length > 1 && (
+                <nav className="pp-versions" aria-label="Versions">
+                  {families.map((f) => (
+                    <div key={f} className="pp-ver-col">
+                      {versions.filter((v) => VERSIONS[v].family === f).map((v) => (
+                        <Link key={v} href={versionPath(b.title.slug, v, versions)} className={`pp-ver pf-${f}`}
+                          aria-current={v === version ? "page" : undefined}>
+                          <span className="pp-pf" aria-hidden />{VERSIONS[v].label}
+                        </Link>
+                      ))}
+                    </div>
+                  ))}
+                </nav>
+              )}
+              <p className="pp-verdict">{verdict(version, d, best, low, data, versions)}</p>
+            </div>
+
+            <div className="pp-panel" aria-label="Current prices">
+              <div className="pp-panel-cols">
+                <PriceColumn label="Official stores" offer={bestOfficial} empty="Not listed" />
+                <PriceColumn label="Keyshops" offer={bestKeyshop}
+                  empty={version === "pc" ? undefined : "No offers yet"}
+                  check={version === "pc" ? { label: "Check Instant Gaming", url: instantGaming(name) } : undefined} />
+              </div>
+              <div className="pp-panel-foot">
+                {low !== null
+                  ? <div><span>Lowest we&apos;ve recorded</span><span className="num">{money(low, currency)}</span></div>
+                  : bestOfficial?.regular && <div><span>Regular price</span><span className="num">{money(bestOfficial.regular, bestOfficial.currency)}</span></div>}
+                <div><span>Subscriptions</span><span>{d.subscriptions.length ? d.subscriptions.join(", ") : "Not included"}</span></div>
+                {ttb && <div><span>Time to beat</span><span>{playtime(ttb.main_min)} story</span></div>}
+              </div>
+              <div className="pp-actions">
+                {best?.url && best.price !== null && (
+                  <a href={best.url} target="_blank" rel={`noopener noreferrer${best.sponsored ? " sponsored" : ""}`} className="pp-btn pp-btn-primary">
+                    Buy at {best.store} · <span className="num">{money(best.price, best.currency)}</span>
+                  </a>
+                )}
+                {offerCount > 1 && <a href="#offers" className="pp-btn pp-btn-ghost">Compare all {offerCount} offers</a>}
+                {offerCount <= 1 && d.store && (
+                  <a href={d.store.url} target="_blank" rel="noopener noreferrer" className="pp-btn pp-btn-ghost">{d.store.label} ↗</a>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Sections: only the ones with something in them ──────────── */}
+      <div className="shell">
+        <nav className="pp-tabs" aria-label="Sections">
+          <a href="#offers" aria-current="true">Offers <small>{offerCount}</small></a>
+          {editions.length > 0 && <a href="#editions">Editions <small>{editions.length}</small></a>}
+          {onPc && <a href="#history">Price history</a>}
+          {hasAbout && <a href="#about">About</a>}
+        </nav>
+
+        <div className="pp-body">
+          <div className="pp-content">
+            <section id="offers" className="pp-section">
+              <div className="pp-section-h"><h2>Official stores</h2><span>{info.long}</span></div>
+              <OfferList offers={d.official} empty={`No official store lists ${name} for ${info.long} right now.`} />
+              {d.footer && <p className="pp-note">{d.footer}</p>}
+            </section>
+
+            <section className="pp-section">
+              <div className="pp-section-h"><h2>Keyshops</h2><span>Codes from resellers</span></div>
+              <OfferList offers={d.keyshops} empty="No keyshop sells a code for this version yet. They'll show up here, with each seller's trust level, when one does." />
+            </section>
+            <p className="pp-note">{AFFILIATE_DISCLOSURE_SHORT}</p>
+
+            {editions.length > 0 && (
+              <section id="editions" className="pp-section">
+                <div className="pp-section-h"><h2>Editions</h2><span>{info.long}</span></div>
+                <div className="pp-list">
+                  {editions.map((e) => {
+                    const o = cheapest(d.official.filter((x) => x.listing === e));
+                    return (
+                      <div key={e} className="pp-row">
+                        <div className="pp-row-main"><b>{editionLabel(e, name)}</b><small>{e}</small></div>
+                        <div className="pp-row-price num">{o ? (o.free ? "Free" : money(o.price!, o.currency)) : "—"}</div>
+                        {o?.url ? <a href={o.url} target="_blank" rel="noopener noreferrer" className="pp-go">Go to store</a> : <span />}
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            {onPc && (
+              <section id="history" className="pp-section">
+                <div className="pp-section-h"><h2>Price history</h2><span>Lowest price across PC stores, per day</span></div>
+                {history.length >= 2 ? (
+                  <div className="pp-card">
+                    <div className="history-chart"><PriceChart points={history} /></div>
+                    <div className="pp-chart-axis"><span>{shortDate(history[0].day)}</span><span>Today</span></div>
+                  </div>
+                ) : (
+                  <p className="pp-empty">We started tracking {name} {history[0] ? `on ${shortDate(history[0].day)}` : "recently"}. The chart appears once we have a few days of prices.</p>
+                )}
+              </section>
+            )}
+
+            {hasAbout && (
+              <section id="about" className="pp-section detail-prose">
+                {content?.summary ? (
+                  <>
+                    <h2>What is {name}?</h2>
+                    {content.summary.split(/\n{2,}/).map((para, i) => <p key={i}>{para}</p>)}
+                  </>
+                ) : summary && (
+                  <>
+                    <h2>About {name}</h2>
+                    <p style={{ whiteSpace: "pre-line" }}>{summary}</p>
+                  </>
+                )}
+                {content?.verdict && (
+                  <>
+                    <h3>Should you buy {name} now?</h3>
+                    {content.verdict.split(/\n{2,}/).map((para, i) => <p key={i}>{para}</p>)}
+                  </>
+                )}
+              </section>
+            )}
           </div>
 
-          <div className="vp-hero">
-            {/* Big media on the left: key art, trailers and screenshots when we have them. */}
-            <div className="vp-stage">
-              {hasMedia ? (
+          <aside className="pp-side">
+            {hasMedia && (
+              <div className="pp-card">
+                <h3>Trailers and screenshots</h3>
                 <GameMedia
                   name={name}
                   source={mediaSource}
@@ -246,169 +406,54 @@ export default async function TitlePage({ bundle: b, version }: { bundle: TitleB
                   screenshots={d.media.screenshots}
                   inHero
                 />
-              ) : (
-                <div className="vp-cover"><div className="vp-cover-empty">{name}</div></div>
-              )}
-            </div>
-
-            <div className="vp-main">
-              <h1>{name}</h1>
-              {d.editions.length > 1 && (
-                <div className="vp-editions">
-                  <span>Editions:</span>
-                  {d.editions.slice(0, 5).map((e) => <span key={e} className="vp-edition">{editionLabel(e, name)}</span>)}
-                </div>
-              )}
-              <p className="vp-lede">{heroLine(name, info.long, d, best)}</p>
-
-              {/* Versions: each its own page, with its best price, right above this version's prices. */}
-              {versions.length > 1 && (
-                <nav className="vp-versions" aria-label="Versions">
-                  {versions.map((v) => {
-                    const vb = cheapest([...data.get(v)!.official, ...data.get(v)!.keyshops]);
-                    return (
-                      <Link key={v} href={versionPath(b.title.slug, v, versions)}
-                        className={`vp-version fam-${VERSIONS[v].family}`}
-                        aria-current={v === version ? "page" : undefined}>
-                        <span className="vp-version-label">{VERSIONS[v].label}</span>
-                        <span className="vp-version-price">{vb ? (vb.free ? "Free" : money(vb.price!, vb.currency)) : "—"}</span>
-                      </Link>
-                    );
-                  })}
-                </nav>
-              )}
-
-              <div className={`vp-prices fam-${info.family}`} aria-label="Current prices">
-                <div className="vp-price-grid">
-                  <PriceCell label="Official stores" offer={bestOfficial} />
-                  <PriceCell label="Keyshops" offer={bestKeyshop} link={version === "pc" ? instantGaming(name) : undefined} />
-                </div>
-                <div className="vp-subs">
-                  <span>Subscriptions:</span>{" "}
-                  {d.subscriptions.length ? d.subscriptions.join(", ") : <span className="vp-dim">—</span>}
-                </div>
               </div>
-
-              <div className="hero-buttons">
-                {best?.url && best.price !== null && (
-                  <a href={best.url} target="_blank" rel={`noopener noreferrer${best.sponsored ? " sponsored" : ""}`} className="btn btn-primary">
-                    Buy at {best.store} for {money(best.price, best.currency)} →
-                  </a>
-                )}
-                {d.store && (
-                  <a href={d.store.url} target="_blank" rel="noopener noreferrer" className="btn btn-ghost">{d.store.label} ↗</a>
-                )}
-                {version === "pc" && (
-                  <a href={instantGaming(name)} target="_blank" rel="noopener noreferrer sponsored" className="btn btn-ghost">Check Instant Gaming →</a>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ─── Offers + side column ─────────────────────────────────────── */}
-      <div className="shell detail-grid">
-        <div>
-          <OfferGroup title={`Official stores · ${info.long}`} offers={d.official} empty={`No official store lists ${name} for ${info.long} right now.`} footer={d.footer} />
-          {d.keyshops.length > 0 && <OfferGroup title="Keyshops" offers={d.keyshops} />}
-          <p style={{ fontSize: 12, color: "var(--text-3)", marginTop: 14 }}>{AFFILIATE_DISCLOSURE_SHORT}</p>
-
-          <div className="detail-prose" style={{ marginTop: 32 }}>
-            {content?.summary ? (
-              <>
-                <h3>What is {name}?</h3>
-                {content.summary.split(/\n{2,}/).map((para, i) => <p key={i}>{para}</p>)}
-              </>
-            ) : summary && (
-              <>
-                <h3>About {name}</h3>
-                <p style={{ whiteSpace: "pre-line" }}>{summary}</p>
-              </>
             )}
-            {content?.verdict && (
-              <>
-                <h3>Should you buy {name} now?</h3>
-                {content.verdict.split(/\n{2,}/).map((para, i) => <p key={i}>{para}</p>)}
-              </>
+
+            <div className="pp-card">
+              <h3>Game info</h3>
+              <dl className="pp-info">
+                <InfoRow label="Platform" value={info.long} />
+                <InfoRow label="Also on" value={versions.filter((v) => v !== version).map((v) => VERSIONS[v].label).join(", ")} />
+                <InfoRow label="Released" value={d.release ? longDate(d.release) : ""} />
+                <InfoRow label="Developer" value={developer} />
+                <InfoRow label="Publisher" value={publisher} />
+                <InfoRow label="Genre" value={genres.join(", ")} />
+                {ttb && (
+                  <InfoRow label="Time to beat" value={[`${playtime(ttb.main_min)} story`, ttb.extras_min !== null ? `${playtime(ttb.extras_min)} with extras` : "", ttb.full_min !== null ? `${playtime(ttb.full_min)} for 100%` : ""].filter(Boolean).join(" · ")} />
+                )}
+              </dl>
+            </div>
+
+            {onPc && steam.current_players !== null && (
+              <div className="pp-card">
+                <h3>Players on Steam</h3>
+                <div className="pp-stats">
+                  <MiniStat value={steam.current_players.toLocaleString("en")} label="Now" />
+                  {steam.peak_players_24h !== null && <MiniStat value={steam.peak_players_24h.toLocaleString("en")} label="24h peak" />}
+                  {steam.peak_players_30d !== null && <MiniStat value={steam.peak_players_30d.toLocaleString("en")} label="30-day peak" />}
+                </div>
+                {players.length >= 2 && <div className="history-chart" style={{ height: 100 }}><PlayersChart points={players} /></div>}
+              </div>
             )}
-          </div>
+
+            {related.length > 0 && (
+              <div className="pp-card">
+                <h3>Popular {genres.find((g) => g !== "Free To Play") ?? ""} games</h3>
+                <div className="pp-related">
+                  {related.map((r) => (
+                    <Link key={r.slug} href={`/game/${r.slug}`}>
+                      {r.header_image && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={r.header_image} alt="" width={92} height={43} />
+                      )}
+                      <span>{r.name}</span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+          </aside>
         </div>
-
-        <aside style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          <div className="aside-card">
-            <h4>Game info</h4>
-            <dl style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "8px 16px", margin: 0, fontSize: 13 }}>
-              <InfoRow label="Released" value={d.release ? longDate(d.release) : ""} />
-              <InfoRow label="Platform" value={info.long} />
-              <InfoRow label="Also on" value={versions.filter((v) => v !== version).map((v) => VERSIONS[v].label).join(", ")} />
-              <InfoRow label="Developer" value={steam?.developers.join(", ") || b.xbox?.developer || b.nintendo[0]?.developer || ""} />
-              <InfoRow label="Publisher" value={steam?.publishers.join(", ") || b.xbox?.publisher || b.playstation[0]?.publisher || b.nintendo[0]?.publisher || ""} />
-              <InfoRow label="Genre" value={genres.join(", ")} />
-            </dl>
-          </div>
-
-          {onPc && (
-            <div className="aside-card">
-              <h4>PC price history</h4>
-              {history.length >= 2 ? (
-                <>
-                  <div className="history-chart"><PriceChart points={history} /></div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontFamily: "var(--ff-mono)", fontSize: 10, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.12em" }}>
-                    <span>{shortDate(history[0].day)}</span><span>Today</span>
-                  </div>
-                </>
-              ) : (
-                <p style={{ color: "var(--text-2)", fontSize: 13, margin: 0, lineHeight: 1.6 }}>
-                  We started tracking {name} {history[0] ? `on ${shortDate(history[0].day)}` : "recently"}. The chart appears once we have a few days of prices.
-                </p>
-              )}
-            </div>
-          )}
-
-          {onPc && steam.current_players !== null && (
-            <div className="aside-card">
-              <h4>Players on Steam</h4>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
-                <MiniStat value={steam.current_players.toLocaleString("en")} label="Now" />
-                {steam.peak_players_24h !== null && <MiniStat value={steam.peak_players_24h.toLocaleString("en")} label="24h peak" />}
-                {steam.peak_players_30d !== null && <MiniStat value={steam.peak_players_30d.toLocaleString("en")} label="30-day peak" />}
-              </div>
-              {players.length >= 2 && <div className="history-chart" style={{ height: 100 }}><PlayersChart points={players} /></div>}
-            </div>
-          )}
-
-          {ttb && (
-            <div className="aside-card">
-              <h4>How long to beat</h4>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
-                <MiniStat value={playtime(ttb.main_min)} label="Main story" />
-                {ttb.extras_min !== null && <MiniStat value={playtime(ttb.extras_min)} label="Main + extras" />}
-                {ttb.full_min !== null && <MiniStat value={playtime(ttb.full_min)} label="100%" />}
-              </div>
-              <p style={{ color: "var(--text-3)", fontSize: 12, margin: "14px 0 0", lineHeight: 1.5 }}>
-                Average of {ttb.submissions} player times on IGDB. Your time may vary.
-              </p>
-            </div>
-          )}
-
-          {related.length > 0 && (
-            <div className="aside-card">
-              <h4>Popular {genres.find((g) => g !== "Free To Play") ?? ""} games</h4>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {related.map((r) => (
-                  <Link key={r.slug} href={`/game/${r.slug}`} style={{ display: "flex", gap: 12, alignItems: "center", textDecoration: "none", color: "inherit" }}>
-                    {r.header_image && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={r.header_image} alt="" width={92} height={43} style={{ borderRadius: 3, objectFit: "cover", flexShrink: 0 }} />
-                    )}
-                    <span style={{ fontSize: 14, fontWeight: 600 }}>{r.name}</span>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
-        </aside>
       </div>
     </>
   );
@@ -428,7 +473,7 @@ function xboxOffer(x: XboxGame, name: string, store: string, logo: string): Offe
   const edition = cleanXboxTitle(x.title);
   return {
     key: `xbox-${x.product_id}`, store, logo,
-    meta: edition.toLowerCase() !== name.toLowerCase() ? edition : "Standard edition",
+    meta: edition.toLowerCase() !== name.toLowerCase() ? edition : "Standard edition", listing: edition,
     price: x.price, free: x.is_free, currency: x.currency ?? "EUR", regular: x.regular_price, discount: x.discount_pct, url: x.store_url,
     note: x.price === null && !x.is_free ? "See the store" : undefined,
   };
@@ -437,7 +482,7 @@ function xboxOffer(x: XboxGame, name: string, store: string, logo: string): Offe
 function psOffer(g: PsGameDetail): Offer {
   const plus = g.plus_tier ? PLUS_TIER_LABEL[g.plus_tier] ?? "PS Plus" : null;
   return {
-    key: `ps-${g.igdb_id}`, store: "PlayStation Store", logo: "PS",
+    key: `ps-${g.igdb_id}`, store: "PlayStation Store", logo: "PS", listing: g.store_name ?? g.title,
     meta: <><span className="plat">{g.platforms.join(" / ")}</span>{g.store_name && g.store_name !== g.title ? ` · ${g.store_name}` : ""}</>,
     price: g.price, free: g.is_free, currency: g.currency ?? "EUR", regular: g.regular_price, discount: g.discount_pct, url: psStoreUrl(g),
     note: g.sales_status === "preorder" ? "Pre-order" : g.price === null ? (plus ? `In ${plus}` : "See the store") : undefined,
@@ -459,7 +504,7 @@ function psFooter(games: PsGameDetail[]): string | null {
 
 function nintendoOffer(g: NintendoGameDetail): Offer {
   return {
-    key: `ns-${g.nsuid}`, store: "Nintendo eShop", logo: "NS",
+    key: `ns-${g.nsuid}`, store: "Nintendo eShop", logo: "NS", listing: g.title,
     meta: <>{g.title} · Digital · Spain</>,
     price: g.price, free: g.is_free, currency: g.currency ?? "EUR", regular: g.regular_price, discount: g.discount_pct, url: nintendoStoreUrl(g),
     note: g.sales_status === "preorder" ? "Pre-order" : g.sales_status === "unreleased" ? "Coming soon" : g.price === null ? "See the store" : undefined,
@@ -471,75 +516,54 @@ function nintendoFooter(games: NintendoGameDetail[]): string {
   return `Prices from the Spanish eShop, checked every six hours.${g ? ` This discount ends ${longDate(g.discount_ends_at!)}.` : ""}`;
 }
 
-/** One offers table, cheapest first. */
-function OfferGroup({ title, offers, empty, footer }: { title: string; offers: Offer[]; empty?: string; footer?: string | null }) {
+/** Offers, cheapest first: store · saving · price · link. */
+function OfferList({ offers, empty }: { offers: Offer[]; empty: string }) {
   const sorted = [...offers].sort((a, c) => (a.price === null ? 1 : 0) - (c.price === null ? 1 : 0) || (a.price ?? 0) - (c.price ?? 0));
-  const first = sorted[0];
+  if (!sorted.length) return <p className="pp-empty">{empty}</p>;
   return (
-    <section className="offer-group">
-      <h2 className="offer-group-title">{title}</h2>
-      {sorted.length === 0 ? (
-        <p style={{ color: "var(--text-2)", margin: 0 }}>{empty ?? "Nothing listed right now."}</p>
-      ) : (
-        <div className="offers">
-          <div className="hd">
-            <div>#</div>
-            <div>Store</div>
-            <div>Price</div>
-            <div>Regular price</div>
-            <div>Discount</div>
-            <div />
+    <div className="pp-list">
+      {sorted.map((o) => (
+        <div key={o.key} className="pp-row">
+          <div className="pp-row-main">
+            <b>{o.store}</b>
+            <small>{o.meta}</small>
           </div>
-          {sorted.map((o, i) => (
-            <div key={o.key} className={`row ${i === 0 && o.price !== null && !o.sponsored ? "cheapest" : ""}`}>
-              <div className="rank">{String(i + 1).padStart(2, "0")}</div>
-              <div className="store-block">
-                <div className="store-logo">{o.logo}</div>
-                <div>
-                  <div className="sname">{o.store}</div>
-                  <div className="smeta">{o.meta}</div>
-                </div>
-              </div>
-              <div className="price-cell">
-                <div className="pp">{o.free ? "Free" : o.price !== null ? money(o.price, o.currency) : "—"}</div>
-                <div className="pf">
-                  {o.note ?? (i === 0 ? "↓ cheapest right now" : first.price !== null && o.price !== null ? `+${money(o.price - first.price, o.currency)} vs cheapest` : "")}
-                </div>
-              </div>
-              <div className="price-cell"><div className="pf" style={{ fontSize: 13 }}>{o.regular ? money(o.regular, o.currency) : "—"}</div></div>
-              <div className="price-cell"><div className="pf" style={{ fontSize: 13 }}>{o.discount ? `-${o.discount}%` : "—"}</div></div>
-              {o.url ? (
-                <a href={o.url} target="_blank" rel={`noopener noreferrer${o.sponsored ? " sponsored" : ""}`} className="gobtn" style={{ textDecoration: "none", textAlign: "center" }}>
-                  {o.price === null && o.sponsored ? "Check →" : "Get →"}
-                </a>
-              ) : <div />}
-            </div>
-          ))}
+          <div className="pp-row-save">
+            {o.discount ? <><span className="pp-pill">-{o.discount}%</span>{o.regular ? <s className="num">{money(o.regular, o.currency)}</s> : null}</> : o.note ? <span>{o.note}</span> : null}
+          </div>
+          <div className={`pp-row-price num${o.price === null && !o.free ? " none" : ""}`}>
+            {o.free ? "Free" : o.price !== null ? money(o.price, o.currency) : "—"}
+          </div>
+          {o.url ? (
+            <a href={o.url} target="_blank" rel={`noopener noreferrer${o.sponsored ? " sponsored" : ""}`} className="pp-go">
+              {o.price === null && o.sponsored ? "Check price" : "Go to store"}
+            </a>
+          ) : <span />}
         </div>
-      )}
-      {footer && <p style={{ color: "var(--text-3)", fontSize: 12, margin: "10px 0 0" }}>{footer}</p>}
-    </section>
+      ))}
+    </div>
   );
 }
 
 // ─── Pieces ──────────────────────────────────────────────────────────────────
 
-function PriceCell({ label, offer, link }: { label: string; offer: Offer | undefined; link?: string }) {
+/** One side of the price panel: the best offer of a kind, or a link / note when there's none. */
+function PriceColumn({ label, offer, empty, check }: { label: string; offer: Offer | undefined; empty?: string; check?: { label: string; url: string } }) {
   return (
-    <div className="vp-price">
-      <div className="vp-price-label">{label}</div>
+    <div className="pp-pcol">
+      <div className="pp-plabel">{label}</div>
       {offer ? (
         <>
-          <div className="vp-price-value">{offer.free ? "Free" : money(offer.price!, offer.currency)}</div>
-          <div className="vp-price-meta">
-            {offer.discount ? <span className="vp-disc">-{offer.discount}%</span> : null}
-            <span>{offer.store}</span>
+          <div className="pp-pvalue num">{offer.free ? "Free" : money(offer.price!, offer.currency)}</div>
+          <div className="pp-pstore">{offer.store}{offer.discount ? <span className="pp-pill">-{offer.discount}%</span> : null}</div>
+        </>
+      ) : (
+        <>
+          <div className="pp-pvalue none">—</div>
+          <div className="pp-pstore">
+            {check ? <a href={check.url} target="_blank" rel="noopener noreferrer sponsored">{check.label}</a> : empty}
           </div>
         </>
-      ) : link ? (
-        <a href={link} target="_blank" rel="noopener noreferrer sponsored" className="vp-price-check">Check prices →</a>
-      ) : (
-        <div className="vp-price-value vp-dim">—</div>
       )}
     </div>
   );
@@ -548,8 +572,8 @@ function PriceCell({ label, offer, link }: { label: string; offer: Offer | undef
 function MiniStat({ value, label }: { value: string; label: string }) {
   return (
     <div>
-      <div style={{ fontFamily: "var(--ff-mono)", fontSize: 20, fontWeight: 700 }}>{value}</div>
-      <div style={{ fontFamily: "var(--ff-mono)", fontSize: 10, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.12em" }}>{label}</div>
+      <div className="num" style={{ fontSize: 20, fontWeight: 700 }}>{value}</div>
+      <div style={{ fontSize: 12, color: "var(--text-3)" }}>{label}</div>
     </div>
   );
 }
@@ -558,8 +582,8 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   if (!value) return null;
   return (
     <>
-      <dt style={{ color: "var(--text-3)" }}>{label}</dt>
-      <dd style={{ margin: 0 }}>{value}</dd>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
     </>
   );
 }
@@ -573,14 +597,41 @@ function editionLabel(edition: string, name: string): string {
   return e;
 }
 
-function heroLine(name: string, long: string, d: VersionData, best: Offer | undefined): string {
-  const stores = uniq([...d.official, ...d.keyshops].map((o) => o.store));
-  if (!best || best.price === null && !best.free) {
-    return `We track ${name} for ${long}, but no store lists a price right now.${d.subscriptions.length ? ` It's included with ${d.subscriptions.join(" and ")}.` : ""}`;
+/** One line on how good the price is: the lowest we've seen, the discount, or a cheaper version. */
+function verdict(version: Version, d: VersionData, best: Offer | undefined, low: number | null,
+  data: Map<Version, VersionData>, versions: Version[]): React.ReactNode {
+  const long = VERSIONS[version].long;
+  if (!best || (best.price === null && !best.free)) {
+    return <><b>No store lists a price for {long} right now.</b>{d.subscriptions.length ? ` It's included with ${d.subscriptions.join(" and ")}.` : ""}</>;
   }
-  const price = best.free ? "free" : `${money(best.price!, best.currency)} at ${best.store}${best.discount ? `, ${best.discount}% off` : ""}`;
-  return `${stores.length} store${stores.length === 1 ? "" : "s"} sell ${name} for ${long}. The best price right now is ${price}.` +
-    (d.subscriptions.length ? ` Also included with ${d.subscriptions.join(" and ")}.` : "");
+  if (best.free) return <><b>Free to play.</b> Paid editions and bundles, if any, are listed below.</>;
+  const price = best.price!;
+  const stores = uniq(d.official.map((o) => o.store)).length;
+
+  let head: string;
+  if (low !== null && price <= low + 0.005) head = "Lowest price we've recorded.";
+  else if (best.discount && best.discount >= 30) head = "Good deal.";
+  else if (best.discount) head = "Small discount.";
+  else head = stores === 1 ? "Full price at the only store selling it." : "Full price everywhere right now.";
+
+  const parts: string[] = [];
+  const steamOffer = d.official.find((o) => o.store === "Steam" && o.price !== null);
+  if (version === "pc" && steamOffer && best.store !== "Steam" && steamOffer.price! > price) {
+    parts.push(`${money(price, best.currency)} at ${best.store} is ${Math.round((1 - price / steamOffer.price!) * 100)}% under Steam.`);
+  } else if (best.discount) {
+    parts.push(`${best.discount}% off at ${best.store}.`);
+  }
+  if (low !== null && price > low + 0.005) parts.push(`The lowest we've recorded is ${money(low, best.currency)}.`);
+
+  // A cheaper version of the same game in the same family (Switch vs Switch 2, PS4 vs PS5…).
+  const cheaper = versions
+    .filter((v) => v !== version && VERSIONS[v].family === VERSIONS[version].family)
+    .map((v) => ({ v, o: cheapest(data.get(v)!.official) }))
+    .filter((x) => x.o?.price !== null && x.o?.price !== undefined && x.o.price < price - 0.5)
+    .sort((a, c) => a.o!.price! - c.o!.price!)[0];
+  if (cheaper) parts.push(`The ${VERSIONS[cheaper.v].label} version costs ${money(cheaper.o!.price!, cheaper.o!.currency)}.`);
+
+  return <><b>{head}</b>{parts.length ? ` ${parts.join(" ")}` : ""}</>;
 }
 
 function instantGaming(name: string): string {
