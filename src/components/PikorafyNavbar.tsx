@@ -5,9 +5,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import SiteSearch from "@/components/SiteSearch";
 
-// Two rows: logo · search · tools, then the platforms (each with a dropdown of its listing
-// pages) and a few site-wide links. On phones the search stays visible under the logo and
-// the platform row moves into the menu.
+// One row: logo · platforms (each with a dropdown of its listing pages) and a few site-wide
+// links · search · tools. On phones the search wraps under the logo and the platforms move
+// into the menu.
 
 interface Menu {
   key: string;
@@ -125,29 +125,7 @@ export default function PikorafyNavbar() {
           PIKORAFY
         </Link>
 
-        <div className="nav-search">
-          <SiteSearch inputRef={searchInput} />
-        </div>
-
-        <div className="nav-tools">
-          <button className="icon-btn" onClick={toggleTheme} title="Toggle theme" aria-label="Toggle theme">
-            {dark ? "☾" : "☀"}
-          </button>
-          <Link href="/games?sale=1&sort=discount" className="icon-btn" title="Wishlist" aria-label="Wishlist">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-              <path d="M12 21s-7-4.5-9.5-9C.7 8.5 2.5 4.5 6.5 4c2.2 0 3.7 1.2 5.5 3.2C13.8 5.2 15.3 4 17.5 4c4 .5 5.8 4.5 4 8-2.5 4.5-9.5 9-9.5 9z" />
-            </svg>
-          </Link>
-          <button className="icon-btn nav-mobile-toggle" onClick={() => setMobileOpen((o) => !o)} aria-label="Menu" aria-expanded={mobileOpen}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-              {mobileOpen ? <path d="M18 6L6 18M6 6l12 12" /> : <path d="M3 12h18M3 6h18M3 18h18" />}
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      {/* Platforms with their dropdowns, then site-wide links */}
-      <div className="nav-row">
+        {/* Platforms with their dropdowns, then site-wide links */}
         <div className="nav-platforms" ref={platformsRef}>
           {PLATFORMS.map((p) => (
             <div key={p.key} className="nav-menu" onMouseEnter={() => setMenu(p.key)} onMouseLeave={() => setMenu((m) => (m === p.key ? null : m))}>
@@ -178,6 +156,26 @@ export default function PikorafyNavbar() {
               {l.label}
             </Link>
           ))}
+        </div>
+
+        <div className="nav-search">
+          <SiteSearch inputRef={searchInput} />
+        </div>
+
+        <div className="nav-tools">
+          <button className="icon-btn" onClick={toggleTheme} title="Toggle theme" aria-label="Toggle theme">
+            {dark ? "☾" : "☀"}
+          </button>
+          <Link href="/games?sale=1&sort=discount" className="icon-btn" title="Wishlist" aria-label="Wishlist">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path d="M12 21s-7-4.5-9.5-9C.7 8.5 2.5 4.5 6.5 4c2.2 0 3.7 1.2 5.5 3.2C13.8 5.2 15.3 4 17.5 4c4 .5 5.8 4.5 4 8-2.5 4.5-9.5 9-9.5 9z" />
+            </svg>
+          </Link>
+          <button className="icon-btn nav-mobile-toggle" onClick={() => setMobileOpen((o) => !o)} aria-label="Menu" aria-expanded={mobileOpen}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              {mobileOpen ? <path d="M18 6L6 18M6 6l12 12" /> : <path d="M3 12h18M3 6h18M3 18h18" />}
+            </svg>
+          </button>
         </div>
       </div>
 

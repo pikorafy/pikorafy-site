@@ -88,7 +88,6 @@ export default function SiteSearch({ inputRef, onDone }: {
           onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
         />
-        <span className="search-hint" aria-hidden="true">⌘ K</span>
 
         {open && (
           <div className="search-dropdown">
