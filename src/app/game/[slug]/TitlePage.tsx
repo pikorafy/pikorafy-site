@@ -271,10 +271,7 @@ export default async function TitlePage({ bundle: b, version }: { bundle: TitleB
                         className={`vp-version fam-${VERSIONS[v].family}`}
                         aria-current={v === version ? "page" : undefined}>
                         <span className="vp-version-label">{VERSIONS[v].label}</span>
-                        <span className="vp-version-row">
-                          <span className="vp-version-price">{vb ? (vb.free ? "Free" : money(vb.price!, vb.currency)) : "—"}</span>
-                          {vb?.discount ? <span className="vp-version-disc">-{vb.discount}%</span> : null}
-                        </span>
+                        <span className="vp-version-price">{vb ? (vb.free ? "Free" : money(vb.price!, vb.currency)) : "—"}</span>
                       </Link>
                     );
                   })}
