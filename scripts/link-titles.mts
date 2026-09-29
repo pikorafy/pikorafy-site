@@ -18,8 +18,8 @@
 //  3. the store's existing link to a Steam game, when IGDB has nothing, or when IGDB splits
 //     the same game in two (same cleaned title, neither a remake nor a remaster);
 //  4. title_overrides, which always win (title_id null = never link).
-// A bundle named exactly like a game (IGDB has "Assassin's Creed III Remastered" as the
-// remaster and as a bundle) merges into that game. Slugs are IGDB's without its "--1"
+// A bundle or undated entry named exactly like one dated game (IGDB has "Assassin's Creed
+// III Remastered" as the remaster and as a bundle) merges into that game. Slugs are IGDB's without its "--1"
 // suffixes; namesakes get their release year (resident-evil-4-2023). Old slugs of renamed or
 // merged titles go to title_slug_aliases, so their pages redirect.
 // Writes only titles and links that changed; removes links whose store item is gone.
@@ -223,7 +223,8 @@ for (const i of items) {
   if (sameTitle && !remake) alias.set(own.igdb, target);
 }
 const resolveAlias = (id: number) => { let cur = id; for (let n = 0; n < 5 && alias.has(cur); n++) cur = alias.get(cur)!; return cur; };
-// Bundles named exactly like one game: the same page for shoppers.
+// Same-name IGDB twins of one game: a bundle (Assassin's Creed III Remastered + Liberation)
+// or an undated duplicate (This War of Mine: Final Cut) merges into the one dated game.
 const byName = new Map<string, number[]>();
 for (const id of new Set([...linked.values()].map((l) => resolveAlias(l.igdb)))) {
   const name = meta.get(id)?.name;
@@ -231,7 +232,7 @@ for (const id of new Set([...linked.values()].map((l) => resolveAlias(l.igdb))))
 }
 let bundleTwins = 0;
 for (const ids of byName.values()) {
-  const games = ids.filter((id) => meta.get(id)?.game_type !== BUNDLE);
+  const games = ids.filter((id) => meta.get(id)?.game_type !== BUNDLE && !!meta.get(id)?.first_release_date);
   if (games.length !== 1) continue;
   for (const id of ids) if (id !== games[0]) { alias.set(id, games[0]); bundleTwins++; }
 }
@@ -255,7 +256,7 @@ for (const s of ["steam", "xbox", "playstation", "nintendo"] as Store[]) {
   const n = [...linked.keys()].filter((k) => k.startsWith(`${s}:`)).length;
   console.log(`  ${s.padEnd(12)} ${n} / ${count(s)} linked (${Math.round((n / Math.max(1, count(s))) * 100)}%)`);
 }
-console.log(`  by: ${[...methods].map(([m, n]) => `${m} ${n}`).join(" · ")} · ${ambiguous} ambiguous titles left out · ${alias.size} IGDB splits merged (${bundleTwins} same-name bundles)`);
+console.log(`  by: ${[...methods].map(([m, n]) => `${m} ${n}`).join(" · ")} · ${ambiguous} ambiguous titles left out · ${alias.size} IGDB splits merged (${bundleTwins} same-name twins)`);
 const storesPerTitle = new Map<number, Set<string>>();
 for (const [k, l] of linked) storesPerTitle.set(l.igdb, (storesPerTitle.get(l.igdb) ?? new Set()).add(k.split(":")[0]));
 const multi = [...storesPerTitle.values()].filter((s) => s.size > 1).length;
