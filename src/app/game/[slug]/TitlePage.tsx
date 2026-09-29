@@ -13,6 +13,7 @@ import {
   type SteamTrailer,
 } from "@/lib/catalog";
 import { AFFILIATE_DISCLOSURE_SHORT } from "@/lib/affiliate";
+import { LOW_TONE, priceTone } from "@/lib/price-tone";
 import { igdbImage, type TitleBundle } from "@/lib/titles";
 import { cleanXboxTitle, getSubscriptionNames, subscriptionLabels, type XboxGame } from "@/lib/xbox";
 import { PLUS_TIER_LABEL, psStoreUrl, type PsGameDetail } from "@/lib/playstation";
@@ -234,7 +235,7 @@ export default async function TitlePage({ bundle: b, version }: { bundle: TitleB
             <Link href="/">Home</Link> / <Link href="/games">Games</Link> / <span>{name}</span>
           </div>
 
-          <div className={`vp-hero fam-${info.family}`}>
+          <div className="vp-hero">
             {/* Big media on the left: key art, trailers and screenshots when we have them. */}
             <div className="vp-stage">
               {hasMedia ? (
@@ -252,7 +253,6 @@ export default async function TitlePage({ bundle: b, version }: { bundle: TitleB
             </div>
 
             <div className="vp-main">
-              <span className="vp-badge">{info.long}</span>
               <h1>{name}</h1>
               {d.editions.length > 1 && (
                 <div className="vp-editions">
@@ -267,18 +267,23 @@ export default async function TitlePage({ bundle: b, version }: { bundle: TitleB
                 <nav className="vp-versions" aria-label="Versions">
                   {versions.map((v) => {
                     const vb = cheapest([...data.get(v)!.official, ...data.get(v)!.keyshops]);
+                    const tone = toneOf(vb);
                     return (
-                      <Link key={v} href={versionPath(b.title.slug, v, versions)} className={`vp-version fam-${VERSIONS[v].family}`}
+                      <Link key={v} href={versionPath(b.title.slug, v, versions)}
+                        className={`vp-version${tone ? "" : " neutral"}`} style={tone ? { background: tone } : undefined}
                         aria-current={v === version ? "page" : undefined}>
                         <span className="vp-version-label">{VERSIONS[v].label}</span>
-                        <span className="vp-version-price">{vb ? (vb.free ? "Free" : money(vb.price!, vb.currency)) : "—"}</span>
+                        <span className="vp-version-row">
+                          <span className="vp-version-price">{vb ? (vb.free ? "Free" : money(vb.price!, vb.currency)) : "—"}</span>
+                          {vb?.discount ? <span className="vp-version-disc">-{vb.discount}%</span> : null}
+                        </span>
                       </Link>
                     );
                   })}
                 </nav>
               )}
 
-              <div className="vp-prices" aria-label="Current prices">
+              <div className="vp-prices" aria-label="Current prices" style={{ ["--neon" as string]: toneOf(best) ?? "var(--accent-2)" }}>
                 <div className="vp-price-grid">
                   <PriceCell label="Official stores" offer={bestOfficial} />
                   <PriceCell label="Keyshops" offer={bestKeyshop} link={version === "pc" ? instantGaming(name) : undefined} />
@@ -523,6 +528,13 @@ function OfferGroup({ title, offers, empty, footer }: { title: string; offers: O
 }
 
 // ─── Pieces ──────────────────────────────────────────────────────────────────
+
+/** Deal colour of a best offer, as on the old hero tiles: green for free or deep discounts, red at full price. */
+function toneOf(o: Offer | undefined): string | undefined {
+  if (!o) return undefined;
+  if (o.free) return LOW_TONE;
+  return o.price !== null ? priceTone(o.price, null, null, o.discount) : undefined;
+}
 
 function PriceCell({ label, offer, link }: { label: string; offer: Offer | undefined; link?: string }) {
   return (
