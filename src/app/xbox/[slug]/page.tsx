@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getTitleForStore } from "@/lib/titles";
+import { storeItemPath } from "@/lib/versions";
 import {
   cleanXboxTitle,
   getRelatedXbox,
@@ -62,7 +63,7 @@ export default async function XboxGamePage({ params }: XboxPageProps) {
   if (!game) notFound();
   // Linked to a shared game: that page has every platform (this one opens on the Xbox tab).
   const shared = await getTitleForStore("xbox", game.product_id);
-  if (shared) redirect(`/game/${shared.slug}#xbox`);
+  if (shared) redirect(storeItemPath(shared.slug, game.platforms));
   if (game.game_slug) redirect(`/game/${game.game_slug}`);
 
   const [editions, related, subNames] = await Promise.all([

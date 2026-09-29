@@ -23,7 +23,8 @@ import GameMedia from "./GameMedia";
 import PlayersChart from "./PlayersChart";
 import PriceChart from "./PriceChart";
 import TimeAgo from "./TimeAgo";
-import TitlePage, { titleMetadata } from "./TitlePage";
+import TitlePage, { loadVersionPage, versionMetadata } from "./TitlePage";
+import { mainVersion, parseVersionSlug, versionPath, versionsOf, type Version } from "@/lib/versions";
 import { getTitleBundle, getTitleBySlug, getTitleForStore, type TitleBundle } from "@/lib/titles";
 
 // Catalog pages are prerendered for the most popular games and generated on
@@ -45,11 +46,16 @@ export async function generateStaticParams() {
 
 /**
  * What /game/<slug> shows. A shared title (one game across Steam, PlayStation, Xbox and
- * Switch) has its own page; a Steam slug linked to a title moves there (old links keep
- * working); a Steam game not linked yet keeps its Steam-only page.
+ * Switch) has one page per platform version: /game/<slug> for PC (or the first console
+ * version of a console-only game) and /game/<slug>-playstation-ps5, -xbox-xbs, -nintendo-nsw2…
+ * for the others (src/lib/versions.ts). A Steam slug linked to a title moves to the title's
+ * PC page (old links keep working); a Steam game not linked yet keeps its Steam-only page.
  */
 async function resolve(slug: string): Promise<
-  { kind: "title"; bundle: TitleBundle } | { kind: "redirect"; to: string } | { kind: "steam"; game: Game } | null
+  | { kind: "title"; bundle: TitleBundle; version: Version }
+  | { kind: "redirect"; to: string }
+  | { kind: "steam"; game: Game }
+  | null
 > {
   const steam = await getGameBySlug(slug);
   if (steam) {
@@ -57,8 +63,25 @@ async function resolve(slug: string): Promise<
     if (t && t.slug !== slug) return { kind: "redirect", to: `/game/${t.slug}` };
     if (!t) return { kind: "steam", game: steam };
   }
-  const title = await getTitleBySlug(slug);
-  return title ? { kind: "title", bundle: await getTitleBundle(title) } : null;
+  let title = await getTitleBySlug(slug);
+  let requested: Version | null = null;
+  if (!title) {
+    const parsed = parseVersionSlug(slug);
+    if (!parsed) return null;
+    title = await getTitleBySlug(parsed.base);
+    requested = parsed.version;
+  }
+  if (!title) return null;
+  const bundle = await getTitleBundle(title);
+  const versions = versionsOf(bundle);
+  const main = mainVersion(versions);
+  if (!main) return null;
+  // A version the game isn't sold for goes to the main page; each version has one URL.
+  if (requested && !versions.includes(requested)) return { kind: "redirect", to: `/game/${title.slug}` };
+  const version = requested ?? main;
+  const path = versionPath(title.slug, version, versions);
+  if (path !== `/game/${slug}`) return { kind: "redirect", to: path };
+  return { kind: "title", bundle, version };
 }
 
 export async function generateMetadata({ params }: GamePageProps): Promise<Metadata> {
@@ -67,8 +90,13 @@ export async function generateMetadata({ params }: GamePageProps): Promise<Metad
   if (!found || found.kind === "redirect") return {};
   if (found.kind === "title") {
     const steamId = found.bundle.steam?.steam_app_id;
-    const [prices, written] = steamId ? await Promise.all([getGamePrices(steamId), getGameContent(steamId, "en")]) : [[], null];
-    return titleMetadata(found.bundle, prices, !!written);
+    const [page, written] = await Promise.all([
+      loadVersionPage(found.bundle),
+      steamId ? getGameContent(steamId, "en") : Promise.resolve(null),
+    ]);
+    const d = page.data.get(found.version);
+    if (!d) return {};
+    return versionMetadata(found.bundle, found.version, d, page.versions, !!written);
   }
   const game = found.game;
 
@@ -115,7 +143,7 @@ export default async function GamePage({ params }: GamePageProps) {
   const found = await resolve(slug);
   if (!found) notFound();
   if (found.kind === "redirect") redirect(found.to);
-  if (found.kind === "title") return <TitlePage bundle={found.bundle} />;
+  if (found.kind === "title") return <TitlePage bundle={found.bundle} version={found.version} />;
   const game = found.game;
 
   const prices = await getGamePrices(game.steam_app_id);

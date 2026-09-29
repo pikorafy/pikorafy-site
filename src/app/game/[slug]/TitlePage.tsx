@@ -8,27 +8,27 @@ import {
   getRelatedGames,
   getTimeToBeat,
   type GamePrice,
+  type KeyArt,
   type SteamScreenshot,
   type SteamTrailer,
 } from "@/lib/catalog";
 import { AFFILIATE_DISCLOSURE_SHORT } from "@/lib/affiliate";
-import { LOW_TONE, priceTone } from "@/lib/price-tone";
 import { igdbImage, type TitleBundle } from "@/lib/titles";
-import { getSubscriptionNames, subscriptionLabels } from "@/lib/xbox";
+import { cleanXboxTitle, getSubscriptionNames, subscriptionLabels, type XboxGame } from "@/lib/xbox";
 import { PLUS_TIER_LABEL, psStoreUrl, type PsGameDetail } from "@/lib/playstation";
-import { nintendoPlatformLabel, nintendoStoreUrl, type NintendoGameDetail } from "@/lib/nintendo";
-import { MetaStat, MetaStats, PriceTile, PriceTiles } from "@/components/HeroStats";
-import XboxOffers, { xboxPlatforms } from "@/components/XboxOffers";
+import { nintendoStoreUrl, type NintendoGameDetail } from "@/lib/nintendo";
+import {
+  microsoftPc, nintendoFor, psFor, VERSIONS, versionPath, versionsOf, xboxFor, type Version,
+} from "@/lib/versions";
 import FallbackImg from "@/components/FallbackImg";
 import GameMedia from "./GameMedia";
-import PlatformTabs, { type PlatformPanel } from "./PlatformTabs";
 import PlayersChart from "./PlayersChart";
 import PriceChart from "./PriceChart";
 import TimeAgo from "./TimeAgo";
 
-// The shared game page: one game across Steam (and the PC stores ITAD tracks), the
-// PlayStation Store, the Xbox Store and the Nintendo eShop, one tab per platform.
-// Store data comes through each store's own helpers (lib/titles.ts → getTitleBundle).
+// One version of a shared game (PC, PS5, PS4, Xbox Series, Xbox One, Switch 2, Switch):
+// its own URL (lib/versions.ts), hero and offers, with links to the game's other versions
+// above the hero. Store data comes through each store's helpers (lib/titles.ts).
 
 const BASE_URL = "https://pikorafy.com";
 
@@ -47,233 +47,270 @@ interface Offer {
   sponsored?: boolean;
 }
 
-interface PlatformBest { key: string; label: string; price: number | null; free: boolean; currency: string; store: string; url: string | null; discount: number | null }
-
-/** Lowest current price per platform, for the hero tiles and the tab labels. */
-function platformBests(b: TitleBundle, pc: GamePrice[]): PlatformBest[] {
-  const out: PlatformBest[] = [];
-  if (b.steam || pc.length) {
-    const p = pc[0];
-    out.push({ key: "pc", label: "PC", price: p?.price ?? null, free: !!b.steam?.is_free && !p, currency: p?.currency ?? "EUR", store: p?.store ?? "Steam", url: p?.url ?? null, discount: p?.discount_pct ?? null });
-  }
-  const cheapest = <T extends { price: number | null; is_free: boolean }>(xs: T[]) =>
-    xs.filter((x) => x.price !== null || x.is_free).sort((a, c) => (a.is_free ? 0 : a.price!) - (c.is_free ? 0 : c.price!))[0];
-  if (b.playstation.length) {
-    const p = cheapest(b.playstation) ?? b.playstation[0];
-    out.push({ key: "playstation", label: "PlayStation", price: p.price, free: p.is_free, currency: p.currency ?? "EUR", store: "PlayStation Store", url: psStoreUrl(p), discount: p.discount_pct });
-  }
-  if (b.xbox) {
-    const p = cheapest(b.xboxEditions) ?? b.xbox;
-    out.push({ key: "xbox", label: "Xbox", price: p.price, free: p.is_free, currency: p.currency ?? "EUR", store: "Xbox Store", url: p.store_url, discount: p.discount_pct });
-  }
-  if (b.nintendo.length) {
-    const p = cheapest(b.nintendo) ?? b.nintendo[0];
-    out.push({ key: "switch", label: "Switch", price: p.price, free: p.is_free, currency: p.currency ?? "EUR", store: "Nintendo eShop", url: nintendoStoreUrl(p), discount: p.discount_pct });
-  }
-  return out;
+interface VersionData {
+  version: Version;
+  official: Offer[];
+  keyshops: Offer[];
+  subscriptions: string[];
+  editions: string[];
+  art: string[];
+  store: { label: string; url: string } | null;
+  footer: string | null;
+  release: string | null;
+  media: { trailers: SteamTrailer[]; screenshots: SteamScreenshot[] };
 }
 
-/** Wide art, sharpest official source first: Steam, PlayStation, Xbox, Nintendo, then IGDB. */
-function wideArt(b: TitleBundle): string[] {
-  const ps = b.playstation[0];
-  const nin = b.nintendo[0];
+const cheapest = (offers: Offer[]) =>
+  offers.filter((o) => o.price !== null || o.free).sort((a, b) => (a.free ? 0 : a.price!) - (b.free ? 0 : b.price!))[0];
+const uniq = <T,>(xs: T[]) => [...new Set(xs)];
+const artOf = (k: KeyArt | null | undefined) => (k ? [k.src, ...k.fallbacks] : []);
+
+function igdbArt(b: TitleBundle): string[] {
   return [
-    ...(b.steam?.key_art ? [b.steam.key_art.src, ...b.steam.key_art.fallbacks] : []),
-    ...(ps?.key_art ? [ps.key_art.src, ...ps.key_art.fallbacks] : []),
-    ...(b.xbox?.key_art ? [b.xbox.key_art.src, ...b.xbox.key_art.fallbacks] : []),
-    ...(nin?.key_art ? [nin.key_art.src, ...nin.key_art.fallbacks] : []),
     ...(b.title.art_id ? [igdbImage(b.title.art_id, "t_1080p")] : []),
     ...(b.title.cover_id ? [igdbImage(b.title.cover_id, "t_1080p")] : []),
-  ].filter((u, i, all) => !!u && all.indexOf(u) === i);
+  ];
 }
 
-/** Trailers and screenshots from the richest store: Steam, then Xbox, then PlayStation. */
-function media(b: TitleBundle): { trailers: SteamTrailer[]; screenshots: SteamScreenshot[]; source: { label: string; url: string } } {
-  if (b.steam && (b.steam.trailers.length || b.steam.screenshots.length)) {
-    return { trailers: b.steam.trailers, screenshots: b.steam.screenshots, source: { label: "Steam", url: `https://store.steampowered.com/app/${b.steam.steam_app_id}/` } };
+/** Everything one version's page shows. */
+function versionData(b: TitleBundle, v: Version, pcPrices: GamePrice[], subNames: Map<string, string>): VersionData {
+  const name = b.title.name;
+  switch (v) {
+    case "pc": {
+      const ms = microsoftPc(b);
+      return {
+        version: v,
+        official: [...pcOffers(pcPrices), ...ms.map((x) => xboxOffer(x, name, "Microsoft Store", "MS"))],
+        keyshops: [{
+          key: "instant-gaming", store: "Instant Gaming", logo: "IG", meta: "Steam keys · often below Steam", price: null, free: false,
+          currency: "EUR", regular: null, discount: null, url: instantGaming(name), note: "See current price", sponsored: true,
+        }],
+        subscriptions: subscriptionLabels(ms, subNames),
+        editions: [],
+        art: uniq([...artOf(b.steam?.key_art), ...artOf(b.xbox?.key_art), ...igdbArt(b)]),
+        store: b.steam ? { label: "View on Steam", url: `https://store.steampowered.com/app/${b.steam.steam_app_id}/` } : ms[0]?.store_url ? { label: "View on Microsoft Store", url: ms[0].store_url } : null,
+        footer: b.steam?.is_free ? `${name} is free to play on Steam. Offers above, if any, are for paid editions or bundles.` : null,
+        release: b.steam?.release_date ?? b.title.first_release,
+        media: b.steam ? { trailers: b.steam.trailers, screenshots: b.steam.screenshots } : xboxMedia(b),
+      };
+    }
+    case "ps5": case "ps4": {
+      const games = psFor(b, v);
+      const plus = uniq(games.map((g) => g.plus_tier).filter((t): t is string => !!t).map((t) => PLUS_TIER_LABEL[t] ?? "PS Plus"));
+      return {
+        version: v,
+        official: games.map(psOffer),
+        keyshops: [],
+        subscriptions: plus,
+        editions: uniq(games.map((g) => g.store_name ?? g.title)),
+        art: uniq([...games.flatMap((g) => artOf(g.key_art)), ...artOf(b.steam?.key_art), ...igdbArt(b)]),
+        store: games[0] ? { label: "View on PlayStation Store", url: psStoreUrl(games[0]) } : null,
+        footer: psFooter(games),
+        release: games[0]?.release_date ?? b.title.first_release,
+        media: { trailers: [], screenshots: games[0]?.screenshots ?? [] },
+      };
+    }
+    case "xbs": case "xb1": {
+      const products = xboxFor(b, v);
+      const main = products.find((x) => x.is_primary) ?? products[0];
+      return {
+        version: v,
+        official: products.map((x) => xboxOffer(x, name, "Xbox Store", "XBX")),
+        keyshops: [],
+        subscriptions: subscriptionLabels(products, subNames),
+        editions: uniq(products.map((x) => cleanXboxTitle(x.title))),
+        art: uniq([...artOf(b.xbox?.key_art), ...products.flatMap((x) => [x.hero_art, x.box_art].filter((u): u is string => !!u).map((u) => `${u}?w=1600`)), ...igdbArt(b)]),
+        store: main?.store_url ? { label: "View on Microsoft Store", url: main.store_url } : null,
+        footer: "Prices from the Spanish Xbox Store.",
+        release: b.xbox?.release_date ?? b.title.first_release,
+        media: xboxMedia(b),
+      };
+    }
+    case "nsw2": case "nsw": {
+      const games = nintendoFor(b, v);
+      const url = games[0] ? nintendoStoreUrl(games[0]) : null;
+      return {
+        version: v,
+        official: games.map(nintendoOffer),
+        keyshops: [],
+        subscriptions: [],
+        editions: uniq(games.map((g) => g.title)),
+        art: uniq([...games.flatMap((g) => artOf(g.key_art)), ...igdbArt(b)]),
+        store: url ? { label: "View on Nintendo eShop", url } : null,
+        footer: nintendoFooter(games),
+        release: games[0]?.release_date ?? b.title.first_release,
+        media: { trailers: [], screenshots: [] },
+      };
+    }
   }
-  if (b.xbox && (b.xbox.trailers.length || b.xbox.screenshots.length)) {
-    const x = b.xbox;
-    return {
-      trailers: x.trailers.map((t, i) => {
-        const thumb = t.thumb ?? x.hero_art ?? x.box_art ?? "";
-        return { id: i + 1, name: t.name, hls: t.hls, thumb: thumb ? `${thumb}?w=1280` : "" };
-      }),
-      screenshots: x.screenshots.map((url) => ({ thumb: `${url}?w=400`, full: `${url}?w=1920` })),
-      source: { label: "Xbox", url: x.store_url ?? "https://www.xbox.com" },
-    };
-  }
-  const ps = b.playstation[0];
-  if (ps) return { trailers: [], screenshots: ps.screenshots, source: { label: "PlayStation Store", url: psStoreUrl(ps) } };
-  const nin = b.nintendo[0];
-  return { trailers: [], screenshots: [], source: { label: nin ? "Nintendo" : "IGDB", url: (nin && nintendoStoreUrl(nin)) ?? `https://www.igdb.com/games/${b.title.slug}` } };
 }
 
-export function titleMetadata(b: TitleBundle, pc: GamePrice[], indexable: boolean): Metadata {
-  const bests = platformBests(b, pc);
-  const platforms = bests.map((p) => (p.key === "playstation" ? "PS5" : p.label));
-  const priced = bests.filter((p) => p.price !== null).sort((a, c) => a.price! - c.price!);
-  const description =
-    `${b.title.name} on ${listOf(bests.map((p) => p.label))}` +
-    (priced[0] ? `: from ${money(priced[0].price!, priced[0].currency)} on the ${priced[0].store} right now. ` : ". ") +
-    `Compare store prices${bests.length > 1 ? " across platforms" : ""}, deals and price history.`;
-  const image = wideArt(b)[0];
-  const images = image ? [{ url: image }] : undefined;
+function xboxMedia(b: TitleBundle): VersionData["media"] {
+  const x = b.xbox;
+  if (!x) return { trailers: [], screenshots: [] };
   return {
-    title: `${b.title.name}: Best Price on ${listOf(platforms)}`,
-    description,
-    alternates: { canonical: `/game/${b.title.slug}` },
-    // As before: only pages carrying our own written analysis are indexed.
-    robots: indexable ? undefined : { index: false, follow: true },
-    openGraph: { title: `${b.title.name} — best price today`, description, url: `${BASE_URL}/game/${b.title.slug}`, images },
-    twitter: { title: `${b.title.name} — best price today`, description, images },
+    trailers: x.trailers.map((t, i) => {
+      const thumb = t.thumb ?? x.hero_art ?? x.box_art ?? "";
+      return { id: i + 1, name: t.name, hls: t.hls, thumb: thumb ? `${thumb}?w=1280` : "" };
+    }),
+    screenshots: x.screenshots.map((url) => ({ thumb: `${url}?w=400`, full: `${url}?w=1920` })),
   };
 }
 
-export default async function TitlePage({ bundle: b }: { bundle: TitleBundle }) {
+// ─── Page data and metadata ──────────────────────────────────────────────────
+
+export async function loadVersionPage(b: TitleBundle) {
+  const pcPrices = b.steam ? await getGamePrices(b.steam.steam_app_id) : [];
+  const subNames = await getSubscriptionNames();
+  const versions = versionsOf(b);
+  const data = new Map(versions.map((v) => [v, versionData(b, v, pcPrices, subNames)]));
+  return { versions, data, pcPrices };
+}
+
+export function versionMetadata(b: TitleBundle, version: Version, d: VersionData, versions: Version[], indexable: boolean): Metadata {
+  const long = VERSIONS[version].long;
+  const best = cheapest([...d.official, ...d.keyshops]);
+  const description =
+    `${b.title.name} for ${long}` +
+    (best && best.price !== null ? `: ${money(best.price, best.currency)} at ${best.store} right now${best.discount ? ` (-${best.discount}%)` : ""}. ` : ". ") +
+    `Compare ${long} prices from official stores${d.keyshops.length ? " and keyshops" : ""}, deals and price history.`;
+  const path = versionPath(b.title.slug, version, versions);
+  const images = d.art[0] ? [{ url: d.art[0] }] : undefined;
+  return {
+    title: `${b.title.name} ${VERSIONS[version].label}: Best Price & Deals`,
+    description,
+    alternates: { canonical: path },
+    // As before: only pages carrying our own written analysis are indexed.
+    robots: indexable ? undefined : { index: false, follow: true },
+    openGraph: { title: `${b.title.name} (${long}) — best price today`, description, url: `${BASE_URL}${path}`, images },
+    twitter: { title: `${b.title.name} (${long}) — best price today`, description, images },
+  };
+}
+
+// ─── Page ────────────────────────────────────────────────────────────────────
+
+export default async function TitlePage({ bundle: b, version }: { bundle: TitleBundle; version: Version }) {
+  const { versions, data, pcPrices } = await loadVersionPage(b);
+  const d = data.get(version)!;
   const steam = b.steam;
-  const pcPrices = steam ? await getGamePrices(steam.steam_app_id) : [];
+  const onPc = version === "pc" && !!steam;
   const currency = pcPrices[0]?.currency ?? "EUR";
-  const [history, content, related, players, ttb, subNames] = await Promise.all([
-    steam ? getPriceHistory(steam.steam_app_id, currency) : Promise.resolve([]),
+  const [history, content, related, players, ttb] = await Promise.all([
+    onPc ? getPriceHistory(steam.steam_app_id, currency) : Promise.resolve([]),
     steam ? getGameContent(steam.steam_app_id, "en") : Promise.resolve(null),
-    steam ? getRelatedGames(steam, 6) : Promise.resolve([]),
-    steam ? getPlayerHistory(steam.steam_app_id) : Promise.resolve([]),
+    onPc ? getRelatedGames(steam, 6) : Promise.resolve([]),
+    onPc ? getPlayerHistory(steam.steam_app_id) : Promise.resolve([]),
     steam ? getTimeToBeat(steam.steam_app_id) : Promise.resolve(null),
-    getSubscriptionNames(),
   ]);
 
   const name = b.title.name;
-  const bests = platformBests(b, pcPrices);
-  const priced = bests.filter((p) => p.price !== null).sort((a, c) => a.price! - c.price!);
-  const overall = priced[0];
-  const art = wideArt(b);
-  const m = media(b);
+  const info = VERSIONS[version];
+  const bestOfficial = cheapest(d.official);
+  const bestKeyshop = cheapest(d.keyshops);
+  const best = cheapest([...d.official, ...d.keyshops]);
   const genres = b.title.genres.length ? b.title.genres : steam?.genres ?? [];
   const summary = b.title.summary ?? steam?.steam_description ?? b.xbox?.short_description ?? null;
-  const instantGamingUrl = `https://www.instant-gaming.com/en/search/?q=${encodeURIComponent(name)}&igr=pikorafy`;
-  const pcLow = history.length ? Math.min(...history.map((h) => h.price)) : null;
-
-  const panels: PlatformPanel[] = [];
-  if (bests.some((p) => p.key === "pc")) {
-    panels.push({ key: "pc", label: "PC", note: noteFor(bests.find((p) => p.key === "pc")!), content: (
-      <>
-        <OfferGroup title="Official stores" offers={pcOffers(pcPrices)} empty={`No PC store lists ${name} right now.`} />
-        <OfferGroup title="Keyshops" offers={[{
-          key: "instant-gaming", store: "Instant Gaming", logo: "IG", meta: "Steam keys · often below Steam", price: null, free: false,
-          currency: "EUR", regular: null, discount: null, url: instantGamingUrl, note: "See current price", sponsored: true,
-        }]} />
-        {steam?.is_free && <p style={{ color: "var(--text-2)" }}>{name} is free to play on Steam. Offers above, if any, are for paid editions or bundles.</p>}
-      </>
-    ) });
-  }
-  if (b.playstation.length) {
-    const best = bests.find((p) => p.key === "playstation")!;
-    panels.push({ key: "playstation", label: "PlayStation", note: noteFor(best), content: <OfferGroup title="Official store" offers={b.playstation.map(psOffer)} footer={psFooter(b.playstation)} /> });
-  }
-  if (b.xbox) {
-    const best = bests.find((p) => p.key === "xbox")!;
-    panels.push({ key: "xbox", label: "Xbox", note: noteFor(best), content: <XboxOffers name={name} products={b.xboxEditions} included={subscriptionLabels(b.xboxEditions, subNames)} first /> });
-  }
-  if (b.nintendo.length) {
-    const best = bests.find((p) => p.key === "switch")!;
-    panels.push({ key: "switch", label: "Switch", note: noteFor(best), content: <OfferGroup title="Official store" offers={b.nintendo.map(nintendoOffer)} footer={nintendoFooter(b.nintendo)} /> });
-  }
 
   return (
     <>
       <script
         type="application/ld+json"
         // JSON-LD must be inline; escape "<" so names can't close the script tag.
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd(b, bests, art[0])).replace(/</g, "\\u003c") }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd(b, version, d, versions)).replace(/</g, "\\u003c") }}
       />
 
-      {/* ─── Hero: media on the left, title / prices / buy on the right ── */}
-      <section className="detail-hero media-hero">
-        {art.length > 0 && (
-          <div className="bg">
-            <FallbackImg srcs={art} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      {/* ─── Hero ─────────────────────────────────────────────────────── */}
+      <section className="vp-hero-wrap">
+        {d.art.length > 0 && (
+          <div className="vp-bg" aria-hidden>
+            <FallbackImg srcs={d.art} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           </div>
         )}
-        <div className="scrim" />
-        <div className="shell inner">
-          <div>
-            <GameMedia
-              name={name}
-              source={m.source}
-              keyArt={art.length ? { src: art[0], fallbacks: art.slice(1) } : null}
-              trailers={m.trailers}
-              screenshots={m.screenshots}
-              inHero
-            />
+        <div className="shell vp-inner">
+          <div className="crumbs vp-crumbs">
+            <Link href="/">Home</Link> / <Link href="/games">Games</Link> / <span>{name}</span>
           </div>
-          <div className="hero-info">
-            <div className="crumbs">
-              <Link href="/">Home</Link> / <Link href="/games">Games</Link> / <span style={{ color: "var(--text)" }}>{name}</span>
-            </div>
-            <h1>{name}</h1>
-            <p className="tagline">
-              On {listOf(bests.map((p) => p.label))}.
-              {overall ? ` Best price right now: ${money(overall.price!, overall.currency)} on the ${overall.store}${overall.discount ? ` (-${overall.discount}%)` : ""}.` : ""}
-            </p>
-            {bests.length > 0 && (
-              <PriceTiles>
-                {bests.map((p) => (
-                  <PriceTile
-                    key={p.key}
-                    label={`${p.label} · ${p.store}`}
-                    value={p.free ? "Free" : p.price !== null ? money(p.price, p.currency) : "—"}
-                    tone={p.free ? LOW_TONE : p.price !== null ? priceTone(p.price, p.key === "pc" ? pcLow : null, null, p.discount) : undefined}
-                    badge={p.discount ? `-${p.discount}%` : undefined}
-                  />
-                ))}
-              </PriceTiles>
-            )}
-            <HeroStats b={b} />
-            <div className="hero-buttons">
-              {overall?.url && (
-                <a href={overall.url} target="_blank" rel="noopener noreferrer" className="btn btn-primary">
-                  Buy on the {overall.store} for {money(overall.price!, overall.currency)} →
-                </a>
-              )}
-              {bests.some((p) => p.key === "pc") && (
-                <a href={instantGamingUrl} target="_blank" rel="noopener noreferrer sponsored" className="btn btn-ghost">Check Instant Gaming →</a>
+
+          {/* Versions: each its own page, with its best price. */}
+          {versions.length > 1 && (
+            <nav className="vp-versions" aria-label="Versions">
+              {versions.map((v) => {
+                const vb = cheapest([...data.get(v)!.official, ...data.get(v)!.keyshops]);
+                return (
+                  <Link key={v} href={versionPath(b.title.slug, v, versions)} className={`vp-version fam-${VERSIONS[v].family}`}
+                    aria-current={v === version ? "page" : undefined}>
+                    <span className="vp-version-label">{VERSIONS[v].label}</span>
+                    <span className="vp-version-price">{vb ? (vb.free ? "Free" : money(vb.price!, vb.currency)) : "—"}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          )}
+
+          <div className={`vp-hero fam-${info.family}`}>
+            <div className="vp-cover">
+              {d.art.length > 0
+                ? <FallbackImg srcs={d.art} alt={name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                : <div className="vp-cover-empty">{name}</div>}
+              <span className="vp-badge">{info.label}</span>
+              {d.store && (
+                <a href={d.store.url} target="_blank" rel="noopener noreferrer" className="vp-cover-link">{d.store.label} ↗</a>
               )}
             </div>
-            {summary && !content?.summary && (
-              <figure style={{ margin: "22px 0 0" }}>
-                <blockquote style={{ margin: 0, color: "var(--text-2)", fontSize: 14, lineHeight: 1.65, whiteSpace: "pre-line" }}>
-                  {clip(summary, 420)}
-                </blockquote>
-                <figcaption style={{ fontFamily: "var(--ff-mono)", fontSize: 10, color: "var(--text-3)", marginTop: 8, letterSpacing: "0.12em", textTransform: "uppercase" }}>
-                  {b.title.summary ? "Summary from IGDB" : steam?.steam_description ? "From the Steam store page" : "From the Xbox Store page"}
-                </figcaption>
-              </figure>
-            )}
-            <div className="tag-row" style={{ marginTop: 18 }}>
-              {[...genres, ...bests.map((p) => p.label)].map((tag) => <span key={tag} className="t">{tag}</span>)}
+
+            <div className="vp-main">
+              <h1>{name} <span className="vp-h1-version">{info.long}</span></h1>
+              {d.editions.length > 1 && (
+                <div className="vp-editions">
+                  <span>Editions:</span>
+                  {d.editions.slice(0, 5).map((e) => <span key={e} className="vp-edition">{editionLabel(e, name)}</span>)}
+                </div>
+              )}
+              <p className="vp-lede">{heroLine(name, info.long, d, best)}</p>
+              <div className="hero-buttons">
+                {best?.url && best.price !== null && (
+                  <a href={best.url} target="_blank" rel={`noopener noreferrer${best.sponsored ? " sponsored" : ""}`} className="btn btn-primary">
+                    Buy at {best.store} for {money(best.price, best.currency)} →
+                  </a>
+                )}
+                {version === "pc" && (
+                  <a href={instantGaming(name)} target="_blank" rel="noopener noreferrer sponsored" className="btn btn-ghost">Check Instant Gaming →</a>
+                )}
+              </div>
             </div>
+
+            <aside className="vp-prices" aria-label="Current prices">
+              <div className="vp-prices-hd">Current prices</div>
+              <div className="vp-price-grid">
+                <PriceCell label="Official stores" offer={bestOfficial} />
+                <PriceCell label="Keyshops" offer={bestKeyshop} link={version === "pc" ? instantGaming(name) : undefined} />
+              </div>
+              <div className="vp-subs">
+                <span>Subscriptions:</span>{" "}
+                {d.subscriptions.length ? d.subscriptions.join(", ") : <span className="vp-dim">—</span>}
+              </div>
+            </aside>
           </div>
         </div>
       </section>
 
-      {/* ─── Detail grid ──────────────────────────────────────────────── */}
+      {/* ─── Offers + side column ─────────────────────────────────────── */}
       <div className="shell detail-grid">
         <div>
-          <div className="section-hd" style={{ marginBottom: 16 }}>
-            <div>
-              <div className="eyebrow">Current offers · {bests.length} platform{bests.length === 1 ? "" : "s"} · prices in EUR</div>
-              <h2 className="h2" style={{ fontSize: "clamp(24px,4vw,32px)" }}>Where to buy {name}</h2>
-            </div>
-          </div>
-          {panels.length ? <PlatformTabs panels={panels} /> : <p style={{ color: "var(--text-2)" }}>No store lists {name} right now.</p>}
+          <OfferGroup title={`Official stores · ${info.long}`} offers={d.official} empty={`No official store lists ${name} for ${info.long} right now.`} footer={d.footer} />
+          {d.keyshops.length > 0 && <OfferGroup title="Keyshops" offers={d.keyshops} />}
           <p style={{ fontSize: 12, color: "var(--text-3)", marginTop: 14 }}>{AFFILIATE_DISCLOSURE_SHORT}</p>
 
           <div className="detail-prose" style={{ marginTop: 32 }}>
-            {content?.summary && (
+            {content?.summary ? (
               <>
                 <h3>What is {name}?</h3>
                 {content.summary.split(/\n{2,}/).map((para, i) => <p key={i}>{para}</p>)}
+              </>
+            ) : summary && (
+              <>
+                <h3>About {name}</h3>
+                <p style={{ whiteSpace: "pre-line" }}>{summary}</p>
               </>
             )}
             {content?.verdict && (
@@ -285,9 +322,32 @@ export default async function TitlePage({ bundle: b }: { bundle: TitleBundle }) 
           </div>
         </div>
 
-        {/* Aside */}
         <aside style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {steam && (
+          {(d.art.length > 0 || d.media.trailers.length > 0 || d.media.screenshots.length > 0) && (
+            <div className="aside-card vp-media">
+              <GameMedia
+                name={name}
+                source={d.store ? { label: d.store.label.replace(/^View on /, ""), url: d.store.url } : { label: "IGDB", url: `https://www.igdb.com/games/${b.title.slug}` }}
+                keyArt={d.art.length ? { src: d.art[0], fallbacks: d.art.slice(1) } : null}
+                trailers={d.media.trailers}
+                screenshots={d.media.screenshots}
+              />
+            </div>
+          )}
+
+          <div className="aside-card">
+            <h4>Game info</h4>
+            <dl style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "8px 16px", margin: 0, fontSize: 13 }}>
+              <InfoRow label="Released" value={d.release ? longDate(d.release) : ""} />
+              <InfoRow label="Platform" value={info.long} />
+              <InfoRow label="Also on" value={versions.filter((v) => v !== version).map((v) => VERSIONS[v].label).join(", ")} />
+              <InfoRow label="Developer" value={steam?.developers.join(", ") || b.xbox?.developer || b.nintendo[0]?.developer || ""} />
+              <InfoRow label="Publisher" value={steam?.publishers.join(", ") || b.xbox?.publisher || b.playstation[0]?.publisher || b.nintendo[0]?.publisher || ""} />
+              <InfoRow label="Genre" value={genres.join(", ")} />
+            </dl>
+          </div>
+
+          {onPc && (
             <div className="aside-card">
               <h4>PC price history</h4>
               {history.length >= 2 ? (
@@ -305,7 +365,7 @@ export default async function TitlePage({ bundle: b }: { bundle: TitleBundle }) 
             </div>
           )}
 
-          {steam && steam.current_players !== null && (
+          {onPc && steam.current_players !== null && (
             <div className="aside-card">
               <h4>Players on Steam</h4>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12 }}>
@@ -330,22 +390,6 @@ export default async function TitlePage({ bundle: b }: { bundle: TitleBundle }) 
               </p>
             </div>
           )}
-
-          <div className="aside-card">
-            <h4>Game info</h4>
-            <dl style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "8px 16px", margin: 0, fontSize: 13 }}>
-              <InfoRow label="Developer" value={steam?.developers.join(", ") || b.xbox?.developer || b.nintendo[0]?.developer || ""} />
-              <InfoRow label="Publisher" value={steam?.publishers.join(", ") || b.xbox?.publisher || b.playstation[0]?.publisher || b.nintendo[0]?.publisher || ""} />
-              <InfoRow label="Released" value={(b.title.first_release ?? steam?.release_date) ? longDate((b.title.first_release ?? steam?.release_date)!) : ""} />
-              <InfoRow label="Platforms" value={platformNames(b).join(", ")} />
-              <InfoRow label="Genre" value={genres.join(", ")} />
-            </dl>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 16 }}>
-              {storeLinks(b).map((s) => (
-                <a key={s.label} href={s.url} target="_blank" rel="noopener noreferrer" className="btn btn-ghost" style={{ justifyContent: "center" }}>{s.label} →</a>
-              ))}
-            </div>
-          </div>
 
           {related.length > 0 && (
             <div className="aside-card">
@@ -379,6 +423,16 @@ function pcOffers(prices: GamePrice[]): Offer[] {
   }));
 }
 
+function xboxOffer(x: XboxGame, name: string, store: string, logo: string): Offer {
+  const edition = cleanXboxTitle(x.title);
+  return {
+    key: `xbox-${x.product_id}`, store, logo,
+    meta: edition.toLowerCase() !== name.toLowerCase() ? edition : "Standard edition",
+    price: x.price, free: x.is_free, currency: x.currency ?? "EUR", regular: x.regular_price, discount: x.discount_pct, url: x.store_url,
+    note: x.price === null && !x.is_free ? "See the store" : undefined,
+  };
+}
+
 function psOffer(g: PsGameDetail): Offer {
   const plus = g.plus_tier ? PLUS_TIER_LABEL[g.plus_tier] ?? "PS Plus" : null;
   return {
@@ -389,8 +443,9 @@ function psOffer(g: PsGameDetail): Offer {
   };
 }
 
-function psFooter(games: PsGameDetail[]): string {
+function psFooter(games: PsGameDetail[]): string | null {
   const g = games[0];
+  if (!g) return null;
   const plus = g.plus_tier ? PLUS_TIER_LABEL[g.plus_tier] ?? "PS Plus" : null;
   return [
     "Prices from the Spanish PlayStation Store.",
@@ -404,7 +459,7 @@ function psFooter(games: PsGameDetail[]): string {
 function nintendoOffer(g: NintendoGameDetail): Offer {
   return {
     key: `ns-${g.nsuid}`, store: "Nintendo eShop", logo: "NS",
-    meta: <><span className="plat">{g.platforms.map(nintendoPlatformLabel).join(" / ")}</span> · Digital · Spain</>,
+    meta: <>{g.title} · Digital · Spain</>,
     price: g.price, free: g.is_free, currency: g.currency ?? "EUR", regular: g.regular_price, discount: g.discount_pct, url: nintendoStoreUrl(g),
     note: g.sales_status === "preorder" ? "Pre-order" : g.sales_status === "unreleased" ? "Coming soon" : g.price === null ? "See the store" : undefined,
   };
@@ -415,13 +470,13 @@ function nintendoFooter(games: NintendoGameDetail[]): string {
   return `Prices from the Spanish eShop, checked every six hours.${g ? ` This discount ends ${longDate(g.discount_ends_at!)}.` : ""}`;
 }
 
-/** One offers table ("Official stores", "Keyshops"…), cheapest first. */
-function OfferGroup({ title, offers, empty, footer }: { title: string; offers: Offer[]; empty?: string; footer?: string }) {
+/** One offers table, cheapest first. */
+function OfferGroup({ title, offers, empty, footer }: { title: string; offers: Offer[]; empty?: string; footer?: string | null }) {
   const sorted = [...offers].sort((a, c) => (a.price === null ? 1 : 0) - (c.price === null ? 1 : 0) || (a.price ?? 0) - (c.price ?? 0));
-  const cheapest = sorted[0];
+  const first = sorted[0];
   return (
     <section className="offer-group">
-      <h3 className="offer-group-title">{title}</h3>
+      <h2 className="offer-group-title">{title}</h2>
       {sorted.length === 0 ? (
         <p style={{ color: "var(--text-2)", margin: 0 }}>{empty ?? "Nothing listed right now."}</p>
       ) : (
@@ -447,7 +502,7 @@ function OfferGroup({ title, offers, empty, footer }: { title: string; offers: O
               <div className="price-cell">
                 <div className="pp">{o.free ? "Free" : o.price !== null ? money(o.price, o.currency) : "—"}</div>
                 <div className="pf">
-                  {o.note ?? (i === 0 ? "↓ cheapest right now" : cheapest.price !== null && o.price !== null ? `+${money(o.price - cheapest.price, o.currency)} vs cheapest` : "")}
+                  {o.note ?? (i === 0 ? "↓ cheapest right now" : first.price !== null && o.price !== null ? `+${money(o.price - first.price, o.currency)} vs cheapest` : "")}
                 </div>
               </div>
               <div className="price-cell"><div className="pf" style={{ fontSize: 13 }}>{o.regular ? money(o.regular, o.currency) : "—"}</div></div>
@@ -468,16 +523,25 @@ function OfferGroup({ title, offers, empty, footer }: { title: string; offers: O
 
 // ─── Pieces ──────────────────────────────────────────────────────────────────
 
-function HeroStats({ b }: { b: TitleBundle }) {
-  const stats: { value: string; label: string }[] = [];
-  if (b.steam?.current_players != null) stats.push({ value: compact(b.steam.current_players), label: "Playing now on Steam" });
-  if (b.steam?.review_score_pct != null) stats.push({ value: `${b.steam.review_score_pct}%`, label: "Positive on Steam" });
-  const ps = b.playstation.find((g) => g.star_rating !== null);
-  if (ps) stats.push({ value: `${ps.star_rating!.toFixed(1)}★`, label: "PS Store rating" });
-  if (b.xbox?.rating != null && (b.xbox.rating_count ?? 0) > 0) stats.push({ value: `★ ${b.xbox.rating.toFixed(1)}`, label: "Xbox rating" });
-  if (b.steam?.metacritic != null) stats.push({ value: String(b.steam.metacritic), label: "Metacritic" });
-  if (!stats.length) return null;
-  return <MetaStats>{stats.slice(0, 3).map((s) => <MetaStat key={s.label} value={s.value} label={s.label} />)}</MetaStats>;
+function PriceCell({ label, offer, link }: { label: string; offer: Offer | undefined; link?: string }) {
+  return (
+    <div className="vp-price">
+      <div className="vp-price-label">{label}</div>
+      {offer ? (
+        <>
+          <div className="vp-price-value">{offer.free ? "Free" : money(offer.price!, offer.currency)}</div>
+          <div className="vp-price-meta">
+            {offer.discount ? <span className="vp-disc">-{offer.discount}%</span> : null}
+            <span>{offer.store}</span>
+          </div>
+        </>
+      ) : link ? (
+        <a href={link} target="_blank" rel="noopener noreferrer sponsored" className="vp-price-check">Check prices →</a>
+      ) : (
+        <div className="vp-price-value vp-dim">—</div>
+      )}
+    </div>
+  );
 }
 
 function MiniStat({ value, label }: { value: string; label: string }) {
@@ -499,41 +563,40 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function platformNames(b: TitleBundle): string[] {
-  const out: string[] = [];
-  if (b.steam) out.push("PC");
-  for (const g of b.playstation) out.push(...g.platforms);
-  if (b.xbox) out.push(...xboxPlatforms(b.xboxEditions, !b.steam));
-  for (const g of b.nintendo) out.push(...g.platforms.map(nintendoPlatformLabel));
-  return [...new Set(out)];
+/** "Deluxe Edition" rather than the full store title, when the game's name is a prefix of it. */
+function editionLabel(edition: string, name: string): string {
+  const e = edition.replace(/[™®]/g, "").trim();
+  const n = name.replace(/[™®]/g, "").trim();
+  if (e.toLowerCase() === n.toLowerCase()) return "Standard";
+  if (e.toLowerCase().startsWith(n.toLowerCase())) return e.slice(n.length).replace(/^[\s:–—-]+/, "") || "Standard";
+  return e;
 }
 
-function storeLinks(b: TitleBundle): { label: string; url: string }[] {
-  const out: { label: string; url: string }[] = [];
-  if (b.steam) out.push({ label: "View on Steam", url: `https://store.steampowered.com/app/${b.steam.steam_app_id}/` });
-  if (b.playstation[0]) out.push({ label: "View on the PlayStation Store", url: psStoreUrl(b.playstation[0]) });
-  if (b.xbox?.store_url) out.push({ label: "View on the Xbox Store", url: b.xbox.store_url });
-  const ns = b.nintendo[0] && nintendoStoreUrl(b.nintendo[0]);
-  if (ns) out.push({ label: "View on Nintendo.com", url: ns });
-  return out;
+function heroLine(name: string, long: string, d: VersionData, best: Offer | undefined): string {
+  const stores = uniq([...d.official, ...d.keyshops].map((o) => o.store));
+  if (!best || best.price === null && !best.free) {
+    return `We track ${name} for ${long}, but no store lists a price right now.${d.subscriptions.length ? ` It's included with ${d.subscriptions.join(" and ")}.` : ""}`;
+  }
+  const price = best.free ? "free" : `${money(best.price!, best.currency)} at ${best.store}${best.discount ? `, ${best.discount}% off` : ""}`;
+  return `${stores.length} store${stores.length === 1 ? "" : "s"} sell ${name} for ${long}. The best price right now is ${price}.` +
+    (d.subscriptions.length ? ` Also included with ${d.subscriptions.join(" and ")}.` : "");
 }
 
-function noteFor(p: PlatformBest): string | undefined {
-  if (p.free) return "Free";
-  return p.price !== null ? `from ${money(p.price, p.currency)}` : undefined;
+function instantGaming(name: string): string {
+  return `https://www.instant-gaming.com/en/search/?q=${encodeURIComponent(name)}&igr=pikorafy`;
 }
 
-function jsonLd(b: TitleBundle, bests: PlatformBest[], image: string | undefined) {
-  const prices = bests.filter((p) => p.price !== null).map((p) => p.price!);
+function jsonLd(b: TitleBundle, version: Version, d: VersionData, versions: Version[]) {
+  const prices = [...d.official, ...d.keyshops].filter((o) => o.price !== null).map((o) => o.price!);
   return {
     "@context": "https://schema.org",
     "@type": "VideoGame",
     name: b.title.name,
-    url: `${BASE_URL}/game/${b.title.slug}`,
-    image,
+    url: `${BASE_URL}${versionPath(b.title.slug, version, versions)}`,
+    image: d.art[0],
     genre: b.title.genres,
-    datePublished: b.title.first_release ?? undefined,
-    gamePlatform: platformNames(b),
+    datePublished: d.release ?? undefined,
+    gamePlatform: VERSIONS[version].long,
     offers: prices.length
       ? { "@type": "AggregateOffer", lowPrice: Math.min(...prices).toFixed(2), highPrice: Math.max(...prices).toFixed(2), priceCurrency: "EUR", offerCount: prices.length }
       : undefined,
@@ -546,25 +609,12 @@ function money(n: number, currency: string) {
   return new Intl.NumberFormat("en-IE", { style: "currency", currency }).format(n);
 }
 
-function compact(n: number) {
-  return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(n);
-}
-
 function longDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 }
 
 function shortDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
-}
-
-/** "PC, PlayStation and Xbox". */
-function listOf(xs: string[]): string {
-  return xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`;
-}
-
-function clip(s: string, n: number): string {
-  return s.length <= n ? s : `${s.slice(0, s.lastIndexOf(" ", n))}…`;
 }
 
 /** 45 min · 12 h · 33½ h (rounded to the half hour; whole hours from 50 h). */
