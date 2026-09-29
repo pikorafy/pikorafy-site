@@ -67,6 +67,22 @@ const cheapest = (offers: Offer[]) =>
 const uniq = <T,>(xs: T[]) => [...new Set(xs)];
 const artOf = (k: KeyArt | null | undefined) => (k ? [k.src, ...k.fallbacks] : []);
 
+/**
+ * The game's images, the same on every version page: Steam first, then the Xbox Store,
+ * PlayStation Store, Nintendo eShop and IGDB (each later one is a fallback if an image fails).
+ * Trailers and screenshots still come from each version's own store.
+ */
+function gameArt(b: TitleBundle): string[] {
+  const xboxArt = [b.xbox?.hero_art, b.xbox?.box_art].filter((u): u is string => !!u).map((u) => `${u}?w=1600`);
+  return uniq([
+    ...artOf(b.steam?.key_art),
+    ...artOf(b.xbox?.key_art), ...xboxArt,
+    ...b.playstation.flatMap((g) => artOf(g.key_art)),
+    ...b.nintendo.flatMap((g) => artOf(g.key_art)),
+    ...igdbArt(b),
+  ]);
+}
+
 function igdbArt(b: TitleBundle): string[] {
   return [
     ...(b.title.art_id ? [igdbImage(b.title.art_id, "t_1080p")] : []),
@@ -89,7 +105,7 @@ function versionData(b: TitleBundle, v: Version, pcPrices: GamePrice[], subNames
         }],
         subscriptions: subscriptionLabels(ms, subNames),
         editions: [],
-        art: uniq([...artOf(b.steam?.key_art), ...artOf(b.xbox?.key_art), ...igdbArt(b)]),
+        art: gameArt(b),
         store: b.steam ? { label: "View on Steam", url: `https://store.steampowered.com/app/${b.steam.steam_app_id}/` } : ms[0]?.store_url ? { label: "View on Microsoft Store", url: ms[0].store_url } : null,
         footer: b.steam?.is_free ? `${name} is free to play on Steam. Offers above, if any, are for paid editions or bundles.` : null,
         release: b.steam?.release_date ?? b.title.first_release,
@@ -105,7 +121,7 @@ function versionData(b: TitleBundle, v: Version, pcPrices: GamePrice[], subNames
         keyshops: [],
         subscriptions: plus,
         editions: uniq(games.map((g) => g.store_name ?? g.title)),
-        art: uniq([...games.flatMap((g) => artOf(g.key_art)), ...artOf(b.steam?.key_art), ...igdbArt(b)]),
+        art: gameArt(b),
         store: games[0] ? { label: "View on PlayStation Store", url: psStoreUrl(games[0]) } : null,
         footer: psFooter(games),
         release: games[0]?.release_date ?? b.title.first_release,
@@ -121,7 +137,7 @@ function versionData(b: TitleBundle, v: Version, pcPrices: GamePrice[], subNames
         keyshops: [],
         subscriptions: subscriptionLabels(products, subNames),
         editions: uniq(products.map((x) => cleanXboxTitle(x.title))),
-        art: uniq([...artOf(b.xbox?.key_art), ...products.flatMap((x) => [x.hero_art, x.box_art].filter((u): u is string => !!u).map((u) => `${u}?w=1600`)), ...igdbArt(b)]),
+        art: gameArt(b),
         store: main?.store_url ? { label: "View on Microsoft Store", url: main.store_url } : null,
         footer: "Prices from the Spanish Xbox Store.",
         release: b.xbox?.release_date ?? b.title.first_release,
@@ -137,7 +153,7 @@ function versionData(b: TitleBundle, v: Version, pcPrices: GamePrice[], subNames
         keyshops: [],
         subscriptions: [],
         editions: uniq(games.map((g) => g.title)),
-        art: uniq([...games.flatMap((g) => artOf(g.key_art)), ...igdbArt(b)]),
+        art: gameArt(b),
         store: url ? { label: "View on Nintendo eShop", url } : null,
         footer: nintendoFooter(games),
         release: games[0]?.release_date ?? b.title.first_release,
