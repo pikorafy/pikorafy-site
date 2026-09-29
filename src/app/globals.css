@@ -913,7 +913,7 @@ body::before {
 .vp-version-label { font-weight:600; letter-spacing:.06em; text-transform:uppercase; }
 .vp-version-label::after { content:"·"; margin:0 7px; opacity:.6; }
 .vp-version-price { font-weight:800; }
-.vp-hero { display:grid; grid-template-columns:minmax(0,1.7fr) minmax(320px,1fr); gap:36px; align-items:start; }
+.vp-hero { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:36px; align-items:start; }
 .vp-stage { min-width:0; }
 .vp-main { min-width:0; display:flex; flex-direction:column; }
 .vp-cover { position:relative; aspect-ratio:16/9; border-radius:var(--r-lg); overflow:hidden; background:var(--bg-3);
