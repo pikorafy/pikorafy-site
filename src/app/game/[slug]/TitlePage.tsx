@@ -211,6 +211,9 @@ export default async function TitlePage({ bundle: b, version }: { bundle: TitleB
   const genres = b.title.genres.length ? b.title.genres : steam?.genres ?? [];
   const summary = b.title.summary ?? steam?.steam_description ?? b.xbox?.short_description ?? null;
 
+  const hasMedia = d.art.length > 0 || d.media.trailers.length > 0 || d.media.screenshots.length > 0;
+  const mediaSource = d.store ? { label: d.store.label.replace(/^View on /, ""), url: d.store.url } : { label: "IGDB", url: `https://www.igdb.com/games/${b.title.slug}` };
+
   return (
     <>
       <script
@@ -231,35 +234,26 @@ export default async function TitlePage({ bundle: b, version }: { bundle: TitleB
             <Link href="/">Home</Link> / <Link href="/games">Games</Link> / <span>{name}</span>
           </div>
 
-          {/* Versions: each its own page, with its best price. */}
-          {versions.length > 1 && (
-            <nav className="vp-versions" aria-label="Versions">
-              {versions.map((v) => {
-                const vb = cheapest([...data.get(v)!.official, ...data.get(v)!.keyshops]);
-                return (
-                  <Link key={v} href={versionPath(b.title.slug, v, versions)} className={`vp-version fam-${VERSIONS[v].family}`}
-                    aria-current={v === version ? "page" : undefined}>
-                    <span className="vp-version-label">{VERSIONS[v].label}</span>
-                    <span className="vp-version-price">{vb ? (vb.free ? "Free" : money(vb.price!, vb.currency)) : "—"}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-          )}
-
           <div className={`vp-hero fam-${info.family}`}>
-            <div className="vp-cover">
-              {d.art.length > 0
-                ? <FallbackImg srcs={d.art} alt={name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                : <div className="vp-cover-empty">{name}</div>}
-              <span className="vp-badge">{info.label}</span>
-              {d.store && (
-                <a href={d.store.url} target="_blank" rel="noopener noreferrer" className="vp-cover-link">{d.store.label} ↗</a>
+            {/* Big media on the left: key art, trailers and screenshots when we have them. */}
+            <div className="vp-stage">
+              {hasMedia ? (
+                <GameMedia
+                  name={name}
+                  source={mediaSource}
+                  keyArt={d.art.length ? { src: d.art[0], fallbacks: d.art.slice(1) } : null}
+                  trailers={d.media.trailers}
+                  screenshots={d.media.screenshots}
+                  inHero
+                />
+              ) : (
+                <div className="vp-cover"><div className="vp-cover-empty">{name}</div></div>
               )}
             </div>
 
             <div className="vp-main">
-              <h1>{name} <span className="vp-h1-version">{info.long}</span></h1>
+              <span className="vp-badge">{info.long}</span>
+              <h1>{name}</h1>
               {d.editions.length > 1 && (
                 <div className="vp-editions">
                   <span>Editions:</span>
@@ -267,29 +261,48 @@ export default async function TitlePage({ bundle: b, version }: { bundle: TitleB
                 </div>
               )}
               <p className="vp-lede">{heroLine(name, info.long, d, best)}</p>
+
+              {/* Versions: each its own page, with its best price, right above this version's prices. */}
+              {versions.length > 1 && (
+                <nav className="vp-versions" aria-label="Versions">
+                  {versions.map((v) => {
+                    const vb = cheapest([...data.get(v)!.official, ...data.get(v)!.keyshops]);
+                    return (
+                      <Link key={v} href={versionPath(b.title.slug, v, versions)} className={`vp-version fam-${VERSIONS[v].family}`}
+                        aria-current={v === version ? "page" : undefined}>
+                        <span className="vp-version-label">{VERSIONS[v].label}</span>
+                        <span className="vp-version-price">{vb ? (vb.free ? "Free" : money(vb.price!, vb.currency)) : "—"}</span>
+                      </Link>
+                    );
+                  })}
+                </nav>
+              )}
+
+              <div className="vp-prices" aria-label="Current prices">
+                <div className="vp-price-grid">
+                  <PriceCell label="Official stores" offer={bestOfficial} />
+                  <PriceCell label="Keyshops" offer={bestKeyshop} link={version === "pc" ? instantGaming(name) : undefined} />
+                </div>
+                <div className="vp-subs">
+                  <span>Subscriptions:</span>{" "}
+                  {d.subscriptions.length ? d.subscriptions.join(", ") : <span className="vp-dim">—</span>}
+                </div>
+              </div>
+
               <div className="hero-buttons">
                 {best?.url && best.price !== null && (
                   <a href={best.url} target="_blank" rel={`noopener noreferrer${best.sponsored ? " sponsored" : ""}`} className="btn btn-primary">
                     Buy at {best.store} for {money(best.price, best.currency)} →
                   </a>
                 )}
+                {d.store && (
+                  <a href={d.store.url} target="_blank" rel="noopener noreferrer" className="btn btn-ghost">{d.store.label} ↗</a>
+                )}
                 {version === "pc" && (
                   <a href={instantGaming(name)} target="_blank" rel="noopener noreferrer sponsored" className="btn btn-ghost">Check Instant Gaming →</a>
                 )}
               </div>
             </div>
-
-            <aside className="vp-prices" aria-label="Current prices">
-              <div className="vp-prices-hd">Current prices</div>
-              <div className="vp-price-grid">
-                <PriceCell label="Official stores" offer={bestOfficial} />
-                <PriceCell label="Keyshops" offer={bestKeyshop} link={version === "pc" ? instantGaming(name) : undefined} />
-              </div>
-              <div className="vp-subs">
-                <span>Subscriptions:</span>{" "}
-                {d.subscriptions.length ? d.subscriptions.join(", ") : <span className="vp-dim">—</span>}
-              </div>
-            </aside>
           </div>
         </div>
       </section>
@@ -323,18 +336,6 @@ export default async function TitlePage({ bundle: b, version }: { bundle: TitleB
         </div>
 
         <aside style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-          {(d.art.length > 0 || d.media.trailers.length > 0 || d.media.screenshots.length > 0) && (
-            <div className="aside-card vp-media">
-              <GameMedia
-                name={name}
-                source={d.store ? { label: d.store.label.replace(/^View on /, ""), url: d.store.url } : { label: "IGDB", url: `https://www.igdb.com/games/${b.title.slug}` }}
-                keyArt={d.art.length ? { src: d.art[0], fallbacks: d.art.slice(1) } : null}
-                trailers={d.media.trailers}
-                screenshots={d.media.screenshots}
-              />
-            </div>
-          )}
-
           <div className="aside-card">
             <h4>Game info</h4>
             <dl style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "8px 16px", margin: 0, fontSize: 13 }}>
