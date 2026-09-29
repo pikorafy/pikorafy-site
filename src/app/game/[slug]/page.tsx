@@ -24,8 +24,8 @@ import PlayersChart from "./PlayersChart";
 import PriceChart from "./PriceChart";
 import TimeAgo from "./TimeAgo";
 import TitlePage, { loadVersionPage, versionMetadata } from "./TitlePage";
-import { mainVersion, parseVersionSlug, versionPath, versionsOf, type Version } from "@/lib/versions";
-import { getTitleBundle, getTitleBySlug, getTitleForStore, type TitleBundle } from "@/lib/titles";
+import { mainVersion, parseVersionSlug, versionPath, versionsOf, VERSIONS, type Version } from "@/lib/versions";
+import { getSlugAlias, getTitleBundle, getTitleBySlug, getTitleForStore, type TitleBundle } from "@/lib/titles";
 
 // Catalog pages are prerendered for the most popular games and generated on
 // first visit for the rest; either way they refresh at most once an hour
@@ -65,13 +65,18 @@ async function resolve(slug: string): Promise<
   }
   let title = await getTitleBySlug(slug);
   let requested: Version | null = null;
-  if (!title) {
-    const parsed = parseVersionSlug(slug);
-    if (!parsed) return null;
+  const parsed = title ? null : parseVersionSlug(slug);
+  if (parsed) {
     title = await getTitleBySlug(parsed.base);
     requested = parsed.version;
   }
-  if (!title) return null;
+  if (!title) {
+    // An old slug (the title was renamed or merged into another): same version, new slug.
+    const exact = await getSlugAlias(slug);
+    if (exact) return { kind: "redirect", to: `/game/${exact}` };
+    const base = parsed ? await getSlugAlias(parsed.base) : null;
+    return base && parsed ? { kind: "redirect", to: `/game/${base}-${VERSIONS[parsed.version].suffix}` } : null;
+  }
   const bundle = await getTitleBundle(title);
   const versions = versionsOf(bundle);
   const main = mainVersion(versions);

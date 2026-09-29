@@ -46,6 +46,14 @@ export async function getTitleBySlug(slug: string): Promise<Title | null> {
   return (data as Title | null) ?? null;
 }
 
+/** Current slug of a title that used to be at `slug` (renamed, or merged into another). */
+export async function getSlugAlias(slug: string): Promise<string | null> {
+  const client = db();
+  if (!client) return null;
+  const { data } = await client.from("title_slug_aliases").select("titles(slug)").eq("slug", slug).maybeSingle();
+  return (data as { titles: { slug: string } | null } | null)?.titles?.slug ?? null;
+}
+
 /** The shared title a store item belongs to, if it's linked. */
 export async function getTitleForStore(store: Store, storeId: string | number): Promise<Pick<Title, "id" | "slug"> | null> {
   const client = db();
