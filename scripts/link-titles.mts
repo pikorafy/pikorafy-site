@@ -18,6 +18,10 @@
 //  3. the store's existing link to a Steam game, when IGDB has nothing, or when IGDB splits
 //     the same game in two (same cleaned title, neither a remake nor a remaster);
 //  4. title_overrides, which always win (title_id null = never link).
+// A bundle named exactly like a game (IGDB has "Assassin's Creed III Remastered" as the
+// remaster and as a bundle) merges into that game. Slugs are IGDB's without its "--1"
+// suffixes; namesakes get their release year (resident-evil-4-2023). Old slugs of renamed or
+// merged titles go to title_slug_aliases, so their pages redirect.
 // Writes only titles and links that changed; removes links whose store item is gone.
 
 import { createHash } from "node:crypto";
@@ -28,6 +32,7 @@ const BATCH = 500;
 const IGDB_DELAY_MS = 260;             // 4 requests / second
 const REMAKE_TYPES = new Set([8, 9]);  // remake, remaster: separate games
 const COLLAPSE_TYPES = new Set([10, 11]); // expanded game, port: same game as parent_game
+const BUNDLE = 3;
 const MIN_LINKS = 5000;                // fewer than this = something broke; don't write
 const dry = process.argv[2] === "dry";
 
@@ -218,6 +223,18 @@ for (const i of items) {
   if (sameTitle && !remake) alias.set(own.igdb, target);
 }
 const resolveAlias = (id: number) => { let cur = id; for (let n = 0; n < 5 && alias.has(cur); n++) cur = alias.get(cur)!; return cur; };
+// Bundles named exactly like one game: the same page for shoppers.
+const byName = new Map<string, number[]>();
+for (const id of new Set([...linked.values()].map((l) => resolveAlias(l.igdb)))) {
+  const name = meta.get(id)?.name;
+  if (name) byName.set(norm(name), [...(byName.get(norm(name)) ?? []), id]);
+}
+let bundleTwins = 0;
+for (const ids of byName.values()) {
+  const games = ids.filter((id) => meta.get(id)?.game_type !== BUNDLE);
+  if (games.length !== 1) continue;
+  for (const id of ids) if (id !== games[0]) { alias.set(id, games[0]); bundleTwins++; }
+}
 for (const l of linked.values()) {
   const to = resolveAlias(l.igdb);
   if (to !== l.igdb) { l.igdb = to; if (l.method === "store_link" || l.method === "title") l.method = "same_title"; }
@@ -238,7 +255,7 @@ for (const s of ["steam", "xbox", "playstation", "nintendo"] as Store[]) {
   const n = [...linked.keys()].filter((k) => k.startsWith(`${s}:`)).length;
   console.log(`  ${s.padEnd(12)} ${n} / ${count(s)} linked (${Math.round((n / Math.max(1, count(s))) * 100)}%)`);
 }
-console.log(`  by: ${[...methods].map(([m, n]) => `${m} ${n}`).join(" · ")} · ${ambiguous} ambiguous titles left out · ${alias.size} IGDB splits merged`);
+console.log(`  by: ${[...methods].map(([m, n]) => `${m} ${n}`).join(" · ")} · ${ambiguous} ambiguous titles left out · ${alias.size} IGDB splits merged (${bundleTwins} same-name bundles)`);
 const storesPerTitle = new Map<number, Set<string>>();
 for (const [k, l] of linked) storesPerTitle.set(l.igdb, (storesPerTitle.get(l.igdb) ?? new Set()).add(k.split(":")[0]));
 const multi = [...storesPerTitle.values()].filter((s) => s.size > 1).length;
@@ -254,23 +271,63 @@ for (const batch of chunks(titleIds, BATCH)) {
     `fields id,slug,name,game_type,first_release_date,summary,genres.name,cover.image_id,artworks.image_id; where id = (${batch.join(",")}); limit ${BATCH};`);
   for (const g of rows) {
     if (!g.name) continue;
-    const row: TitleRow = {
+    titles.push({
       id: g.id, slug: g.slug || String(g.id), name: String(g.name).trim(), game_type: g.game_type ?? null,
       first_release: dayOf(g.first_release_date), summary: g.summary?.trim() || null,
       genres: (g.genres ?? []).map((x: any) => x.name).filter(Boolean).sort(),
       cover_id: g.cover?.image_id ?? null, art_id: g.artworks?.[0]?.image_id ?? null,
-    };
-    titles.push({ ...row, content_hash: createHash("sha1").update(JSON.stringify(row)).digest("hex") });
+    });
   }
 }
+// Our slugs: IGDB's without its "--1" dedup suffix; namesakes get their release year.
+const baseSlug = (slug: string) => slug.replace(/--\d+$/, "");
+const slugGroups = new Map<string, TitleRow[]>();
+for (const t of titles) slugGroups.set(baseSlug(t.slug), [...(slugGroups.get(baseSlug(t.slug)) ?? []), t]);
+const taken = new Set<string>();
+for (const [base, ts] of slugGroups) if (ts.length === 1) { ts[0].slug = base; taken.add(base); }
+for (const [base, ts] of slugGroups) {
+  if (ts.length === 1) continue;
+  for (const t of ts.sort((a, b) => a.id - b.id)) {
+    const year = t.first_release?.slice(0, 4);
+    t.slug = year && !taken.has(`${base}-${year}`) ? `${base}-${year}` : `${base}-${t.id}`;
+    taken.add(t.slug);
+  }
+}
+for (const t of titles) t.content_hash = createHash("sha1").update(JSON.stringify({ ...t, content_hash: undefined })).digest("hex");
 const known = new Set(titles.map((t) => t.id));
 for (const [k, l] of linked) if (!known.has(l.igdb)) linked.delete(k);   // IGDB id gone / renamed: drop the link
 
+const namesakes = [...slugGroups.values()].filter((ts) => ts.length > 1);
+console.log(`  slugs: ${namesakes.length} namesake groups, e.g. ${namesakes.slice(0, 5).map((ts) => ts.map((t) => t.slug).join(" / ")).join(" · ")}`);
 if (dry) { console.log(`Dry run: ${titles.length} titles, ${linked.size} links; nothing written.`); process.exit(0); }
 if (linked.size < MIN_LINKS) throw new Error(`Only ${linked.size} links (expected ${MIN_LINKS}+); not writing.`);
 
-const stored = new Map((await all<{ id: number; content_hash: string | null }>("titles", "id, content_hash", "id")).map((t) => [t.id, t.content_hash]));
+const storedRows = await all<{ id: number; slug: string; content_hash: string | null }>("titles", "id, slug, content_hash", "id");
+const stored = new Map(storedRows.map((t) => [t.id, t.content_hash]));
+const newSlug = new Map(titles.map((t) => [t.id, t.slug]));
+const liveSlugs = new Set(newSlug.values());
+
+// Old slugs → where they now go: a renamed title, or a title merged into another.
+const slugAliases = storedRows.flatMap((o) => {
+  const to = newSlug.has(o.id) ? o.id : resolveAlias(o.id);
+  return newSlug.has(to) && newSlug.get(to) !== o.slug && !liveSlugs.has(o.slug) ? [{ slug: o.slug, title_id: to }] : [];
+});
+
+// Titles nothing links to any more (first, so their slugs are free).
+const unused = [...stored.keys()].filter((id) => !storesPerTitle.has(id));
+for (const batch of chunks(unused, BATCH)) {
+  const { error } = await db.from("titles").delete().in("id", batch);
+  if (error) throw new Error(`titles delete: ${error.message}`);
+}
+
 const changedTitles = titles.filter((t) => stored.get(t.id) !== t.content_hash);
+// Slugs are unique: park renamed titles on a temporary slug first, so two titles can swap.
+const storedSlug = new Map(storedRows.map((t) => [t.id, t.slug]));
+const renamed = changedTitles.filter((t) => storedSlug.has(t.id) && storedSlug.get(t.id) !== t.slug);
+for (const batch of chunks(renamed.map((t) => ({ ...t, slug: `~${t.id}` })), BATCH)) {
+  const { error } = await db.from("titles").upsert(batch, { onConflict: "id" });
+  if (error) throw new Error(`titles rename: ${error.message}`);
+}
 for (const batch of chunks(changedTitles, BATCH)) {
   const { error } = await db.from("titles").upsert(batch, { onConflict: "id" });
   if (error) throw new Error(`titles upsert: ${error.message}`);
@@ -293,10 +350,14 @@ for (const store of ["steam", "xbox", "playstation", "nintendo"] as Store[]) {
     if (error) throw new Error(`title_links delete: ${error.message}`);
   }
 }
-// Titles nothing links to any more.
-const unused = [...stored.keys()].filter((id) => !storesPerTitle.has(id));
-for (const batch of chunks(unused, BATCH)) {
-  const { error } = await db.from("titles").delete().in("id", batch);
-  if (error) throw new Error(`titles delete: ${error.message}`);
+for (const batch of chunks(slugAliases, BATCH)) {
+  const { error } = await db.from("title_slug_aliases").upsert(batch, { onConflict: "slug" });
+  if (error) throw new Error(`title_slug_aliases upsert: ${error.message}`);
 }
-console.log(`Written: ${changedTitles.length} titles, ${changedLinks.length} links · removed ${goneLinks.length} links, ${unused.length} titles.`);
+// A slug that is a live page again isn't an alias.
+const staleAliases = (await all<{ slug: string }>("title_slug_aliases", "slug", "slug")).map((a) => a.slug).filter((sl) => liveSlugs.has(sl));
+for (const batch of chunks(staleAliases, BATCH)) {
+  const { error } = await db.from("title_slug_aliases").delete().in("slug", batch);
+  if (error) throw new Error(`title_slug_aliases delete: ${error.message}`);
+}
+console.log(`Written: ${changedTitles.length} titles (${renamed.length} new slugs), ${changedLinks.length} links, ${slugAliases.length} slug redirects · removed ${goneLinks.length} links, ${unused.length} titles.`);
