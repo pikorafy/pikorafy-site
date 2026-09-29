@@ -892,15 +892,64 @@ body::before {
 .xbox-included { margin:-6px 0 14px; font-size:14px; color:var(--text-2); }
 .xbox-included span { color:var(--good); font-weight:700; margin-right:4px; }
 
-/* Shared game page: platform tabs over the offers, one offers table per store group. */
-.pt-tabs { display:flex; gap:6px; margin:0 0 18px; border-bottom:1px solid var(--line); overflow-x:auto; }
-.pt-tab { display:flex; flex-direction:column; align-items:flex-start; gap:2px; padding:10px 16px 12px; background:none; border:0;
-  border-bottom:3px solid transparent; margin-bottom:-1px; color:var(--text-2); cursor:pointer; font:inherit; white-space:nowrap; }
-.pt-tab:hover { color:var(--text); }
-.pt-tab[aria-selected="true"] { color:var(--text); border-bottom-color:var(--accent); }
-.pt-tab-label { font-family:var(--ff-display); font-weight:700; font-size:16px; }
-.pt-tab-note { font-family:var(--ff-mono); font-size:11px; color:var(--text-3); }
-.pt-tab[aria-selected="true"] .pt-tab-note { color:var(--accent-2); }
+/* Shared game page, one page per platform version (src/lib/versions.ts): blurred key art
+   behind, version links with their best price, then cover | title + verdict | price box. */
+.fam-pc          { --fam:#a8dadc; }
+.fam-playstation { --fam:#2f7bff; }
+.fam-xbox        { --fam:#3fb43f; }
+.fam-nintendo    { --fam:#e60012; }
+.vp-hero-wrap { position:relative; overflow:hidden; border-bottom:1px solid var(--line); background:var(--bg-2); }
+.vp-bg { position:absolute; inset:-40px; filter:blur(38px) saturate(1.2); opacity:.32; }
+.vp-hero-wrap::after { content:""; position:absolute; inset:0; background:linear-gradient(180deg,transparent 0%,var(--bg) 100%); pointer-events:none; }
+.vp-inner { position:relative; z-index:1; padding-top:22px; padding-bottom:34px; }
+.vp-crumbs { margin-bottom:16px; }
+.vp-versions { display:flex; gap:8px; margin:0 0 22px; overflow-x:auto; scrollbar-width:none; padding-bottom:2px; }
+.vp-version { --fam:var(--accent-2); display:flex; flex-direction:column; gap:2px; min-width:104px; padding:9px 14px 10px;
+  border:1px solid var(--line-2); border-left:3px solid var(--fam); border-radius:var(--r); background:color-mix(in srgb,var(--bg-elev) 80%,transparent);
+  color:var(--text-2); text-decoration:none; white-space:nowrap; transition:border-color .15s,background .15s,transform .15s; }
+.vp-version:hover { color:var(--text); border-color:var(--fam); transform:translateY(-1px); }
+.vp-version[aria-current="page"] { color:var(--text); border-color:var(--fam);
+  background:color-mix(in srgb,var(--fam) 16%,var(--bg-elev)); box-shadow:0 0 0 1px var(--fam),0 6px 20px -8px var(--fam); }
+.vp-version-label { font-family:var(--ff-display); font-weight:700; font-size:14px; }
+.vp-version-price { font-family:var(--ff-mono); font-size:12px; color:var(--text-3); }
+.vp-version[aria-current="page"] .vp-version-price { color:var(--text); }
+.vp-hero { display:grid; grid-template-columns:minmax(0,300px) minmax(0,1fr) 300px; gap:28px; align-items:start; }
+.vp-cover { position:relative; aspect-ratio:16/9; border-radius:var(--r-lg); overflow:hidden; background:var(--bg-3);
+  border:1px solid var(--line-2); box-shadow:0 18px 40px -18px rgba(0,0,0,.6); }
+.vp-cover-empty { display:grid; place-items:center; height:100%; padding:16px; text-align:center; font-family:var(--ff-display); font-weight:700; color:var(--text-2); }
+.vp-badge { position:absolute; top:10px; left:10px; padding:3px 8px; border-radius:var(--r-sm); background:var(--fam); color:#fff;
+  font-family:var(--ff-mono); font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+.fam-pc .vp-badge { color:var(--navy); }
+.vp-cover-link { position:absolute; right:8px; bottom:8px; padding:4px 8px; border-radius:var(--r-sm); background:rgba(6,11,18,.72);
+  color:#fff; font-family:var(--ff-mono); font-size:11px; text-decoration:none; }
+.vp-cover-link:hover { background:rgba(6,11,18,.9); }
+.vp-main h1 { font-family:var(--ff-display); font-size:clamp(26px,3.4vw,40px); line-height:1.08; margin:0 0 10px; }
+.vp-h1-version { display:block; margin-top:6px; font-size:.5em; font-weight:600; color:var(--fam); letter-spacing:.01em; }
+.vp-editions { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:0 0 12px; font-family:var(--ff-mono); font-size:11px; color:var(--text-3); }
+.vp-edition { padding:2px 8px; border:1px solid var(--line-2); border-radius:999px; color:var(--text-2); }
+.vp-lede { color:var(--text-2); font-size:15px; line-height:1.55; margin:0 0 18px; max-width:62ch; }
+.vp-prices { border:1px solid var(--line-2); border-top:3px solid var(--fam); border-radius:var(--r-lg); background:var(--bg-elev); padding:14px 16px; }
+.vp-prices-hd { font-family:var(--ff-mono); font-size:10px; font-weight:600; color:var(--text-3); text-transform:uppercase; letter-spacing:.14em; margin-bottom:10px; }
+.vp-price-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.vp-price { padding:10px; border-radius:var(--r); background:var(--bg-3); min-width:0; }
+.vp-price-label { font-family:var(--ff-mono); font-size:10px; color:var(--text-3); text-transform:uppercase; letter-spacing:.1em; margin-bottom:4px; }
+.vp-price-value { font-family:var(--ff-mono); font-size:20px; font-weight:700; color:var(--text); }
+.vp-price-meta { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:2px; font-size:11px; color:var(--text-3); overflow:hidden; text-overflow:ellipsis; }
+.vp-disc { padding:1px 5px; border-radius:var(--r-sm); background:var(--good); color:#0c1623; font-family:var(--ff-mono); font-weight:700; font-size:10px; }
+.vp-price-check { display:inline-block; margin-top:4px; font-family:var(--ff-mono); font-size:12px; color:var(--accent-2); text-decoration:none; }
+.vp-price-check:hover { text-decoration:underline; }
+.vp-subs { margin-top:12px; font-size:12px; color:var(--text-2); }
+.vp-subs > span:first-child { font-family:var(--ff-mono); font-size:10px; color:var(--text-3); text-transform:uppercase; letter-spacing:.1em; }
+.vp-dim { color:var(--text-3); }
+@media (max-width: 1100px) {
+  .vp-hero { grid-template-columns:minmax(0,260px) minmax(0,1fr); }
+  .vp-prices { grid-column:1 / -1; }
+}
+@media (max-width: 720px) {
+  .vp-hero { grid-template-columns:1fr; gap:18px; }
+  .vp-cover { max-width:480px; }
+  .vp-version { min-width:88px; padding:8px 12px; }
+}
 .offer-group + .offer-group { margin-top:26px; }
 .offer-group-title { font-family:var(--ff-mono); font-size:11px; font-weight:600; color:var(--text-3); text-transform:uppercase; letter-spacing:0.14em; margin:0 0 10px; }
 .offers .hd, .offers .row { display:grid; grid-template-columns:38px 1.6fr 1fr 1fr 1fr 110px; gap:14px; align-items:center; padding:0 18px; min-height:60px; }
