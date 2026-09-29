@@ -894,39 +894,34 @@ body::before {
 
 /* Shared game page, one page per platform version (src/lib/versions.ts): blurred key art
    behind, version links with their best price, then cover | title + verdict | price box. */
-.fam-pc          { --fam:#a8dadc; }
-.fam-playstation { --fam:#2f7bff; }
-.fam-xbox        { --fam:#3fb43f; }
-.fam-nintendo    { --fam:#e60012; }
 .vp-hero-wrap { position:relative; overflow:hidden; border-bottom:1px solid var(--line); background:var(--bg-2); }
 .vp-bg { position:absolute; inset:-40px; filter:blur(38px) saturate(1.2); opacity:.32; }
 .vp-hero-wrap::after { content:""; position:absolute; inset:0; background:linear-gradient(180deg,transparent 0%,var(--bg) 100%); pointer-events:none; }
 .vp-inner { position:relative; z-index:1; padding-top:22px; padding-bottom:34px; }
 .vp-crumbs { margin-bottom:16px; }
 .vp-versions { display:flex; gap:8px; margin:0 0 10px; overflow-x:auto; scrollbar-width:none; padding:2px 2px 4px; }
-.vp-version { --fam:var(--accent-2); display:flex; flex-direction:column; gap:2px; min-width:104px; padding:9px 14px 10px;
-  border:1px solid var(--line-2); border-left:3px solid var(--fam); border-radius:var(--r); background:color-mix(in srgb,var(--bg-elev) 80%,transparent);
-  color:var(--text-2); text-decoration:none; white-space:nowrap; transition:border-color .15s,background .15s,transform .15s; }
-.vp-version:hover { color:var(--text); border-color:var(--fam); transform:translateY(-1px); }
-.vp-version[aria-current="page"] { color:var(--text); border-color:var(--fam);
-  background:color-mix(in srgb,var(--fam) 16%,var(--bg-elev)); box-shadow:0 0 0 1px var(--fam),0 6px 20px -8px var(--fam); }
-.vp-version-label { font-family:var(--ff-display); font-weight:700; font-size:14px; }
-.vp-version-price { font-family:var(--ff-mono); font-size:12px; color:var(--text-3); }
-.vp-version[aria-current="page"] .vp-version-price { color:var(--text); }
+.vp-version { display:flex; flex-direction:column; gap:4px; min-width:112px; padding:10px 14px 11px; border-radius:10px; color:#fff; text-decoration:none;
+  white-space:nowrap; box-shadow:0 10px 24px -14px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.16); opacity:.72; transition:opacity .15s,transform .15s,box-shadow .15s; }
+.vp-version.neutral { background:var(--bg-3); color:var(--text); border:1px solid var(--line-2); box-shadow:none; }
+.vp-version:hover { opacity:1; transform:translateY(-1px); }
+.vp-version[aria-current="page"] { opacity:1; box-shadow:0 0 0 2px #fff, 0 10px 24px -12px rgba(0,0,0,.7); }
+.vp-version-label { font-family:var(--ff-mono); font-size:10px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; opacity:.9; }
+.vp-version-row { display:flex; align-items:center; gap:8px; }
+.vp-version-price { font-family:var(--ff-mono); font-size:18px; font-weight:800; letter-spacing:-0.01em; text-shadow:0 1px 2px rgba(0,0,0,.25); }
+.vp-version-disc { padding:2px 7px; border-radius:999px; background:rgba(0,0,0,.28); font-family:var(--ff-mono); font-size:11px; font-weight:700; }
 .vp-hero { display:grid; grid-template-columns:minmax(0,1.7fr) minmax(320px,1fr); gap:36px; align-items:start; }
 .vp-stage { min-width:0; }
 .vp-main { min-width:0; display:flex; flex-direction:column; }
 .vp-cover { position:relative; aspect-ratio:16/9; border-radius:var(--r-lg); overflow:hidden; background:var(--bg-3);
   border:1px solid var(--line-2); box-shadow:0 18px 40px -18px rgba(0,0,0,.6); }
 .vp-cover-empty { display:grid; place-items:center; height:100%; padding:16px; text-align:center; font-family:var(--ff-display); font-weight:700; color:var(--text-2); }
-.vp-badge { align-self:flex-start; margin-bottom:10px; padding:3px 8px; border-radius:var(--r-sm); background:var(--fam); color:#fff;
-  font-family:var(--ff-mono); font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
-.fam-pc .vp-badge { color:var(--navy); }
 .vp-main h1 { font-family:var(--ff-display); font-size:clamp(28px,3.2vw,44px); letter-spacing:-0.02em; line-height:1.05; margin:0 0 10px; }
 .vp-editions { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:0 0 12px; font-family:var(--ff-mono); font-size:11px; color:var(--text-3); }
 .vp-edition { padding:2px 8px; border:1px solid var(--line-2); border-radius:999px; color:var(--text-2); }
 .vp-lede { color:var(--text-2); font-size:15px; line-height:1.55; margin:0 0 18px; max-width:62ch; }
-.vp-prices { border:1px solid var(--line-2); border-top:3px solid var(--fam); border-radius:var(--r-lg); background:var(--bg-elev); padding:14px 16px; margin-bottom:18px; }
+.vp-prices { --neon:var(--accent-2); --neon-hi:color-mix(in srgb, var(--neon) 72%, #fff); border:2px solid var(--neon-hi); border-radius:var(--r-lg);
+  background:var(--bg-elev); padding:14px 16px; margin-bottom:18px;
+  box-shadow:0 0 6px var(--neon-hi), 0 0 22px color-mix(in srgb, var(--neon-hi) 50%, transparent), inset 0 0 14px color-mix(in srgb, var(--neon-hi) 12%, transparent); }
 .vp-price-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 .vp-price { padding:10px; border-radius:var(--r); background:var(--bg-3); min-width:0; }
 .vp-price-label { font-family:var(--ff-mono); font-size:10px; color:var(--text-3); text-transform:uppercase; letter-spacing:.1em; margin-bottom:4px; }
