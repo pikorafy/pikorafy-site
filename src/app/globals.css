@@ -37,8 +37,8 @@
   --r-lg: 14px;
 
   /* Typography */
-  --ff-display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
-  --ff-body:    'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --ff-display: 'Onest', ui-sans-serif, system-ui, sans-serif;
+  --ff-body:    'Onest', ui-sans-serif, system-ui, sans-serif;
   --ff-mono:    'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* shadcn semantic tokens — mapped to Pikora palette */
@@ -80,7 +80,7 @@
 [data-density="compact"] { --pad-sec:40px; --pad-card:12px; --gap:10px; --row-h:46px; }
 [data-density="roomy"]   { --pad-sec:96px; --pad-card:22px; --gap:20px; --row-h:68px; }
 
-[data-fontpair="grotesk"] { --ff-display:'Space Grotesk', sans-serif; --ff-body:'Space Grotesk', sans-serif; }
+[data-fontpair="onest"] { --ff-display:'Onest', sans-serif; --ff-body:'Onest', sans-serif; }
 [data-fontpair="archivo"] { --ff-display:'Archivo Black', sans-serif; --ff-body:'Archivo', sans-serif; }
 [data-fontpair="serif"]   { --ff-display:'Fraunces', serif; --ff-body:'Inter', sans-serif; }
 
@@ -908,7 +908,7 @@ body::before {
 .pf-playstation { --pf:#0062b3; }
 .pf-xbox        { --pf:#107c10; }
 .pf-nintendo    { --pf:#fa3931; }
-.pp-hero .num, .pp-body .num { font-family:var(--ff-mono); font-variant-numeric:tabular-nums; }
+.pp-hero .num, .pp-body .num { font-family:var(--ff-body); font-variant-numeric:tabular-nums; }
 
 .pp-hero { position:relative; overflow:hidden; }
 .pp-art { position:absolute; inset:0 0 auto 0; height:360px; opacity:.55; }
@@ -1333,7 +1333,7 @@ a.rc-name:hover { color: var(--accent-2); }
 @keyframes rc-drop { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 
 /* ─── Home (src/app/page.tsx): same calm system as the game page ─────────── */
-.hm .num { font-family: var(--ff-mono); font-variant-numeric: tabular-nums; }
+.hm .num { font-family: var(--ff-body); font-variant-numeric: tabular-nums; }
 .hm-price { color: var(--good); font-weight: 700; }
 .hm-muted { color: var(--text-3); }
 .hm-pill { padding: 1px 7px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; background: color-mix(in srgb, var(--good) 20%, transparent); color: var(--good); }
