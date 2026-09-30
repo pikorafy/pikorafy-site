@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
 import Script from "next/script";
-import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
+import { Onest, JetBrains_Mono } from "next/font/google";
 import PikorafyNavbar from "@/components/PikorafyNavbar";
 import Footer from "@/components/Footer";
 import "./globals.css";
 
 const GA_ID = "G-KM9VYM8YJC";
 
-const spaceGrotesk = Space_Grotesk({
-  weight: ["400", "500", "600", "700"],
+// Onest is a variable font: every weight from one file.
+const onest = Onest({
   subsets: ["latin"],
-  variable: "--font-space-grotesk",
+  variable: "--font-onest",
   display: "swap",
 });
 
@@ -71,12 +71,12 @@ export default function RootLayout({
       lang="en"
       data-theme="dark"
       data-density="cozy"
-      data-fontpair="grotesk"
-      className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      data-fontpair="onest"
+      className={`${onest.variable} ${jetbrainsMono.variable} h-full antialiased`}
       style={
         {
-          "--ff-display": `var(--font-space-grotesk), 'Space Grotesk', ui-sans-serif, system-ui, sans-serif`,
-          "--ff-body": `var(--font-space-grotesk), 'Space Grotesk', ui-sans-serif, system-ui, sans-serif`,
+          "--ff-display": `var(--font-onest), 'Onest', ui-sans-serif, system-ui, sans-serif`,
+          "--ff-body": `var(--font-onest), 'Onest', ui-sans-serif, system-ui, sans-serif`,
           "--ff-mono": `var(--font-jetbrains-mono), 'JetBrains Mono', ui-monospace, monospace`,
         } as React.CSSProperties
       }
