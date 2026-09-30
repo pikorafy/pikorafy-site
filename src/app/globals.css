@@ -1381,14 +1381,16 @@ a.rc-name:hover { color: var(--accent-2); }
 .hm-store .pp-btn { display: inline-flex; margin-top: auto; }
 .hm-store small { color: var(--text-3); font-size: 11px; }
 
-.hm-cats { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
-.hm-cat { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 12px; background: var(--bg-elev); border: 1px solid var(--line); color: var(--text); min-width: 0; transition: border-color .15s, background .15s; }
-.hm-cat:hover { border-color: var(--line-2); background: var(--bg-3); }
-.hm-cat > span:last-child { min-width: 0; }
-.hm-cat b { display: block; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hm-cat small { display: block; font-size: 12px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hm-cat-icon { width: 22px; height: 22px; border-radius: 6px; flex: none; display: grid; place-items: center; font-size: 10px; font-weight: 700; color: var(--good); background: color-mix(in srgb, var(--good) 15%, transparent); }
-.hm-cat .hm-mark { flex: none; }
+.hm-cats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+.hm-cat { display: grid; align-content: start; gap: 6px; padding: 16px; border-radius: 12px; background: var(--bg-elev); border: 1px solid var(--line); min-width: 0; }
+.hm-cat-h { font-family: var(--ff-display); font-weight: 700; font-size: 17px; color: var(--text); }
+a.hm-cat-h:hover { text-decoration: underline; }
+.hm-cat small { color: var(--text-2); font-size: 13px; }
+.hm-cat.soon { opacity: .7; }
+.hm-cat-links { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.hm-cat-links a { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line-2); color: var(--text-2); }
+.hm-cat-links a:hover { color: var(--text); border-color: var(--text-3); }
+.hm-cat-links i { width: 10px; height: 10px; border-radius: 3px; background: var(--pf); }
 .hm-block { padding-top: 34px; }
 .hm-block-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
 .hm-block-h h2 { margin: 0; font-family: var(--ff-display); font-size: 20px; letter-spacing: -0.01em; }
@@ -1441,7 +1443,7 @@ a.rc-name:hover { color: var(--accent-2); }
   .hm-store-tag, .hm-store small { grid-column: 1 / -1; }
   .hm-store-logo { grid-row: span 2; }
   .hm-store .pp-btn { grid-column: 3; grid-row: 2 / span 2; margin: 0; }
-  .hm-cats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .hm-cats { grid-template-columns: 1fr 1fr; }
   .hm-lists { grid-template-columns: 1fr 1fr; }
   .hm-lists .hm-list:last-child { grid-column: 1 / -1; }
   .hm-genres { grid-template-columns: 1fr 1fr; }
