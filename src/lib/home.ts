@@ -60,3 +60,8 @@ export async function getDealCounts(): Promise<Partial<Record<Family, number>>> 
   const rows = await rpc<{ family: Family; games: number }>("home_deal_counts", {});
   return Object.fromEntries(rows.map((r) => [r.family, Number(r.games)]));
 }
+
+export async function getGenreTop(genre: string, n = 12): Promise<HomeGame[]> {
+  const rows = await rpc<HomeGame>("home_genre_top", { genre, n });
+  return rows.map((r) => ({ ...r, families: sortFamilies(r.families), from_price: num(r.from_price) }));
+}
