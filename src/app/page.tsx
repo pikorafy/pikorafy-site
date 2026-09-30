@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AFFILIATE_DISCLOSURE_SHORT } from "@/lib/affiliate";
-import { FAMILY_ORDER, getBestDeals, getDealCounts, getPopular, getReleases, type HomeDeal, type HomeGame } from "@/lib/home";
+import { FAMILY_ORDER, getBestDeals, getDealCounts, getGenreTop, getPopular, getReleases, type HomeDeal, type HomeGame } from "@/lib/home";
 import { getTitleBundle, getTitleBySlug, igdbImage } from "@/lib/titles";
 import { VERSIONS, versionPath, versionsOf, type Family, type Version } from "@/lib/versions";
 import NewsletterSignup from "@/components/NewsletterSignup";
@@ -23,6 +23,16 @@ const FAMILY: Record<Family, { label: string; mark: string; href: string; links:
   nintendo: { label: "Nintendo", mark: "N", href: "/nintendo", links: [{ label: "Switch 2", href: "/nintendo?platform=switch2" }, { label: "Switch", href: "/nintendo?platform=switch" }] },
 };
 
+// Top 5s by genre (IGDB genres), each linked to its catalog page.
+const GENRE_LISTS = [
+  { genre: "Shooter", label: "Shooters", href: "/games/action" },
+  { genre: "Role-playing (RPG)", label: "RPG", href: "/games/rpg" },
+  { genre: "Adventure", label: "Adventure", href: "/games/adventure" },
+  { genre: "Strategy", label: "Strategy", href: "/games/strategy" },
+  { genre: "Simulator", label: "Simulation", href: "/games/simulation" },
+  { genre: "Indie", label: "Indie", href: "/games/indie" },
+];
+
 const day = (d: Date) => d.toISOString().slice(0, 10);
 const addDays = (d: Date, n: number) => new Date(d.getTime() + n * 86_400_000);
 
@@ -40,6 +50,11 @@ export default async function Home() {
     list(() => getPopular(10)),
     getDealCounts().catch(() => ({} as Partial<Record<Family, number>>)),
   ]);
+  const genreLists = await Promise.all(GENRE_LISTS.map((g) => list(() => getGenreTop(g.genre, 15))));
+
+  // Each game once: skip the popular shelf's games and the earlier genre lists'.
+  const seen = new Set(popular.map((g) => g.slug));
+  const genreTops = genreLists.map((games) => games.filter((g) => !seen.has(g.slug)).slice(0, 5).map((g) => (seen.add(g.slug), g)));
 
   // Featured: the most popular big deal that's on the most platforms.
   const featured = [...deals].sort((a, b) => b.families.length - a.families.length)[0] ?? null;
@@ -94,6 +109,21 @@ export default async function Home() {
                       : g.from_price !== null ? <span><span className="hm-from">from</span><span className="hm-price num">{money(g.from_price)}</span></span> : null}
                   </span>
                 </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {genreTops.some((g) => g.length) && (
+          <section className="hm-block" aria-labelledby="hm-genres">
+            <div className="hm-block-h"><h2 id="hm-genres">Top 5 by genre</h2></div>
+            <div className="hm-genres">
+              {GENRE_LISTS.map((g, i) => genreTops[i].length > 0 && (
+                <HomeList key={g.genre} title={g.label} more={{ label: "All", href: g.href }}>
+                  {genreTops[i].map((game, rank) => (
+                    <Row key={game.slug} game={game} rank={rank + 1} sub="" right={<FromPrice price={game.from_price} />} />
+                  ))}
+                </HomeList>
               ))}
             </div>
           </section>
@@ -178,9 +208,10 @@ function HomeList({ title, more, children }: { title: string; more: { label: str
   );
 }
 
-function Row({ game, sub, right }: { game: HomeGame | HomeDeal; sub: string; right: React.ReactNode }) {
+function Row({ game, sub, right, rank }: { game: HomeGame | HomeDeal; sub: string; right: React.ReactNode; rank?: number }) {
   return (
-    <Link href={`/game/${game.slug}`} className="hm-row">
+    <Link href={`/game/${game.slug}`} className={`hm-row${rank ? " ranked" : ""}`}>
+      {rank && <span className="hm-rank num">{rank}</span>}
       <Cover id={game.cover_id} name={game.name} size="t_cover_small" className="hm-thumb" />
       <span className="hm-row-main"><b>{game.name}</b><small><Marks families={game.families} />{sub}</small></span>
       <span className="hm-row-right">{right}</span>

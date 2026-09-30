@@ -70,3 +70,15 @@ returns table (family text, games bigint)
 language sql stable set search_path = public as $$
   select family, games from home_family_deals
 $$;
+
+create index if not exists home_title_summary_genres on public.home_title_summary using gin (genres);
+
+-- Most popular games of one IGDB genre.
+create or replace function public.home_genre_top(genre text, n int default 12)
+returns table (slug text, name text, cover_id text, families text[], from_price numeric, max_discount int)
+language sql stable set search_path = public as $$
+  select s.slug, s.name, s.cover_id, s.families, s.from_price, s.max_discount::int
+    from home_title_summary s
+   where s.genres @> array[genre] and s.rank is not null
+   order by s.rank limit n
+$$;
