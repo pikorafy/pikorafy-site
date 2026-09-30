@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AFFILIATE_DISCLOSURE_SHORT } from "@/lib/affiliate";
-import { FAMILY_ORDER, getBestDeals, getDealCounts, getGenreTop, getPopular, getReleases, type HomeDeal, type HomeGame } from "@/lib/home";
+import { getBestDeals, getDealCounts, getGenreTop, getPopular, getReleases, type HomeDeal, type HomeGame } from "@/lib/home";
 import { igdbImage } from "@/lib/titles";
 import type { Family } from "@/lib/versions";
 import Image from "next/image";
@@ -27,13 +27,21 @@ const FAMILY: Record<Family, { label: string; mark: string; href: string; links:
 
 const INSTANT_GAMING = "https://www.instant-gaming.com/?igr=pikorafy";
 
-// Category tiles after the platforms.
-const CATEGORIES = [
-  { label: "Deals", note: "Biggest discounts", href: "/games?sale=1&sort=discount", icon: "%" },
-  { label: "Free to play", note: "No price at all", href: "/games/free-to-play", icon: "0€" },
-  { label: "Game Pass", note: "Included on Xbox", href: "/xbox?gamepass=1", icon: "GP" },
-  { label: "PS Plus", note: "Included on PlayStation", href: "/playstation?plus=1", icon: "P+" },
-];
+// Four category tiles under the hero.
+interface Category { label: string; note: string; href?: string; soon?: boolean; links: { label: string; href: string; family?: Family }[] }
+function categories(counts: Partial<Record<Family, number>>): Category[] {
+  const onSale = (n: number | undefined) => (n ? `${n.toLocaleString("en")} on sale right now` : "Browse every game");
+  const consoles = (counts.playstation ?? 0) + (counts.xbox ?? 0) + (counts.nintendo ?? 0);
+  return [
+    { label: "PC games", note: onSale(counts.pc), href: "/games",
+      links: [{ label: "Deals", href: "/games?sale=1&sort=discount" }, { label: "Free to play", href: "/games/free-to-play" }, { label: "New releases", href: "/releases?platform=pc" }] },
+    { label: "Console games", note: onSale(consoles),
+      links: [{ label: "PlayStation", href: "/playstation", family: "playstation" }, { label: "Xbox", href: "/xbox", family: "xbox" }, { label: "Nintendo", href: "/nintendo", family: "nintendo" }] },
+    { label: "Subscriptions", note: "Games included at no extra cost",
+      links: [{ label: "Game Pass", href: "/xbox?gamepass=1", family: "xbox" }, { label: "PS Plus", href: "/playstation?plus=1", family: "playstation" }] },
+    { label: "Gift cards", note: "Store credit for Steam, PlayStation, Xbox and Nintendo. Coming soon", soon: true, links: [] },
+  ];
+}
 
 // Top 5s by genre (IGDB genres), each linked to its catalog page.
 const GENRE_LISTS = [
@@ -81,17 +89,20 @@ export default async function Home() {
         </div>
 
         <nav className="hm-cats" aria-label="Categories">
-          {FAMILY_ORDER.map((f) => (
-            <Link key={f} href={FAMILY[f].href} className={`hm-cat pf-${f}`}>
-              <span className="hm-mark" aria-hidden>{FAMILY[f].mark}</span>
-              <span><b>{FAMILY[f].label}</b><small>{counts[f] ? `${counts[f]!.toLocaleString("en")} on sale` : "All games"}</small></span>
-            </Link>
-          ))}
-          {CATEGORIES.map((c) => (
-            <Link key={c.href} href={c.href} className="hm-cat">
-              <span className="hm-cat-icon" aria-hidden>{c.icon}</span>
-              <span><b>{c.label}</b><small>{c.note}</small></span>
-            </Link>
+          {categories(counts).map((c) => (
+            <div key={c.label} className={`hm-cat${c.soon ? " soon" : ""}`}>
+              {c.href ? <Link href={c.href} className="hm-cat-h">{c.label}</Link> : <span className="hm-cat-h">{c.label}</span>}
+              <small>{c.note}</small>
+              {c.links.length > 0 && (
+                <div className="hm-cat-links">
+                  {c.links.map((l) => (
+                    <Link key={l.href} href={l.href} className={l.family ? `pf-${l.family}` : undefined}>
+                      {l.family && <i aria-hidden />}{l.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
           ))}
         </nav>
       </div>
