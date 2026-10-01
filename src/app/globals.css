@@ -9,23 +9,30 @@
   --ceru:#457b9d;     --ceru-300:#29495e; --ceru-600:#6097b9; --ceru-700:#88b1cb;
   --navy:#1d3557;     --navy-100:#060b12; --navy-200:#0c1623; --navy-300:#122035; --navy-400:#172b46;
 
+  /* Dark theme palette (default): black, deep indigo, ocean blue, hot pink, aqua */
+  --ink:    #000000;
+  --indigo: #0a0047;
+  --ocean:  #004687;
+  --pink:   #ff4499;
+  --aqua:   #00ffd2;
+
   /* Dark theme tokens (default) */
-  --bg:        var(--navy-200);
-  --bg-2:      var(--navy-300);
-  --bg-3:      var(--navy-400);
-  --bg-elev:   #16243a;
-  --line:      rgba(168,218,220,.12);
-  --line-2:    rgba(168,218,220,.22);
-  --text:      var(--honey);
-  --text-2:    rgba(241,250,238,.72);
-  --text-3:    rgba(241,250,238,.5);
-  --accent:    var(--punch);
-  --accent-2:  var(--frost);
-  --accent-fg: #fff;
-  --good:      #75ce57;
+  --bg:        var(--ink);
+  --bg-2:      color-mix(in srgb, var(--indigo) 55%, var(--ink));
+  --bg-3:      color-mix(in srgb, var(--indigo) 60%, var(--ocean));
+  --bg-elev:   var(--indigo);
+  --line:      rgba(0,255,210,.14);
+  --line-2:    rgba(0,255,210,.26);
+  --text:      #ffffff;
+  --text-2:    rgba(255,255,255,.74);
+  --text-3:    rgba(255,255,255,.52);
+  --accent:    var(--pink);
+  --accent-2:  var(--aqua);
+  --accent-fg: var(--indigo);
+  --good:      var(--aqua);
   --warn:      #f0b400;
-  --grad-glow: radial-gradient(60% 80% at 70% 30%, rgba(230,57,70,.18), transparent 70%),
-               radial-gradient(50% 70% at 20% 80%, rgba(168,218,220,.10), transparent 70%);
+  --grad-glow: radial-gradient(60% 80% at 70% 30%, rgba(255,68,153,.18), transparent 70%),
+               radial-gradient(50% 70% at 20% 80%, rgba(0,255,210,.10), transparent 70%);
 
   /* Spacing & shape */
   --pad-sec: 64px;
@@ -52,8 +59,8 @@
   --card-foreground: var(--text);
   --border: var(--line-2);
   --input: var(--bg-3);
-  --primary: var(--punch);
-  --primary-foreground: #fff;
+  --primary: var(--accent);
+  --primary-foreground: var(--accent-fg);
   --secondary: var(--bg-2);
   --secondary-foreground: var(--text-2);
   --accent-foreground: var(--text);
@@ -64,17 +71,28 @@
 }
 
 [data-theme="light"] {
-  --bg:        var(--honey);
-  --bg-2:      #e9f3e3;
-  --bg-3:      #dfecd7;
+  /* Light theme palette: butter, salmon, mauve, violet, dusk */
+  --butter: #feda84;
+  --salmon: #ff9b83;
+  --mauve:  #976393;
+  --violet: #685489;
+  --dusk:   #43457f;
+
+  --bg:        color-mix(in srgb, var(--butter) 18%, #fff);
+  --bg-2:      color-mix(in srgb, var(--butter) 32%, #fff);
+  --bg-3:      color-mix(in srgb, var(--butter) 48%, #fff);
   --bg-elev:   #ffffff;
-  --line:      rgba(29,53,87,.12);
-  --line-2:    rgba(29,53,87,.22);
-  --text:      var(--navy);
-  --text-2:    rgba(29,53,87,.72);
-  --text-3:    rgba(29,53,87,.5);
-  --grad-glow: radial-gradient(60% 80% at 70% 30%, rgba(230,57,70,.10), transparent 70%),
-               radial-gradient(50% 70% at 20% 80%, rgba(69,123,157,.10), transparent 70%);
+  --line:      rgba(67,69,127,.14);
+  --line-2:    rgba(67,69,127,.26);
+  --text:      var(--dusk);
+  --text-2:    rgba(67,69,127,.78);
+  --text-3:    rgba(67,69,127,.58);
+  --accent:    var(--violet);
+  --accent-2:  var(--salmon);
+  --accent-fg: #fff;
+  --good:      var(--mauve);
+  --grad-glow: radial-gradient(60% 80% at 70% 30%, rgba(255,155,131,.18), transparent 70%),
+               radial-gradient(50% 70% at 20% 80%, rgba(151,99,147,.10), transparent 70%);
 }
 
 [data-density="compact"] { --pad-sec:40px; --pad-card:12px; --gap:10px; --row-h:46px; }
@@ -952,8 +970,8 @@ body::before {
 .pp-panel-foot span:last-child { color:var(--text); text-align:right; }
 .pp-actions { display:grid; gap:8px; margin-top:16px; }
 .pp-btn { display:flex; align-items:center; justify-content:center; gap:6px; padding:12px 16px; border-radius:8px; font-weight:600; text-align:center; text-decoration:none; border:1px solid transparent; transition:background .15s; }
-.pp-btn-primary { background:var(--accent); color:#fff; }
-.pp-btn-primary:hover { background:var(--punch-400); }
+.pp-btn-primary { background:var(--accent); color:var(--accent-fg); }
+.pp-btn-primary:hover { background:color-mix(in srgb, var(--accent) 85%, #000); }
 .pp-btn-ghost { border-color:var(--line-2); color:var(--text); }
 .pp-btn-ghost:hover { background:var(--bg-3); }
 
