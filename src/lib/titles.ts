@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { getGameBySlug, type Game } from "@/lib/catalog";
 import { getXboxBySlug, getXboxEditions, getXboxProducts, type XboxGame, type XboxGameDetail } from "@/lib/xbox";
@@ -39,7 +40,7 @@ function db() {
   return getSupabaseAdmin();
 }
 
-export async function getTitleBySlug(slug: string): Promise<Title | null> {
+async function getTitleBySlugUncached(slug: string): Promise<Title | null> {
   const client = db();
   if (!client) return null;
   const { data } = await client.from("titles").select(TITLE_COLUMNS).eq("slug", slug).maybeSingle();
@@ -47,7 +48,7 @@ export async function getTitleBySlug(slug: string): Promise<Title | null> {
 }
 
 /** Current slug of a title that used to be at `slug` (renamed, or merged into another). */
-export async function getSlugAlias(slug: string): Promise<string | null> {
+async function getSlugAliasUncached(slug: string): Promise<string | null> {
   const client = db();
   if (!client) return null;
   const { data } = await client.from("title_slug_aliases").select("titles(slug)").eq("slug", slug).maybeSingle();
@@ -55,7 +56,7 @@ export async function getSlugAlias(slug: string): Promise<string | null> {
 }
 
 /** The shared title a store item belongs to, if it's linked. */
-export async function getTitleForStore(store: Store, storeId: string | number): Promise<Pick<Title, "id" | "slug"> | null> {
+async function getTitleForStoreUncached(store: Store, storeId: string | number): Promise<Pick<Title, "id" | "slug"> | null> {
   const client = db();
   if (!client) return null;
   const { data } = await client.from("title_links").select("titles(id, slug)")
@@ -65,7 +66,7 @@ export async function getTitleForStore(store: Store, storeId: string | number): 
 }
 
 /** Everything the shared game page shows, loaded through each store's own helpers. */
-export async function getTitleBundle(title: Title): Promise<TitleBundle> {
+async function getTitleBundleUncached(title: Title): Promise<TitleBundle> {
   const client = db()!;
   const { data: links } = await client.from("title_links").select("store, store_id").eq("title_id", title.id);
   const ids = (store: Store) => (links ?? []).filter((l) => l.store === store).map((l) => l.store_id as string);
@@ -194,3 +195,15 @@ export async function searchTitles(text: string, limit: number): Promise<TitleHi
     };
   });
 }
+
+/** getTitleBySlug, deduplicated within one render (page + metadata ask for the same data). */
+export const getTitleBySlug = cache(getTitleBySlugUncached);
+
+/** getTitleForStore, deduplicated within one render (page + metadata ask for the same data). */
+export const getTitleForStore = cache(getTitleForStoreUncached);
+
+/** getTitleBundle, deduplicated within one render (page + metadata ask for the same data). */
+export const getTitleBundle = cache(getTitleBundleUncached);
+
+/** getSlugAlias, deduplicated within one render (page + metadata ask for the same data). */
+export const getSlugAlias = cache(getSlugAliasUncached);

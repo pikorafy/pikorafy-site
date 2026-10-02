@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 // Read-side access to the Steam game catalog (see supabase/migrations/*_game_catalog.sql).
@@ -101,7 +102,7 @@ function db() {
   return getSupabaseAdmin();
 }
 
-export async function getGameBySlug(slug: string): Promise<Game | null> {
+async function getGameBySlugUncached(slug: string): Promise<Game | null> {
   const client = db();
   if (!client) return null;
   const { data } = await client
@@ -162,7 +163,7 @@ export async function getTopGameSlugs(limit: number): Promise<string[]> {
 }
 
 /** Current offers, cheapest first. */
-export async function getGamePrices(appId: number): Promise<GamePrice[]> {
+async function getGamePricesUncached(appId: number): Promise<GamePrice[]> {
   const client = db();
   if (!client) return [];
   const { data } = await client
@@ -243,7 +244,7 @@ export interface TimeToBeat {
 }
 
 /** "How long to beat": IGDB player times that passed the import's checks (scripts/lib/time-to-beat.mts). */
-export async function getTimeToBeat(appId: number): Promise<TimeToBeat | null> {
+async function getTimeToBeatUncached(appId: number): Promise<TimeToBeat | null> {
   const client = db();
   if (!client) return null;
   const { data } = await client
@@ -255,7 +256,7 @@ export async function getTimeToBeat(appId: number): Promise<TimeToBeat | null> {
 }
 
 /** Published editorial/LLM copy. Drafts are never shown. */
-export async function getGameContent(appId: number, locale: "en" | "es"): Promise<GameContent | null> {
+async function getGameContentUncached(appId: number, locale: "en" | "es"): Promise<GameContent | null> {
   const client = db();
   if (!client) return null;
   const { data } = await client
@@ -584,3 +585,15 @@ export async function getSiteStats(): Promise<SiteStats | null> {
     lastPriceAt: (s.last_price_at as string | null) ?? null,
   };
 }
+
+/** getGameBySlug, deduplicated within one render (page + metadata ask for the same data). */
+export const getGameBySlug = cache(getGameBySlugUncached);
+
+/** getGamePrices, deduplicated within one render (page + metadata ask for the same data). */
+export const getGamePrices = cache(getGamePricesUncached);
+
+/** getGameContent, deduplicated within one render (page + metadata ask for the same data). */
+export const getGameContent = cache(getGameContentUncached);
+
+/** getTimeToBeat, deduplicated within one render (page + metadata ask for the same data). */
+export const getTimeToBeat = cache(getTimeToBeatUncached);
