@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { cache } from "react";
 import {
   getGameBySlug,
   getGameContent,
@@ -48,12 +49,12 @@ export async function generateStaticParams() {
  * for the others (src/lib/versions.ts). A Steam slug linked to a title moves to the title's
  * PC page (old links keep working); a Steam game not linked yet keeps its Steam-only page.
  */
-async function resolve(slug: string): Promise<
+const resolve = cache(async (slug: string): Promise<
   | { kind: "title"; bundle: TitleBundle; version: Version }
   | { kind: "redirect"; to: string }
   | { kind: "steam"; game: Game }
   | null
-> {
+> => {
   const steam = await getGameBySlug(slug);
   if (steam) {
     const t = await getTitleForStore("steam", steam.steam_app_id);
@@ -84,7 +85,7 @@ async function resolve(slug: string): Promise<
   const path = versionPath(title.slug, version, versions);
   if (path !== `/game/${slug}`) return { kind: "redirect", to: path };
   return { kind: "title", bundle, version };
-}
+});
 
 export async function generateMetadata({ params }: GamePageProps): Promise<Metadata> {
   const { slug } = await params;

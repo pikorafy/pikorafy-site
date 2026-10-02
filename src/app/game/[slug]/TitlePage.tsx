@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { cache } from "react";
 import {
   getGameContent,
   getGamePrices,
@@ -177,13 +178,16 @@ function xboxMedia(b: TitleBundle): VersionData["media"] {
 
 // ─── Page data and metadata ──────────────────────────────────────────────────
 
-export async function loadVersionPage(b: TitleBundle) {
+async function loadVersionPageUncached(b: TitleBundle) {
   const pcPrices = b.steam ? await getGamePrices(b.steam.steam_app_id) : [];
   const subNames = await getSubscriptionNames();
   const versions = versionsOf(b);
   const data = new Map(versions.map((v) => [v, versionData(b, v, pcPrices, subNames)]));
   return { versions, data, pcPrices };
 }
+
+/** Deduplicated within one render: the page and its metadata load the same bundle. */
+export const loadVersionPage = cache(loadVersionPageUncached);
 
 export function versionMetadata(b: TitleBundle, version: Version, d: VersionData, versions: Version[], indexable: boolean): Metadata {
   const long = VERSIONS[version].long;
