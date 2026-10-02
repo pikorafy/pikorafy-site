@@ -33,7 +33,7 @@ const IGDB_DELAY_MS = 260;             // 4 requests / second
 const REMAKE_TYPES = new Set([8, 9]);  // remake, remaster: separate games
 const COLLAPSE_TYPES = new Set([10, 11]); // expanded game, port: same game as parent_game
 const BUNDLE = 3;
-const MIN_LINKS = 5000;                // fewer than this = something broke; don't write
+const MIN_LINKS = 1200;                // fewer than this = something broke; don't write
 const dry = process.argv[2] === "dry";
 
 type Store = "steam" | "xbox" | "playstation" | "nintendo";

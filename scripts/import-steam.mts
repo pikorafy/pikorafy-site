@@ -2,7 +2,7 @@
 // Schema: supabase/migrations/20260924000000_game_catalog.sql
 //
 // Usage (Node ≥ 23.6 runs .mts directly; on Node 22 add --experimental-strip-types):
-//   node scripts/import-steam.mts seed [topN]        rank all Steam games by reviews (+ charts), queue the top N (default 2500)
+//   node scripts/import-steam.mts seed [topN]        rank all Steam games by reviews (+ charts), queue the top N (default 500)
 //   node scripts/import-steam.mts discover           add today's most played / trending, prune the rest
 //   node scripts/import-steam.mts seed-ids 730,570   queue specific app IDs at top priority
 //   node scripts/import-steam.mts run [maxGames]     import due games via GetItems, new first (default: all due)
@@ -925,7 +925,7 @@ function sleep(ms: number) {
 
 const [cmd, arg] = process.argv.slice(2);
 switch (cmd) {
-  case "seed":     await seed(Number(arg ?? 2500)); break;
+  case "seed":     await seed(Number(arg ?? 500)); break;
   case "discover": await discover(); break;
   case "seed-ids": await seedIds((arg ?? "").split(",").map(Number).filter(Boolean)); break;
   case "run":      await run(Number(arg ?? MAX_PER_RUN)); break;
