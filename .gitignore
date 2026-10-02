@@ -137,3 +137,8 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Local Supabase: a data copy of the live database (npx supabase db dump … -f supabase/seed.sql)
+supabase/seed.sql
+supabase/.temp/
+supabase/.branches/
