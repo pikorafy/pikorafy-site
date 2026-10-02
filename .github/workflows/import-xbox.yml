@@ -12,7 +12,7 @@ on:
     inputs:
       per_platform:
         description: "Top games per platform (console, PC) to track"
-        default: "2500"
+        default: "500"
       pages:
         description: "OpenXBL pages per list (optional extra source, 0 = off)"
         default: "0"
@@ -37,6 +37,6 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           OPENXBL_API_KEY: ${{ secrets.OPENXBL_API_KEY }}
-          PER_PLATFORM: ${{ inputs.per_platform || '2500' }}
+          PER_PLATFORM: ${{ inputs.per_platform || '500' }}
           PAGES: ${{ inputs.pages || '0' }}
         run: node scripts/import-xbox.mts run "$PER_PLATFORM" "$PAGES"

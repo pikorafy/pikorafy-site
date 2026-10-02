@@ -15,7 +15,7 @@ import { eligible, judge, type IgdbTimeToBeat, type TimeToBeat } from "./lib/tim
 const STEAM_SOURCE = 1;
 const BATCH = 500;                 // IGDB rows per request
 const IGDB_DELAY_MS = 260;         // 4 requests / second
-const MIN_ROWS = 300;              // fewer than this passing = something broke; don't write (first full run: 783)
+const MIN_ROWS = 80;               // fewer than this passing = something broke; don't write (783 at 2,500 Steam games)
 const MAX_SHRINK = 0.3;            // or losing more than 30% of what we have
 const dry = process.argv[2] === "dry";
 

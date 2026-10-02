@@ -5,7 +5,7 @@ name: Import Steam catalog
 on:
   schedule:
     - cron: "17 */3 * * *"   # every 3h (was hourly): up to 4000 due games via GetItems; unchanged games are skipped
-    - cron: "40 4 * * 1"     # Mondays: re-rank the top 2500 from Steam (store search + charts, by review count)
+    - cron: "40 4 * * 1"     # Mondays: re-rank the top 500 from Steam (store search + charts, by review count)
     - cron: "5 5 * * *"      # daily: add most played / trending, prune games that fell out
   workflow_dispatch:
     inputs:
@@ -42,7 +42,7 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             node scripts/import-steam.mts "$CMD" $ARG
           elif [ "${{ github.event.schedule }}" = "40 4 * * 1" ]; then
-            node scripts/import-steam.mts seed 2500
+            node scripts/import-steam.mts seed 500
           elif [ "${{ github.event.schedule }}" = "5 5 * * *" ]; then
             node scripts/import-steam.mts discover
           else

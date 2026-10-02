@@ -1,14 +1,14 @@
 // Xbox / Microsoft Store → Supabase (`xbox_games`), listed on /xbox.
 //
 // Usage (Node ≥ 23.6 runs .mts directly):
-//   node scripts/import-xbox.mts run [perPlatform] [openXblPages]   (defaults 2500, 0)
+//   node scripts/import-xbox.mts run [perPlatform] [openXblPages]   (defaults 500, 0)
 //
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, OPENXBL_API_KEY (only with openXblPages > 0)
 //
 // Sources:
 //  - xbox.com's "browse all games" service (emerald.xboxservices.com), Spanish store, most
 //    popular first, 25 a page: the top N console games (Xbox Series X|S / One) and the top N
-//    PC games (N = perPlatform, 2,500 for now: a limited sample while we're on the free
+//    PC games (N = perPlatform, 500 for now: a limited sample while we're on the free
 //    database plan; the store has ~12,800 console and ~5,500 PC games). Merged in list order,
 //    that order is our popularity rank.
 //  - The public Game Pass catalogs, to tag Game Pass games.
@@ -461,6 +461,19 @@ async function run(perPlatform: number, pagesPerList: number) {
     else rankMoves += (data as number) ?? 0;
   }
 
+  // Products no longer listed (fell out of the top N, left Game Pass) are dropped, unless
+  // discovery came back suspiciously small (a failed browse must not empty the catalog).
+  const gone = [...existing.keys()].filter((id) => !found.has(id));
+  let removed = 0;
+  if (gone.length && found.size >= Math.min(perPlatform, 200)) {
+    for (let i = 0; i < gone.length; i += 200) {
+      const { error } = await supabase.from("xbox_games").delete().in("product_id", gone.slice(i, i + 200));
+      if (error) { console.warn(`xbox_games delete: ${error.message}`); break; }
+      removed += Math.min(200, gone.length - i);
+    }
+  }
+  console.log(`Removed ${removed} products no longer listed.`);
+
   // Group editions, pick each group's primary product, match groups to Steam games.
   const { data: linked, error: linkError } = await supabase.rpc("refresh_xbox_catalog");
   if (linkError) console.warn(`refresh_xbox_catalog: ${linkError.message}`);
@@ -478,7 +491,7 @@ function required(name: string): string {
 
 const [cmd, arg] = process.argv.slice(2);
 switch (cmd) {
-  case "run": await run(Number(arg) || 2500, Number(process.argv[4] ?? 0)); break;
+  case "run": await run(Number(arg) || 500, Number(process.argv[4] ?? 0)); break;
   default:
     console.error("Usage: import-xbox.mts run [perPlatform] [openXblPages]");
     process.exit(1);
