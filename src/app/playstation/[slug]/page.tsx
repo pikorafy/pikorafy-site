@@ -11,7 +11,7 @@ import FallbackImg from "@/components/FallbackImg";
 
 // PlayStation Store product pages (PS5 / PS4). Rendered on first visit, refreshed at
 // most hourly (popular games' store data updates daily, the rest every few days).
-export const revalidate = 3600;
+export const revalidate = 86400;
 
 const BASE_URL = "https://pikorafy.com";
 

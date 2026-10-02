@@ -9,7 +9,6 @@ import {
   getPriceHistory,
   getRelatedGames,
   getTimeToBeat,
-  getTopGameSlugs,
   type Game,
   type GamePrice,
   type PricePoint,
@@ -27,21 +26,19 @@ import TitlePage, { loadVersionPage, versionMetadata } from "./TitlePage";
 import { mainVersion, parseVersionSlug, versionPath, versionsOf, VERSIONS, type Version } from "@/lib/versions";
 import { getSlugAlias, getTitleBundle, getTitleBySlug, getTitleForStore, type TitleBundle } from "@/lib/titles";
 
-// Catalog pages are prerendered for the most popular games and generated on
-// first visit for the rest; either way they refresh at most once an hour
-// (the importer updates prices every few hours).
-export const revalidate = 3600;
+// Game pages are generated on first visit and cached for six hours. Every regeneration is a
+// Vercel ISR write, and crawlers visit thousands of these pages, so the window stays long.
+export const revalidate = 21600;
 
 const BASE_URL = "https://pikorafy.com";
-const PRERENDER_COUNT = 200;
 
 interface GamePageProps {
   params: Promise<{ slug: string }>;
 }
 
 export async function generateStaticParams() {
-  const slugs = await getTopGameSlugs(PRERENDER_COUNT);
-  return slugs.map((slug) => ({ slug }));
+  // Nothing at build time: every deploy would rewrite these pages into the ISR cache.
+  return [];
 }
 
 /**

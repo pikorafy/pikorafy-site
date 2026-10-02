@@ -17,7 +17,7 @@ import FallbackImg from "@/components/FallbackImg";
 
 // Nintendo eShop product pages (Switch / Switch 2). Rendered on first visit,
 // refreshed at most hourly (prices update every 6h).
-export const revalidate = 3600;
+export const revalidate = 86400;
 
 const BASE_URL = "https://pikorafy.com";
 

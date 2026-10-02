@@ -21,7 +21,7 @@ import GameMedia from "@/app/game/[slug]/GameMedia";
 // Xbox Store product pages for games we don't have on Steam. Games that exist on
 // both redirect to the merged /game/[slug] page, which shows both sets of prices.
 // Rendered on first visit, refreshed at most hourly (prices update every 6h).
-export const revalidate = 3600;
+export const revalidate = 86400;
 
 const BASE_URL = "https://pikorafy.com";
 
