@@ -3,6 +3,7 @@ import Script from "next/script";
 import { Onest, JetBrains_Mono } from "next/font/google";
 import PikorafyNavbar from "@/components/PikorafyNavbar";
 import Footer from "@/components/Footer";
+import HideOnAdmin from "@/components/HideOnAdmin";
 import "./globals.css";
 
 const GA_ID = "G-KM9VYM8YJC";
@@ -100,9 +101,9 @@ export default function RootLayout({
         />
       </head>
       <body className="flex min-h-full flex-col">
-        <PikorafyNavbar />
+        <HideOnAdmin><PikorafyNavbar /></HideOnAdmin>
         <main className="flex-1">{children}</main>
-        <Footer />
+        <HideOnAdmin><Footer /></HideOnAdmin>
       </body>
     </html>
   );

@@ -8,11 +8,15 @@
 #
 # Ports on your PC (only reachable from this PC), changeable in a .env file next to this one:
 #   site 3033 (PIKORAFY_APP_PORT) · API 3034 (PIKORAFY_API_PORT) · database 5533 (PIKORAFY_DB_PORT)
+#   · Redis 6380 (PIKORAFY_REDIS_PORT)
 # Containers, network and volume are all prefixed "pikorafy", so they don't mix with other projects.
 
 name: pikorafy
 
 x-local-api: &local-api
+  # Direct connections for the admin and the job runner.
+  DATABASE_URL: postgres://postgres:pikorafy@db:5432/pikorafy
+  REDIS_URL: redis://redis:6379
   # Local-only key for the API below (a token signed with PGRST_JWT_SECRET). Not a secret.
   SUPABASE_URL: http://api
   SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoicGlrb3JhZnktbG9jYWwifQ.drY33MJKfluApzdA0nOg_II092wtHxmjCG0LlIAM40Y
@@ -49,6 +53,20 @@ services:
       - ./docker/backups:/backups
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "postgres", "-d", "pikorafy"]
+      interval: 5s
+      retries: 20
+    restart: unless-stopped
+
+  # Redis: the job queues (BullMQ) and admin sessions.
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:${PIKORAFY_REDIS_PORT:-6380}:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       retries: 20
     restart: unless-stopped
@@ -90,22 +108,28 @@ services:
       - "127.0.0.1:${PIKORAFY_APP_PORT:-3033}:3033"
     depends_on:
       - api
+      - redis
     restart: unless-stopped
 
-  # Scheduled jobs: the importers on the same schedule as the GitHub Actions, plus the hourly
-  # home-page refresh. API keys come from docker/importers.env (see docker/importers.env.example);
-  # an importer whose keys are missing is skipped.
+  # The job runner: every importer and the hourly home-page refresh on a schedule, plus runs
+  # started from the admin (src/lib/jobs/definitions.ts). API keys come from docker/importers.env
+  # (see docker/importers.env.example); a job whose keys are missing doesn't run on schedule.
   jobs:
     build: .
-    command: ["node", "scripts/local/scheduler.mts"]
+    command: ["node", "scripts/local/worker.mts"]
+    stop_grace_period: 20s
     environment:
       <<: *local-api
     env_file:
       - path: docker/importers.env
         required: false
     depends_on:
-      - api
+      api:
+        condition: service_started
+      redis:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
   pgdata:
+  redisdata:
