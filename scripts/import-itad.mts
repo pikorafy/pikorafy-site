@@ -17,7 +17,7 @@ const API = "https://api.isthereanydeal.com";
 const COUNTRY = "ES";            // EUR prices, matching the Steam import
 const STEAM_SHOP_ID = 61;        // ITAD's shop id for Steam
 const BATCH = 200;               // max ids per prices request
-const REQUEST_GAP_MS = 1000;
+const REQUEST_GAP_MS = Number(process.env.ITAD_GAP_MS) || 1000;   // between requests
 // Games per run, most popular first (the database API returns 1000 rows a page; we page through).
 const MAX_LOOKUPS = Number(process.env.ITAD_MAX_LOOKUPS) || Infinity;   // Steam apps matched to ITAD ids
 const MAX_PRICES = Number(process.env.ITAD_MAX_PRICES) || Infinity;     // games whose prices are refreshed
@@ -68,23 +68,38 @@ interface ItadHistoryLow {
 
 let lastRequestAt = 0;
 
-async function itad<T>(path: string, body: unknown): Promise<T> {
-  const wait = lastRequestAt + REQUEST_GAP_MS - Date.now();
-  if (wait > 0) await sleep(wait);
-  lastRequestAt = Date.now();
+// When ITAD says "too many requests" (429) or is briefly unavailable: wait (its Retry-After if
+// given, else these steps) and try again; the gap between requests grows a little each time.
+const BACKOFF_MS = [30_000, 60_000, 120_000, 300_000, 600_000];
+let gapMs = REQUEST_GAP_MS;
 
+async function itad<T>(path: string, body: unknown): Promise<T> {
   const sep = path.includes("?") ? "&" : "?";
-  const res = await fetch(`${API}${path}${sep}key=${encodeURIComponent(KEY)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
+  for (let attempt = 0; ; attempt++) {
+    const wait = lastRequestAt + gapMs - Date.now();
+    if (wait > 0) await sleep(wait);
+    lastRequestAt = Date.now();
+
+    const res = await fetch(`${API}${path}${sep}key=${encodeURIComponent(KEY)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (res.ok) return res.json() as Promise<T>;
+
     const text = await res.text().catch(() => "");
+    const retryable = res.status === 429 || res.status >= 500;
+    if (retryable && attempt < BACKOFF_MS.length) {
+      const retryAfter = Number(res.headers.get("retry-after"));
+      const pause = retryAfter > 0 ? retryAfter * 1000 : BACKOFF_MS[attempt];
+      gapMs = Math.min(gapMs * 1.5, 5_000);
+      console.warn(`ITAD ${path.split("?")[0]} → HTTP ${res.status}; waiting ${Math.round(pause / 1000)} s, then ${(gapMs / 1000).toFixed(1)} s between requests.`);
+      await sleep(pause);
+      continue;
+    }
     // Never log the URL: it contains the API key.
     throw new Error(`ITAD ${path.split("?")[0]} → HTTP ${res.status}: ${text.slice(0, 300)}`);
   }
-  return res.json() as Promise<T>;
 }
 
 // ─── Step 1: link Steam apps to ITAD game ids ────────────────────────────────
@@ -122,6 +137,8 @@ async function linkGames() {
         .eq("steam_app_id", appId);
       if (e) throw new Error(`games update ${appId}: ${e.message}`);
     }));
+    const done = Math.min(i + BATCH, ids.length);
+    if (done % 5000 === 0 || done === ids.length) console.log(`Lookup: ${done}/${ids.length} checked, ${linked} linked so far…`);
   }
   console.log(`Lookup: ${ids.length} checked, ${linked} linked to ITAD.`);
 }
@@ -195,7 +212,8 @@ async function refreshPrices() {
         lows++;
       }
     }
-    console.log(`Prices: ${Math.min(i + BATCH, games.length)}/${games.length} games…`);
+    const done = Math.min(i + BATCH, games.length);
+    if (done % 5000 === 0 || done === games.length) console.log(`Prices: ${done}/${games.length} games…`);
   }
   console.log(`Done: ${offers} offers from ${games.length} games, ${lows} all-time lows.`);
 }
