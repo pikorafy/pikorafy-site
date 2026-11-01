@@ -139,12 +139,12 @@ async function titleIndex(platforms: number[]): Promise<Map<string, number[]>> {
   return index;
 }
 
-interface Meta { id: number; name?: string; game_type?: number; version_parent?: number; parent_game?: number; first_release_date?: number }
+interface Meta { id: number; name?: string; slug?: string; game_type?: number; version_parent?: number; parent_game?: number; first_release_date?: number }
 const meta = new Map<number, Meta>();
 async function loadMeta(ids: number[]) {
   const missing = [...new Set(ids)].filter((id) => !meta.has(id));
   for (const batch of chunks(missing, BATCH)) {
-    const rows = await igdb<Meta[]>("games", `fields id,name,game_type,version_parent,parent_game,first_release_date; where id = (${batch.join(",")}); limit ${BATCH};`);
+    const rows = await igdb<Meta[]>("games", `fields id,name,slug,game_type,version_parent,parent_game,first_release_date; where id = (${batch.join(",")}); limit ${BATCH};`);
     for (const r of rows) meta.set(r.id, r);
   }
 }
@@ -196,9 +196,23 @@ for (const l of linked.values()) l.igdb = rootOf(l.igdb);
 
 let ambiguous = 0;
 const byKey = new Map(items.map((i) => [key(i), i]));
+// For the admin's review queue: name matches we couldn't settle, and name-only matches whose
+// release years are far apart.
+interface Review { kind: "ambiguous" | "weak"; candidates: number[]; current?: number; reason: string }
+const reviews = new Map<string, Review>();
+const yearOf = (id: number) => dayOf(meta.get(id)?.first_release_date)?.slice(0, 4) ?? null;
 for (const [k, hits] of candidates) {
   const roots = [...new Set(hits.map(rootOf))];
-  if (roots.length === 1) { linked.set(k, { igdb: roots[0], method: "title" }); continue; }
+  if (roots.length === 1) {
+    linked.set(k, { igdb: roots[0], method: "title" });
+    const release = byKey.get(k)!.release;
+    const igdbDay = dayOf(meta.get(roots[0])?.first_release_date);
+    if (release && igdbDay && daysApart(release, igdbDay) > 2 * 365) {
+      reviews.set(k, { kind: "weak", candidates: [roots[0]], current: roots[0],
+        reason: `Matched by name only, but the store lists ${release.slice(0, 4)} and IGDB ${igdbDay.slice(0, 4)}.` });
+    }
+    continue;
+  }
   // Namesakes: the one released closest to the store item, if clearly closest.
   const release = byKey.get(k)!.release;
   const dated = roots.map((r) => ({ r, d: dayOf(meta.get(r)?.first_release_date) }))
@@ -206,7 +220,11 @@ for (const [k, hits] of candidates) {
     .map((x) => ({ r: x.r, gap: daysApart(x.d, release!) })).sort((a, b) => a.gap - b.gap);
   if (dated.length && (dated.length === 1 || dated[1].gap - dated[0].gap > 180) && dated[0].gap < 3 * 365) {
     linked.set(k, { igdb: dated[0].r, method: "title_date" });
-  } else ambiguous++;
+  } else {
+    ambiguous++;
+    reviews.set(k, { kind: "ambiguous", candidates: roots.slice(0, 8),
+      reason: `${roots.length} IGDB games share this name${release ? "" : " and the store gives no release date"}.` });
+  }
 }
 
 // 3. Existing links to Steam: fill gaps, and merge IGDB's splits of the same game.
@@ -376,5 +394,29 @@ const staleAliases = (await all<{ slug: string }>("title_slug_aliases", "slug", 
 for (const batch of chunks(staleAliases, BATCH)) {
   const { error } = await db.from("title_slug_aliases").delete().in("slug", batch);
   if (error) throw new Error(`title_slug_aliases delete: ${error.message}`);
+}
+// Review queue: open entries are replaced each run; decisions (resolved / dismissed) stay, and
+// items corrected by hand (title_overrides) don't come up again.
+{
+  const overridden = new Set(overrides.map((o) => `${o.store}:${o.store_id}`));
+  const decided = new Set((await all<{ store: string; store_id: string }>("review_items", "store, store_id", "store_id",
+    (q) => q.neq("status", "open"))).map((r) => `${r.store}:${r.store_id}`));
+  const now = new Date().toISOString();
+  const rows = [...reviews].filter(([k]) => !overridden.has(k) && !decided.has(k)).map(([k, rv]) => {
+    const item = byKey.get(k)!;
+    const current = rv.current !== undefined ? linked.get(k)?.igdb ?? rv.current : null;
+    return {
+      store: item.store, store_id: item.id, kind: rv.kind, item_name: item.title, item_release: item.release,
+      current_title_id: current, reason: rv.reason, status: "open", updated_at: now,
+      candidates: rv.candidates.map((id) => ({ id, name: meta.get(id)?.name ?? String(id), slug: meta.get(id)?.slug ?? null, year: yearOf(id) })),
+    };
+  });
+  const { error: clearError } = await db.from("review_items").delete().eq("status", "open");
+  if (clearError) throw new Error(`review_items clear: ${clearError.message}`);
+  for (const batch of chunks(rows, BATCH)) {
+    const { error } = await db.from("review_items").upsert(batch, { onConflict: "store,store_id" });
+    if (error) throw new Error(`review_items write: ${error.message}`);
+  }
+  console.log(`Review queue: ${rows.filter((r) => r.kind === "ambiguous").length} ambiguous, ${rows.filter((r) => r.kind === "weak").length} to check.`);
 }
 console.log(`Written: ${changedTitles.length} titles (${renamed.length} new slugs), ${changedLinks.length} links, ${slugAliases.length} slug redirects · removed ${goneLinks.length} links, ${unused.length} titles.`);
