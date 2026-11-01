@@ -3,10 +3,12 @@ name: Import Steam catalog
 # Runs outside Vercel on purpose: no function time limit. See scripts/import-steam.mts.
 
 on:
-  schedule:
-    - cron: "17 */3 * * *"   # every 3h (was hourly): up to 4000 due games via GetItems; unchanged games are skipped
-    - cron: "40 4 * * 1"     # Mondays: re-rank the top 500 from Steam (store search + charts, by review count)
-    - cron: "5 5 * * *"      # daily: add most played / trending, prune games that fell out
+  # Schedule paused: the imports now run locally in Docker (docker/README.md, "jobs").
+  # Uncomment to run them on GitHub again; manual runs (Run workflow) still work.
+  # schedule:
+  #  - cron: "17 */3 * * *"   # every 3h (was hourly): up to 4000 due games via GetItems; unchanged games are skipped
+  #  - cron: "40 4 * * 1"     # Mondays: re-rank the top 500 from Steam (store search + charts, by review count)
+  #  - cron: "5 5 * * *"      # daily: add most played / trending, prune games that fell out
   workflow_dispatch:
     inputs:
       command:

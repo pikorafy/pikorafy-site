@@ -4,8 +4,10 @@ name: Import Nintendo eShop
 # Both sources are public: no Nintendo key needed.
 
 on:
-  schedule:
-    - cron: "41 */6 * * *"   # every 6h: catalog (new games) + prices
+  # Schedule paused: the imports now run locally in Docker (docker/README.md, "jobs").
+  # Uncomment to run them on GitHub again; manual runs (Run workflow) still work.
+  # schedule:
+  #  - cron: "41 */6 * * *"   # every 6h: catalog (new games) + prices
   workflow_dispatch:
     inputs:
       command:

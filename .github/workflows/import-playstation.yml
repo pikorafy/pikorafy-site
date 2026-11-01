@@ -6,11 +6,13 @@ name: Import PlayStation Store
 # ~15k games happens in steps (one per day) and the store checks grow with it.
 
 on:
-  schedule:
-    # In the quiet hour between the other importers (Steam :17 every 3h; Xbox, Nintendo, ITAD
-    # at :23-:47 every 6h), so the free-plan database never serves several imports at once.
-    - cron: "35 1 * * *"          # daily 01:35: catalog from IGDB (up to 5000 new games), then store pages
-    - cron: "35 7-23/6 * * *"     # 07:35, 13:35, 19:35: store pages that are due
+  # Schedule paused: the imports now run locally in Docker (docker/README.md, "jobs").
+  # Uncomment to run them on GitHub again; manual runs (Run workflow) still work.
+  # schedule:
+  #  # In the quiet hour between the other importers (Steam :17 every 3h; Xbox, Nintendo, ITAD
+  #  # at :23-:47 every 6h), so the free-plan database never serves several imports at once.
+  #  - cron: "35 1 * * *"          # daily 01:35: catalog from IGDB (up to 5000 new games), then store pages
+  #  - cron: "35 7-23/6 * * *"     # 07:35, 13:35, 19:35: store pages that are due
   workflow_dispatch:
     inputs:
       command:
