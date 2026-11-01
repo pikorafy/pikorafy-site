@@ -142,3 +142,8 @@ vite.config.ts.timestamp-*
 supabase/seed.sql
 supabase/.temp/
 supabase/.branches/
+
+# Local Docker: database dumps and importer API keys
+docker/backups/*
+!docker/backups/.gitkeep
+docker/importers.env

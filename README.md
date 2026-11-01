@@ -1,5 +1,7 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+**Running everything locally with Docker (database, site, imports): see [docker/README.md](docker/README.md).**
+
 ## Getting Started
 
 First, run the development server:
