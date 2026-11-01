@@ -101,3 +101,27 @@
   .adm-side { max-width: none; }
   .adm-main { padding: 20px 16px 32px; }
 }
+
+/* Catalog */
+.adm-search { display: flex; align-items: center; gap: 10px; background: var(--a-card); border-radius: 14px; padding: 0 6px 0 14px; height: 44px; box-shadow: 0 1px 2px rgba(40, 30, 80, .06); flex: 0 1 420px; }
+.adm-search input { border: 0; outline: 0; flex: 1; font: inherit; font-size: 14px; background: transparent; color: var(--a-text); min-width: 0; }
+.adm-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.adm-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 14px; border-radius: 999px; background: var(--a-card); color: #4a4560 !important; font-size: 13px; font-weight: 500; text-decoration: none; box-shadow: 0 1px 2px rgba(40, 30, 80, .06); }
+.adm-chip[aria-current="page"] { background: var(--a-accent); color: #fff !important; }
+.adm-chip b { font-weight: 700; }
+.adm-pf { display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 22px; padding: 0 6px; border-radius: 6px; font-size: 11px; font-weight: 700; color: #fff; }
+.adm-pfs { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.adm-notice { border-radius: 12px; padding: 12px 14px; font-size: 14px; }
+.adm-notice.ok { background: var(--a-good-bg); color: var(--a-good); }
+.adm-notice.error { background: var(--a-bad-bg); color: var(--a-bad); }
+.adm-input { height: 36px; border-radius: 10px; border: 1px solid #e1dcef; padding: 0 10px; font: inherit; font-size: 13px; color: var(--a-text); background: #fff; min-width: 0; }
+.adm-input:focus { outline: 2px solid var(--a-accent); outline-offset: 1px; border-color: transparent; }
+.adm-inline { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.adm-pager { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px; color: var(--a-muted); flex-wrap: wrap; }
+.adm-item { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 14px; background: var(--a-bg); flex-wrap: wrap; }
+.adm-item.is-override { background: #f6f3fc; }
+.adm-item-main { flex: 1; min-width: 200px; }
+.adm-item-main small { display: block; font-size: 12px; color: var(--a-muted); margin-top: 2px; }
+.adm-cover { width: 72px; height: 96px; border-radius: 10px; background: #e7e1f3; object-fit: cover; flex: none; }
+.adm-two { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.adm-help { margin: 0; font-size: 12px; color: var(--a-muted); }

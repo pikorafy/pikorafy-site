@@ -32,6 +32,8 @@ export async function migrate(databaseUrl: string): Promise<string[]> {
         throw new Error(`${file}: ${(err as Error).message}`);
       }
     }
+    // The database API (PostgREST) re-reads tables and functions, so importers see new ones.
+    if (applied.length) await client.query("notify pgrst, 'reload schema'");
     return applied;
   } finally {
     await client.end();

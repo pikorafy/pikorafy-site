@@ -55,9 +55,15 @@ To see which ports your other containers use: `docker ps --format "table {{.Name
 
 ## Admin
 
-http://localhost:3033/admin: dashboard (catalog counts, running jobs, matching health) and
-Jobs (every job's schedule, last run and log; **Run now**, **Stop**, **Pause**/**Resume** a
-schedule). Catalog editing and the review queue come next.
+http://localhost:3033/admin:
+
+- **Dashboard**: catalog counts, running jobs, matching health, latest runs.
+- **Catalog**: search titles; open one to rename it or change its address (the old one
+  redirects), move or unlink its store items, add one by its store id, or merge a duplicate
+  into another title. "Store items without a title" lists, per store, what has no page yet
+  and links it to a title. Corrections are kept in `title_overrides` / `title_edits`, so the
+  daily link-titles run never undoes them; **Reset** hands an item back to link-titles.
+- **Jobs**: every job's schedule, last run and log; **Run now**, **Stop**, **Pause**/**Resume**.
 
 Create your account once (it asks for a password of at least 12 characters, typed hidden):
 

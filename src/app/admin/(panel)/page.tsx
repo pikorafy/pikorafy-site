@@ -129,8 +129,11 @@ export default async function AdminDashboard() {
               })}
             </ul>
           </div>
+          <Link href="/admin/catalog?filter=unlinked" className="adm-btn primary" style={{ minHeight: 44 }}>
+            Store items without a title
+          </Link>
           <p className="adm-muted" style={{ margin: 0, fontSize: 12 }}>
-            Store items joined into titles by the daily link-titles job. The review queue comes in a later step.
+            Store items joined into titles by the daily link-titles job.
           </p>
         </div>
       </section>
