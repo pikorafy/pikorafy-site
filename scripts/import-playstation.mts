@@ -24,6 +24,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { retryingFetch } from "./lib/db-fetch.mts";
 import { describeCtas, parseConceptPage, type PsStoreData } from "./lib/playstation-page.mts";
 
 const STORE_URL = "https://store.playstation.com/es-es/concept";
@@ -44,7 +45,7 @@ const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
 
 let client: SupabaseClient | null = null;
 const db = () =>
-  (client ??= createClient(required("SUPABASE_URL"), required("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false } }));
+  (client ??= createClient(required("SUPABASE_URL"), required("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false }, global: { fetch: retryingFetch } }));
 
 // ─── IGDB ────────────────────────────────────────────────────────────────────
 

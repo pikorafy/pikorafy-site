@@ -10,6 +10,7 @@
 // lib/time-to-beat.mts. Writes only rows that changed and removes games that no longer pass.
 
 import { createClient } from "@supabase/supabase-js";
+import { retryingFetch } from "./lib/db-fetch.mts";
 import { eligible, judge, type IgdbTimeToBeat, type TimeToBeat } from "./lib/time-to-beat.mts";
 
 const STEAM_SOURCE = 1;
@@ -25,7 +26,7 @@ const required = (name: string) => {
   return v;
 };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const db = createClient(required("SUPABASE_URL"), required("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false } });
+const db = createClient(required("SUPABASE_URL"), required("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false }, global: { fetch: retryingFetch } });
 
 // ─── IGDB ────────────────────────────────────────────────────────────────────
 

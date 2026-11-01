@@ -26,6 +26,7 @@
 
 import { createHash } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
+import { retryingFetch } from "./lib/db-fetch.mts";
 import { titleKey as norm } from "./lib/title-key.mts";
 
 const BATCH = 500;
@@ -46,7 +47,7 @@ const required = (name: string) => {
 };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const chunks = <T,>(xs: T[], n: number) => Array.from({ length: Math.ceil(xs.length / n) }, (_, i) => xs.slice(i * n, i * n + n));
-const db = createClient(required("SUPABASE_URL"), required("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false } });
+const db = createClient(required("SUPABASE_URL"), required("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false }, global: { fetch: retryingFetch } });
 
 
 

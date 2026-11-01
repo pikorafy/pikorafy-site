@@ -21,6 +21,7 @@
 
 import { createHash } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
+import { retryingFetch } from "./lib/db-fetch.mts";
 
 const REQUEST_GAP_MS = 1600;   // ≈187 req / 5 min
 const THROTTLE_BACKOFF_MS = [60_000, 120_000, 240_000, 480_000];
@@ -31,7 +32,7 @@ const TOP_REFRESH_RANK = 500;  // games ranked above this refresh daily, the res
 const supabase = createClient(
   required("SUPABASE_URL"),
   required("SUPABASE_SERVICE_ROLE_KEY"),
-  { auth: { persistSession: false } },
+  { auth: { persistSession: false }, global: { fetch: retryingFetch } },
 );
 
 // ─── Steam types (only the fields we use) ────────────────────────────────────
