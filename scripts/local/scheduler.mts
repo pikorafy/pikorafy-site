@@ -11,6 +11,7 @@
 
 import { spawn } from "node:child_process";
 import { createClient } from "@supabase/supabase-js";
+import { retryingFetch } from "../lib/db-fetch.mts";
 
 interface Job {
   name: string;
@@ -27,7 +28,7 @@ const node = (...args: string[]) => () => new Promise<void>((resolve, reject) =>
 });
 
 async function refreshHomeLists() {
-  const db = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
+  const db = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false }, global: { fetch: retryingFetch } });
   const { error } = await db.rpc("refresh_home_lists");
   if (error) throw new Error(error.message);
 }

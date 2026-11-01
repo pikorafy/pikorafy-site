@@ -9,6 +9,7 @@
 // higher limit than the store API (~100k calls/day); ~2k calls/hour is well inside it.
 
 import { createClient } from "@supabase/supabase-js";
+import { retryingFetch } from "./lib/db-fetch.mts";
 
 const CONCURRENCY = 8;
 const MAX_GAMES = 5000;
@@ -16,7 +17,7 @@ const MAX_GAMES = 5000;
 const supabase = createClient(
   required("SUPABASE_URL"),
   required("SUPABASE_SERVICE_ROLE_KEY"),
-  { auth: { persistSession: false } },
+  { auth: { persistSession: false }, global: { fetch: retryingFetch } },
 );
 
 async function currentPlayers(appId: number): Promise<number | null> {

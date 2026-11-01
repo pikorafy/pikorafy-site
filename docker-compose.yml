@@ -62,6 +62,7 @@ services:
       PGRST_DB_SCHEMAS: public
       PGRST_DB_ANON_ROLE: anon
       PGRST_DB_MAX_ROWS: 1000                # same page size as Supabase
+      PGRST_DB_POOL: 30                      # several importers write at once
       PGRST_JWT_SECRET: pikorafy-local-dev-only-secret-change-me-0123
     depends_on:
       db:

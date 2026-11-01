@@ -22,6 +22,7 @@
 
 import { createHash } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
+import { retryingFetch } from "./lib/db-fetch.mts";
 
 const MARKET = "ES";
 const CURRENCY = "EUR";
@@ -34,7 +35,7 @@ const HOT_RANKS = 1000;              // checked every run; the rest once a day
 const SLICES = 4;                    // runs a day (every 6h): each one checks a quarter of the rest
 
 const supabase = createClient(required("SUPABASE_URL"), required("SUPABASE_SERVICE_ROLE_KEY"), {
-  auth: { persistSession: false },
+  auth: { persistSession: false }, global: { fetch: retryingFetch },
 });
 const XBL_KEY = process.env.OPENXBL_API_KEY?.trim() ?? "";
 

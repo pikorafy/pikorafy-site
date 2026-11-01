@@ -20,6 +20,7 @@
 
 import { createHash } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
+import { retryingFetch } from "./lib/db-fetch.mts";
 import { titleKey } from "./lib/title-key.mts";
 
 const CATALOG_URL = "https://searching.nintendo-europe.com/en/select";
@@ -34,7 +35,7 @@ const RECENT_FROM = new Date(new Date().getTime() - 90 * 86_400_000).toISOString
 const MAX_RELEASE_DATE = `${new Date().getUTCFullYear() + 3}-12-31`;            // fewer Switch games than this = something broke; don't write
 
 const supabase = createClient(required("SUPABASE_URL"), required("SUPABASE_SERVICE_ROLE_KEY"), {
-  auth: { persistSession: false },
+  auth: { persistSession: false }, global: { fetch: retryingFetch },
 });
 
 // ─── Catalog ─────────────────────────────────────────────────────────────────

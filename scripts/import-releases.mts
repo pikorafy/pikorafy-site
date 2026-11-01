@@ -14,6 +14,7 @@
 
 import { createHash } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { retryingFetch } from "./lib/db-fetch.mts";
 
 const DAYS_BACK = 183;
 const DAYS_AHEAD = 365;
@@ -38,7 +39,7 @@ const dry = cmd === "dry";
 
 let client: SupabaseClient | null = null;
 const db = () =>
-  (client ??= createClient(required("SUPABASE_URL"), required("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false } }));
+  (client ??= createClient(required("SUPABASE_URL"), required("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false }, global: { fetch: retryingFetch } }));
 
 // ─── IGDB ────────────────────────────────────────────────────────────────────
 

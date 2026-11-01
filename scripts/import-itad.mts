@@ -11,6 +11,7 @@
 // whole catalog costs roughly (games / 200) × 2 requests per run.
 
 import { createClient } from "@supabase/supabase-js";
+import { retryingFetch } from "./lib/db-fetch.mts";
 
 const API = "https://api.isthereanydeal.com";
 const COUNTRY = "ES";            // EUR prices, matching the Steam import
@@ -36,7 +37,7 @@ async function allRows<T>(page: (from: number, to: number) => PromiseLike<{ data
 const supabase = createClient(
   required("SUPABASE_URL"),
   required("SUPABASE_SERVICE_ROLE_KEY"),
-  { auth: { persistSession: false } },
+  { auth: { persistSession: false }, global: { fetch: retryingFetch } },
 );
 const KEY = required("ITAD_API_KEY");
 
