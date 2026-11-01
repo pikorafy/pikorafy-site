@@ -4,8 +4,10 @@ name: Link titles
 # title (IGDB). See scripts/link-titles.mts. Daily, after the release calendar import.
 
 on:
-  schedule:
-    - cron: "37 3 * * *"   # daily 03:37 UTC
+  # Schedule paused: the imports now run locally in Docker (docker/README.md, "jobs").
+  # Uncomment to run them on GitHub again; manual runs (Run workflow) still work.
+  # schedule:
+  #  - cron: "37 3 * * *"   # daily 03:37 UTC
   workflow_dispatch:
     inputs:
       command:

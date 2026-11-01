@@ -4,8 +4,10 @@ name: Import release calendar
 # See scripts/import-releases.mts. Small and change-only; runs in the gap between imports.
 
 on:
-  schedule:
-    - cron: "50 2 * * *"   # daily 02:50 UTC (after PlayStation's 01:35 run, before Steam's 03:17)
+  # Schedule paused: the imports now run locally in Docker (docker/README.md, "jobs").
+  # Uncomment to run them on GitHub again; manual runs (Run workflow) still work.
+  # schedule:
+  #  - cron: "50 2 * * *"   # daily 02:50 UTC (after PlayStation's 01:35 run, before Steam's 03:17)
   workflow_dispatch:
     inputs:
       command:

@@ -3,8 +3,10 @@ name: Import Steam player counts
 # Concurrent players for every ranked game, hourly. See scripts/import-players.mts.
 
 on:
-  schedule:
-    - cron: "5 */3 * * *"   # every 3h (was hourly): keeps the free-plan database under its I/O budget
+  # Schedule paused: the imports now run locally in Docker (docker/README.md, "jobs").
+  # Uncomment to run them on GitHub again; manual runs (Run workflow) still work.
+  # schedule:
+  #  - cron: "5 */3 * * *"   # every 3h (was hourly): keeps the free-plan database under its I/O budget
   workflow_dispatch:
 
 concurrency:
