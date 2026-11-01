@@ -31,8 +31,9 @@ To see which ports your other containers use: `docker ps --format "table {{.Name
    ```
 
    It asks for the connection string: Supabase dashboard → **Connect** (top bar) → **Session pooler** →
-   copy the URI and replace `[YOUR-PASSWORD]` with the database password (Project Settings → Database
-   can reset it). The copy is saved in `docker\backups\supabase.dump`.
+   copy the URI **as shown, with `[YOUR-PASSWORD]` still in it**. Then it asks for the database password
+   (typed hidden; any characters work). "Reset database password" is on the same screen. The copy is
+   saved in `docker\backups\supabase.dump`.
 
    If PowerShell refuses to run scripts: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
 

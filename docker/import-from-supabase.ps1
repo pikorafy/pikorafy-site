@@ -1,9 +1,10 @@
 # Copies the live Supabase database (tables, functions, data) into the local Docker database.
 # Run from the project folder:  .\docker\import-from-supabase.ps1
 #
-# It asks for the Supabase connection string: Supabase dashboard → "Connect" (top bar) →
-# "Session pooler" → copy the URI and put your database password in place of [YOUR-PASSWORD].
-# (If the password has symbols like @ # / ?, reset it to one with letters and digits only.)
+# It asks for two things:
+#  1. The connection string: Supabase dashboard → "Connect" (top bar) → "Session pooler" → copy
+#     the URI exactly as shown, WITH [YOUR-PASSWORD] still in it.
+#  2. The database password (typed hidden; any characters are fine, the script encodes them).
 #
 # Safe to re-run: it replaces the local copy each time. Nothing is changed on Supabase.
 
@@ -15,9 +16,15 @@ Set-Location (Split-Path $PSScriptRoot -Parent)
 function Step($text) { Write-Host "`n== $text" -ForegroundColor Cyan }
 function Check($what) { if ($LASTEXITCODE -ne 0) { throw "$what failed (exit code $LASTEXITCODE)" } }
 
-if (-not $DbUrl) { $DbUrl = Read-Host "Supabase connection string (Session pooler URI)" }
+if (-not $DbUrl) { $DbUrl = Read-Host "Connection string (Session pooler URI, with [YOUR-PASSWORD] still in it)" }
+$DbUrl = $DbUrl.Trim()
 if ($DbUrl -notmatch '^postgres(ql)?://') { throw "That doesn't look like a connection string (it should start with postgresql://)." }
-if ($DbUrl -match '\[YOUR-PASSWORD\]') { throw "Replace [YOUR-PASSWORD] in the connection string with your database password." }
+if ($DbUrl -match '\[YOUR-PASSWORD\]') {
+  $secure = Read-Host "Database password (hidden)" -AsSecureString
+  $plain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure))
+  # Percent-encode it, so characters like @ # / ? ! $ can't break the connection string.
+  $DbUrl = $DbUrl.Replace('[YOUR-PASSWORD]', [Uri]::EscapeDataString($plain))
+}
 
 Step "Starting the local database"
 docker compose up -d --wait db; Check "Starting the database"
