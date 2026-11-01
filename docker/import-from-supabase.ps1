@@ -22,7 +22,15 @@ if ($DbUrl -notmatch '^postgres(ql)?://') { throw "That doesn't look like a conn
 # The password goes to pg_dump on its own (PGPASSWORD), never inside the connection string,
 # so no character in it can break anything.
 $password = $null
-if ($DbUrl -match '\[YOUR-PASSWORD\]') {
+# Password typed straight into the connection string: take it out again (everything between
+# "postgres.<project>:" and the last "@"), whatever characters it has.
+if ($DbUrl -notmatch '\[YOUR-PASSWORD\]' -and $DbUrl -match '^(postgres(?:ql)?://[^:/@]+):(.+)@([^@]+)$') {
+  $DbUrl = "$($Matches[1]):[YOUR-PASSWORD]@$($Matches[3])"
+  $password = $Matches[2]
+  Write-Host "Took the password out of the connection string ($($password.Length) characters)." -ForegroundColor DarkGray
+  $DbUrl = $DbUrl.Replace(':[YOUR-PASSWORD]', '')
+}
+elseif ($DbUrl -match '\[YOUR-PASSWORD\]') {
   $secure = Read-Host "Database password (hidden)" -AsSecureString
   $password = [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure))
   if ($password -ne $password.Trim()) {
