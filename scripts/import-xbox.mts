@@ -1,7 +1,7 @@
 // Xbox / Microsoft Store → Supabase (`xbox_games`), listed on /xbox.
 //
 // Usage (Node ≥ 23.6 runs .mts directly):
-//   node scripts/import-xbox.mts run [perPlatform] [openXblPages]   (defaults 500, 0)
+//   node scripts/import-xbox.mts run [perPlatform|all] [openXblPages]   (defaults all, 0)
 //
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, OPENXBL_API_KEY (only with openXblPages > 0)
 //
@@ -122,7 +122,8 @@ async function browseList(filter: object, max: number, label: string): Promise<{
 async function discoverBrowse(d: Discovery, perPlatform: number) {
   const consoleList = await browseList(PLATFORM_FILTERS.console, perPlatform, "console");
   const pcList = await browseList(PLATFORM_FILTERS.pc, perPlatform, "PC");
-  for (let i = 0; i < perPlatform; i++) {
+  const longest = Math.max(consoleList.ids.length, pcList.ids.length);
+  for (let i = 0; i < Math.min(perPlatform, longest); i++) {
     for (const [list, name] of [[consoleList, "console"], [pcList, "pc"]] as const) {
       const id = list.ids[i];
       if (!id) continue;
@@ -491,7 +492,7 @@ function required(name: string): string {
 
 const [cmd, arg] = process.argv.slice(2);
 switch (cmd) {
-  case "run": await run(Number(arg) || 500, Number(process.argv[4] ?? 0)); break;
+  case "run": await run(!arg || arg === "all" ? Infinity : Number(arg) || Infinity, Number(process.argv[4] ?? 0)); break;
   default:
     console.error("Usage: import-xbox.mts run [perPlatform] [openXblPages]");
     process.exit(1);

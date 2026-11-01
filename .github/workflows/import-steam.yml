@@ -37,6 +37,9 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # Supabase free plan: keep the catalog small (the local Docker setup has no caps).
+          DB_BUDGET_MB: "380"
+          STEAM_PER_RUN: "4000"
           STEAM_API_KEY: ${{ secrets.STEAM_API_KEY }}
           CMD: ${{ inputs.command }}
           ARG: ${{ inputs.arg }}

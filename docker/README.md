@@ -49,6 +49,34 @@ To see which ports your other containers use: `docker ps --format "table {{.Name
    The site needs a minute or two to build the first time; follow it with
    `docker compose logs -f app` until it says "Ready". Then open http://localhost:3033.
 
+## The full catalog
+
+Locally there are no caps: every game the stores list is imported (Steam ~100k+, Xbox ~15k,
+PlayStation and Nintendo ~10–15k each). The scheduler gets there on its own over a few days.
+To fill it sooner, start the big jobs by hand (they run side by side, one per store):
+
+```powershell
+docker compose exec jobs node scripts/local/scheduler.mts now steam-seed xbox nintendo playstation
+```
+
+| Store | First fill | Then |
+|---|---|---|
+| Steam | `steam-seed` ranks every game (~30 min), then each `steam` run imports 15,000 (every 3 h; run `now steam` again to go faster) | popular games daily, the rest weekly |
+| Xbox | one run (browse + details for all games, ~30–60 min) | every 6 h |
+| Nintendo | one run | every 6 h |
+| PlayStation | catalog in one run; store pages 1,000 per run (4 runs a day; `STORE_PAGES=3000` fills faster) | popular daily, the rest every few days |
+| Prices (ITAD) | after Steam has filled | every 6 h |
+
+When the stores have filled, link them into titles and refresh the home page:
+
+```powershell
+docker compose exec jobs node scripts/local/scheduler.mts now link-titles home-lists
+```
+
+(The scheduler runs `link-titles` daily at 03:37 UTC anyway.) Follow progress with
+`docker compose logs -f jobs`. Jobs started with `now` don't know about the scheduler's own
+runs, so avoid starting a store's job while the scheduler is running the same one.
+
 ## Everyday
 
 | | |

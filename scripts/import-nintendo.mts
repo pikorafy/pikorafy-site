@@ -7,7 +7,7 @@
 //
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, IGDB_CLIENT_ID, IGDB_CLIENT_SECRET (popularity).
 //      No Nintendo key: both Nintendo sources are public.
-//      MAX_GAMES (optional): how many games to track, most popular first, default 500.
+//      MAX_GAMES (optional): how many games to track, most popular first, default all.
 //      Games released in the last 90 days or upcoming are kept too (release calendar dates);
 //      the rest are removed.
 //
@@ -28,8 +28,8 @@ const PRICE_URL = "https://api.ec.nintendo.com/v1/price";
 const PRICE_BATCH = 50;
 const COUNTRY = "ES";
 const MIN_CATALOG = 1000;
-const MAX_CATALOG_WRITES = 5000;     // per run, most popular first: spreads big rewrites over runs (disk I/O)
-const MAX_GAMES = Number(process.env.MAX_GAMES) || 500;   // tracked games (database size and load)
+const MAX_CATALOG_WRITES = 50000;    // per run, most popular first
+const MAX_GAMES = Number(process.env.MAX_GAMES) || Infinity;   // tracked games
 const RECENT_FROM = new Date(new Date().getTime() - 90 * 86_400_000).toISOString().slice(0, 10);
 const MAX_RELEASE_DATE = `${new Date().getUTCFullYear() + 3}-12-31`;            // fewer Switch games than this = something broke; don't write
 
@@ -337,7 +337,7 @@ async function importPrices(): Promise<void> {
 // (square art on assets.nintendo.eu with opaque ids) read the product page's share image
 // (og:image) once, a few per run, and store it in image_page.
 
-const PAGE_ART_PER_RUN = 150;
+const PAGE_ART_PER_RUN = 500;
 const PAGE_ART_RECHECK_DAYS = 14;
 
 function ogImage(html: string): string | null {

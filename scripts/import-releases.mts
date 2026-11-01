@@ -17,7 +17,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const DAYS_BACK = 183;
 const DAYS_AHEAD = 365;
-const PER_MONTH = 200;                 // games kept per calendar month
+const PER_MONTH = Number(process.env.RELEASES_PER_MONTH) || 1000;   // games kept per calendar month
 const MIN_RELEASES = 500;              // fewer than this in the window = something broke; don't write
 const IGDB_DELAY_MS = 260;             // 4 requests / second
 const PLATFORM_NAMES: Record<string, string> = {

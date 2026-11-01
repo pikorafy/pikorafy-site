@@ -21,6 +21,21 @@ services:
   # PostgreSQL 17, the same major version as the Supabase database the data comes from.
   db:
     image: postgres:17-alpine
+    # Sized for a full catalog on a 32 GB PC (Docker/WSL with ~16 GB): Postgres's own cache,
+    # what the OS caches, and memory for sorting and index builds.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=2GB
+      - -c
+      - effective_cache_size=6GB
+      - -c
+      - work_mem=32MB
+      - -c
+      - maintenance_work_mem=512MB
+      - -c
+      - max_wal_size=4GB
+    shm_size: 1gb
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: pikorafy
