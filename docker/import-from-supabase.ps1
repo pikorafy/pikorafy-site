@@ -19,18 +19,27 @@ function Check($what) { if ($LASTEXITCODE -ne 0) { throw "$what failed (exit cod
 if (-not $DbUrl) { $DbUrl = Read-Host "Connection string (Session pooler URI, with [YOUR-PASSWORD] still in it)" }
 $DbUrl = $DbUrl.Trim()
 if ($DbUrl -notmatch '^postgres(ql)?://') { throw "That doesn't look like a connection string (it should start with postgresql://)." }
+# The password goes to pg_dump on its own (PGPASSWORD), never inside the connection string,
+# so no character in it can break anything.
+$password = $null
 if ($DbUrl -match '\[YOUR-PASSWORD\]') {
   $secure = Read-Host "Database password (hidden)" -AsSecureString
-  $plain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure))
-  # Percent-encode it, so characters like @ # / ? ! $ can't break the connection string.
-  $DbUrl = $DbUrl.Replace('[YOUR-PASSWORD]', [Uri]::EscapeDataString($plain))
+  $password = [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure))
+  if ($password -ne $password.Trim()) {
+    Write-Host "Note: the password had spaces at the start or end; they were removed." -ForegroundColor Yellow
+    $password = $password.Trim()
+  }
+  Write-Host "Password received: $($password.Length) characters." -ForegroundColor DarkGray
+  $DbUrl = $DbUrl.Replace(':[YOUR-PASSWORD]', '')
 }
+$pwArgs = @()
+if ($password) { $pwArgs = @('-e', "PGPASSWORD=$password") }
 
 Step "Starting the local database"
 docker compose up -d --wait db; Check "Starting the database"
 
 Step "Downloading from Supabase (a minute or two)"
-docker compose exec -T db pg_dump "$DbUrl" --schema=public --no-owner --no-privileges --format=custom --file=/backups/supabase.dump
+docker compose exec -T @pwArgs db pg_dump "$DbUrl" --schema=public --no-owner --no-privileges --format=custom --file=/backups/supabase.dump
 Check "Downloading"
 
 Step "Loading into the local database"
