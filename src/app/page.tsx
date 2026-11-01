@@ -83,6 +83,8 @@ export default async function Home() {
   return (
     <div className="hm">
       <div className="shell hm-top">
+        {/* Steampunk theme only: the big logo with its plate (hidden in Dark and Light). */}
+        <div className="sp-banner" aria-hidden="true"><span className="sp-banner-tag">Game price comparison</span></div>
         <div className="hm-hero">
           <HeroCarousel slides={slides.map(toSlide)} />
           <FeaturedStore />

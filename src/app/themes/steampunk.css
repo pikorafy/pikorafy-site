@@ -59,9 +59,10 @@ html[data-theme="steampunk"] .brand {
   color: var(--sp-brass-mid);
   text-shadow: 2px 0 0 var(--sp-brass-lo), -2px 0 0 var(--sp-brass-lo), 0 2px 0 var(--sp-brass-lo), 0 -2px 0 var(--sp-brass-lo), 2px 2px 0 var(--sp-iron-0);
 }
+/* Header emblem: the "P" in its gear, from the logo (logo-emblem.webp). */
 html[data-theme="steampunk"] .brand-dot {
-  width: 28px; height: 28px; border-radius: 0; background: url("/themes/steampunk/gear.png") center / 28px 28px no-repeat;
-  box-shadow: none; animation: sp-spin 12s steps(40) infinite; image-rendering: pixelated;
+  width: 35px; height: 44px; border-radius: 0; background: url("/themes/steampunk/logo-emblem.webp") center / contain no-repeat;
+  box-shadow: none; image-rendering: auto;
 }
 html[data-theme="steampunk"] .brand-dot::after { display: none; }
 html[data-theme="steampunk"] .nav-menu-btn:hover,
@@ -105,6 +106,26 @@ html[data-theme="steampunk"] :is(.hm-block-h h2, .hm-band h2) {
   text-shadow: 2px 2px 0 var(--sp-iron-0);
 }
 html[data-theme="steampunk"] .hm-block-h a { color: var(--sp-copper-hi); }
+
+/* ── Logo banner (home page) ───────────────────────────────────────────────── */
+.sp-banner { display: none; }
+html[data-theme="steampunk"] .sp-banner {
+  display: flex; flex-direction: column; align-items: center;
+  max-width: 760px; margin: 0 auto 26px;
+}
+/* The logo keeps its own proportions, so the plate lands on its bottom pipe at every width. */
+html[data-theme="steampunk"] .sp-banner::before {
+  content: ""; width: 100%; aspect-ratio: 1440 / 843;
+  background: url("/themes/steampunk/logo-banner.webp") center / contain no-repeat;
+}
+html[data-theme="steampunk"] .sp-banner-tag {
+  margin-top: -9%; padding: 6px 22px; position: relative;
+  border: 12px solid transparent;
+  border-image: url("/themes/steampunk/frame.png") 8 fill / 12px stretch;
+  image-rendering: pixelated;
+  font-family: var(--ff-display); font-size: clamp(16px, 2.2vw, 26px); letter-spacing: .08em; text-transform: uppercase;
+  color: var(--sp-brass-mid); text-shadow: 2px 2px 0 var(--sp-iron-0);
+}
 
 /* ── Hero: split-flap price, pixel title ──────────────────────────────────── */
 html[data-theme="steampunk"] .hc-title { font-family: var(--ff-display); color: var(--sp-cream); text-shadow: 3px 3px 0 var(--sp-iron-0); letter-spacing: .01em; }
@@ -187,6 +208,13 @@ html[data-theme="steampunk"] .footer::before {
     url("/themes/steampunk/gauge.png") 128px 0 / 48px 48px no-repeat;
   image-rendering: pixelated;
 }
+/* Footer: the logo in place of the wordmark (the text stays for screen readers). */
+html[data-theme="steampunk"] .footer .brand {
+  width: 240px; height: 140px; font-size: 0; text-shadow: none; color: transparent;
+  background: url("/themes/steampunk/logo-footer.webp") left center / contain no-repeat;
+  image-rendering: auto;
+}
+html[data-theme="steampunk"] .footer .brand-dot { display: none; }
 html[data-theme="steampunk"] .footer h5 { font-family: var(--ff-display); color: var(--sp-brass-mid); letter-spacing: .08em; }
 
 /* ── Side machinery (SteampunkDecor) ──────────────────────────────────────── */
@@ -211,7 +239,7 @@ html[data-theme="steampunk"] .footer h5 { font-family: var(--ff-display); color:
 @keyframes sp-spin-back { to { transform: rotate(-360deg); } }
 
 @media (prefers-reduced-motion: reduce) {
-  .sp-gear, html[data-theme="steampunk"] .brand-dot { animation: none !important; }
+  .sp-gear { animation: none !important; }
 }
 
 /* Phones: lighter frames. */
