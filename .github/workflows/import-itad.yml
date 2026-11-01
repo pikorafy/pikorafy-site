@@ -36,6 +36,9 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # Supabase free plan: keep the catalog small (the local Docker setup has no caps).
+          ITAD_MAX_LOOKUPS: "2000"
+          ITAD_MAX_PRICES: "1000"
           ITAD_API_KEY: ${{ secrets.ITAD_API_KEY }}
           CMD: ${{ inputs.command || 'run' }}
           ARG: ${{ inputs.arg }}

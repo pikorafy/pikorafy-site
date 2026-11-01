@@ -17,6 +17,21 @@ const COUNTRY = "ES";            // EUR prices, matching the Steam import
 const STEAM_SHOP_ID = 61;        // ITAD's shop id for Steam
 const BATCH = 200;               // max ids per prices request
 const REQUEST_GAP_MS = 1000;
+// Games per run, most popular first (the database API returns 1000 rows a page; we page through).
+const MAX_LOOKUPS = Number(process.env.ITAD_MAX_LOOKUPS) || Infinity;   // Steam apps matched to ITAD ids
+const MAX_PRICES = Number(process.env.ITAD_MAX_PRICES) || Infinity;     // games whose prices are refreshed
+
+/** Every row of a query, 1000 at a time (the API's page size), up to `max`. */
+async function allRows<T>(page: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>, max: number): Promise<T[]> {
+  const rows: T[] = [];
+  for (let from = 0; rows.length < max; from += 1000) {
+    const { data, error } = await page(from, from + 999);
+    if (error) throw new Error(`games select: ${error.message}`);
+    rows.push(...((data ?? []) as T[]));
+    if (!data || data.length < 1000) break;
+  }
+  return rows.slice(0, max);
+}
 
 const supabase = createClient(
   required("SUPABASE_URL"),
@@ -76,16 +91,16 @@ async function itad<T>(path: string, body: unknown): Promise<T> {
 async function linkGames() {
   // Games never checked, plus unmatched ones re-checked weekly (ITAD adds games over time).
   const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
-  const { data, error } = await supabase
+  const rows = await allRows<{ steam_app_id: number }>((from, to) => supabase
     .from("games")
     .select("steam_app_id")
     .is("itad_id", null)
     .or(`itad_checked_at.is.null,itad_checked_at.lt.${weekAgo}`)
     .order("popularity_rank", { ascending: true, nullsFirst: false })
-    .limit(2000);
-  if (error) throw new Error(`games select: ${error.message}`);
+    .order("steam_app_id")
+    .range(from, to), MAX_LOOKUPS);
 
-  const ids = (data ?? []).map((r) => r.steam_app_id as number);
+  const ids = rows.map((r) => r.steam_app_id);
   let linked = 0;
   for (let i = 0; i < ids.length; i += BATCH) {
     const chunk = ids.slice(i, i + BATCH);
@@ -113,15 +128,13 @@ async function linkGames() {
 // ─── Step 2: prices + all-time lows ──────────────────────────────────────────
 
 async function refreshPrices() {
-  const { data, error } = await supabase
+  const games = await allRows<{ steam_app_id: number; itad_id: string }>((from, to) => supabase
     .from("games")
     .select("steam_app_id, itad_id")
     .not("itad_id", "is", null)
     .order("popularity_rank", { ascending: true, nullsFirst: false })
-    .limit(5000);
-  if (error) throw new Error(`games select: ${error.message}`);
-
-  const games = (data ?? []) as { steam_app_id: number; itad_id: string }[];
+    .order("steam_app_id")
+    .range(from, to), MAX_PRICES);
   const appIdFor = new Map(games.map((g) => [g.itad_id, g.steam_app_id]));
   let offers = 0, lows = 0;
 

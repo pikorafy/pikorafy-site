@@ -2,7 +2,7 @@
 // Schema: supabase/migrations/20260924000000_game_catalog.sql
 //
 // Usage (Node ≥ 23.6 runs .mts directly; on Node 22 add --experimental-strip-types):
-//   node scripts/import-steam.mts seed [topN]        rank all Steam games by reviews (+ charts), queue the top N (default 500)
+//   node scripts/import-steam.mts seed [topN|all]    rank all Steam games by reviews (+ charts), queue the top N (default: all)
 //   node scripts/import-steam.mts discover           add today's most played / trending, prune the rest
 //   node scripts/import-steam.mts seed-ids 730,570   queue specific app IDs at top priority
 //   node scripts/import-steam.mts run [maxGames]     import due games via GetItems, new first (default: all due)
@@ -393,7 +393,7 @@ async function seed(topN: number) {
   await enqueue(ranked.map((id, i) => ({ steam_app_id: id, priority: i + 1 })));
   const { data: demoted, error } = await supabase.rpc("demote_unseeded", { seeded: ranked });
   if (error) throw new Error(`demote_unseeded: ${error.message}`);
-  console.log(`Demoted ${demoted} apps that fell out of the top ${topN}.`);
+  console.log(`Demoted ${demoted} apps that fell out of the ${Number.isFinite(topN) ? `top ${topN}` : "ranking"}.`);
 
   // Re-rank games we already have right away. (Clearing ranks and waiting for each
   // game's next refresh would hide most of the catalog for up to a day.)
@@ -578,12 +578,11 @@ const STORE_TRAILERS = "https://video.akamai.steamstatic.com/store_trailers/";
 const ITEMS_BATCH = 50;
 const MAX_STORED_TRAILERS = 8;
 const MAX_STORED_SCREENSHOTS = 16;
-// Database budget (free plan: 500 MB; we cap ourselves at 400 MB): above this, runs
-// only refresh games we already have and add no new ones.
-const DB_BUDGET_MB = 380;
-// Games per hourly run (keeps a run well inside the workflow timeout; the first fill
-// of a large seed takes a few runs).
-const MAX_PER_RUN = 4000;
+// Database budget: above this, runs only refresh games we already have and add no new ones.
+// Off unless DB_BUDGET_MB is set (the GitHub workflow sets 380 for Supabase's free plan).
+const DB_BUDGET_MB = Number(process.env.DB_BUDGET_MB) || Infinity;
+// Games per run (STEAM_PER_RUN): the first fill of a full catalog takes several runs.
+const MAX_PER_RUN = Number(process.env.STEAM_PER_RUN) || 15000;
 
 // Steam genre ids as appdetails reports them; GetItems only has tags, whose names match.
 const GENRES: Record<string, { id: string; description: string }> = {
@@ -925,7 +924,7 @@ function sleep(ms: number) {
 
 const [cmd, arg] = process.argv.slice(2);
 switch (cmd) {
-  case "seed":     await seed(Number(arg ?? 500)); break;
+  case "seed":     await seed(!arg || arg === "all" ? Infinity : Number(arg)); break;
   case "discover": await discover(); break;
   case "seed-ids": await seedIds((arg ?? "").split(",").map(Number).filter(Boolean)); break;
   case "run":      await run(Number(arg ?? MAX_PER_RUN)); break;
