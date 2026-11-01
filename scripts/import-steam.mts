@@ -755,7 +755,7 @@ async function run(maxGames: number) {
   const { data: sizeMb } = await supabase.rpc("db_size_mb");
   const overBudget = typeof sizeMb === "number" && sizeMb > DB_BUDGET_MB;
   if (overBudget) console.warn(`Database is ${sizeMb} MB (budget ${DB_BUDGET_MB} MB): refreshing existing games only.`);
-  else console.log(`Database: ${sizeMb ?? "?"} MB of ${DB_BUDGET_MB} MB budget.`);
+  else console.log(`Database: ${sizeMb ?? "?"} MB${Number.isFinite(DB_BUDGET_MB) ? ` of ${DB_BUDGET_MB} MB budget` : ""}.`);
 
   // PostgREST caps responses at 1000 rows: page through the due queue.
   const due: { steam_app_id: number; priority: number; attempts: number }[] = [];
@@ -777,6 +777,8 @@ async function run(maxGames: number) {
   }
 
   let ok = 0, skipped = 0, failed = 0, changed = 0;
+  const started = Date.now();
+  console.log(`${due.length} games due.`);
   for (let i = 0; i < due.length; i += ITEMS_BATCH) {
     const batch = due.slice(i, i + ITEMS_BATCH);
     let items: StoreItem[];
@@ -840,6 +842,12 @@ async function run(maxGames: number) {
       }
     }
     await sleep(300);
+    const done = Math.min(i + ITEMS_BATCH, due.length);
+    if (done % 1000 === 0 || done === due.length) {
+      const mins = (Date.now() - started) / 60_000;
+      const left = mins * (due.length - done) / done;
+      console.log(`Progress: ${done}/${due.length} (${ok} imported, ${failed} failed) · ${Math.round(mins)} min so far, ~${Math.round(left)} min left`);
+    }
   }
   console.log(`Done: ${ok} imported/refreshed (${changed} changed, ${ok - changed} unchanged), ${skipped} skipped (not a game / not returned), ${failed} failed, of ${due.length} due.`);
 
