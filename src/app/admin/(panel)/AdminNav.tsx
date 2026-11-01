@@ -17,7 +17,7 @@ const ICONS: Record<string, React.ReactNode> = {
 // Live sections link; the rest show what's coming.
 const ITEMS: { key: string; label: string; href?: string }[] = [
   { key: "dashboard", label: "Dashboard", href: "/admin" },
-  { key: "catalog", label: "Catalog" },
+  { key: "catalog", label: "Catalog", href: "/admin/catalog" },
   { key: "review", label: "Review queue" },
   { key: "jobs", label: "Jobs", href: "/admin/jobs" },
   { key: "prices", label: "Prices" },

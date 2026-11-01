@@ -17,7 +17,8 @@
 //     released closest to the store item;
 //  3. the store's existing link to a Steam game, when IGDB has nothing, or when IGDB splits
 //     the same game in two (same cleaned title, neither a remake nor a remaster);
-//  4. title_overrides, which always win (title_id null = never link).
+//  4. title_overrides, which always win (title_id null = never link); title_edits (names and
+//     slugs from the admin) win over IGDB's.
 // A bundle or undated entry named exactly like one dated game (IGDB has "Assassin's Creed
 // III Remastered" as the remaster and as a bundle) merges into that game. Slugs are IGDB's without its "--1"
 // suffixes; namesakes get their release year (resident-evil-4-2023). Old slugs of renamed or
@@ -295,6 +296,20 @@ for (const [base, ts] of slugGroups) {
     taken.add(t.slug);
   }
 }
+// Name and slug corrections from the admin (title_edits) win over IGDB's. A title that already
+// had the corrected slug moves aside to "<slug>-<id>".
+const edits = await all<{ title_id: number; name: string | null; slug: string | null }>("title_edits", "title_id, name, slug", "title_id");
+const titleById = new Map(titles.map((t) => [t.id, t]));
+for (const e of edits) {
+  const t = titleById.get(e.title_id);
+  if (!t) continue;
+  if (e.name?.trim()) t.name = e.name.trim();
+  if (e.slug && e.slug !== t.slug) {
+    for (const other of titles) if (other.id !== t.id && other.slug === e.slug) other.slug = `${e.slug}-${other.id}`;
+    t.slug = e.slug;
+  }
+}
+if (edits.length) console.log(`  admin edits: ${edits.length} names/slugs applied`);
 for (const t of titles) t.content_hash = createHash("sha1").update(JSON.stringify({ ...t, content_hash: undefined })).digest("hex");
 const known = new Set(titles.map((t) => t.id));
 for (const [k, l] of linked) if (!known.has(l.igdb)) linked.delete(k);   // IGDB id gone / renamed: drop the link
