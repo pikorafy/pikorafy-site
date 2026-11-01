@@ -1,0 +1,5 @@
+# Files read inside Linux containers keep LF line endings on Windows too.
+docker/** text eol=lf
+Dockerfile text eol=lf
+docker-compose.yml text eol=lf
+*.ps1 text eol=crlf
