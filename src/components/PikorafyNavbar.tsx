@@ -68,8 +68,17 @@ function subscribeTheme(onChange: () => void) {
   window.addEventListener("storage", onChange);
   return () => { window.removeEventListener("pkfy:theme", onChange); window.removeEventListener("storage", onChange); };
 }
-function readTheme(): "dark" | "light" {
-  try { return localStorage.getItem("pkfy:theme") === "light" ? "light" : "dark"; } catch { return "dark"; }
+type Theme = "dark" | "light" | "steampunk";
+const THEMES: { key: Theme; label: string; icon: string }[] = [
+  { key: "dark", label: "Dark", icon: "☾" },
+  { key: "light", label: "Light", icon: "☀" },
+  { key: "steampunk", label: "Steampunk", icon: "⚙" },
+];
+function readTheme(): Theme {
+  try {
+    const t = localStorage.getItem("pkfy:theme");
+    return t === "light" || t === "steampunk" ? t : "dark";
+  } catch { return "dark"; }
 }
 
 export default function PikorafyNavbar() {
@@ -87,13 +96,16 @@ export default function PikorafyNavbar() {
     setMenu(null);
   }
 
-  // The theme lives in localStorage; the page applies it to <html data-theme>.
-  const dark = useSyncExternalStore(subscribeTheme, () => readTheme() === "dark", () => true);
+  // The theme lives in localStorage; the page applies it to <html data-theme> (a script in the
+  // layout sets it before the first paint, so there's no flash). The button cycles through them.
+  const theme = useSyncExternalStore(subscribeTheme, readTheme, () => "dark" as Theme);
   useEffect(() => {
-    document.documentElement.dataset.theme = dark ? "dark" : "light";
-  }, [dark]);
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
+  const current = THEMES.find((t) => t.key === theme)!;
+  const next = THEMES[(THEMES.indexOf(current) + 1) % THEMES.length];
   const toggleTheme = () => {
-    try { localStorage.setItem("pkfy:theme", dark ? "light" : "dark"); } catch { /* storage blocked */ }
+    try { localStorage.setItem("pkfy:theme", next.key); } catch { /* storage blocked */ }
     window.dispatchEvent(new Event("pkfy:theme"));
   };
 
@@ -163,8 +175,8 @@ export default function PikorafyNavbar() {
         </div>
 
         <div className="nav-tools">
-          <button className="icon-btn" onClick={toggleTheme} title="Toggle theme" aria-label="Toggle theme">
-            {dark ? "☾" : "☀"}
+          <button className="icon-btn" onClick={toggleTheme} title={`Theme: ${current.label} · switch to ${next.label}`} aria-label={`Theme: ${current.label}. Switch to ${next.label}`}>
+            {current.icon}
           </button>
           <Link href="/games?sale=1&sort=discount" className="icon-btn" title="Wishlist" aria-label="Wishlist">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">

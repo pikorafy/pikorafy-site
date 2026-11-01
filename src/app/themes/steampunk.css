@@ -1,0 +1,221 @@
+/* ─── Steampunk theme ─────────────────────────────────────────────────────────
+   <html data-theme="steampunk">: iron plates, copper and brass frames, pipes and gauges.
+   The pixel art lives in public/themes/steampunk (drawn by scripts/design/steampunk-assets.py
+   at 1x) and is shown at 2x, crisp (image-rendering: pixelated). Colours come from the same
+   palette. Everything here is scoped to the theme: Dark and Light are untouched. */
+
+html[data-theme="steampunk"] {
+  --sp-iron-0: #0f0d0c; --sp-iron-1: #181514; --sp-iron-2: #1f1b19; --sp-iron-3: #27221f; --sp-iron-4: #302a26;
+  --sp-copper: #ba6634; --sp-copper-hi: #f0b47c; --sp-copper-lo: #66331a;
+  --sp-brass: #c49e3c; --sp-brass-hi: #fbe7a8; --sp-brass-mid: #e3c46a; --sp-brass-lo: #3d2f10;
+  --sp-cream: #efe2bd; --sp-ink: #2a1f0e;
+  --sp-green: #5ee07a; --sp-teal: #35c2b0;
+  --sp-px: url("/themes/steampunk/frame.png");
+
+  --bg:        var(--sp-iron-2);
+  --bg-2:      var(--sp-iron-3);
+  --bg-3:      color-mix(in srgb, var(--sp-copper) 14%, var(--sp-iron-2));
+  --bg-elev:   #1d1917;
+  --line:      rgba(240, 180, 124, .16);
+  --line-2:    rgba(240, 180, 124, .32);
+  --text:      var(--sp-cream);
+  --text-2:    rgba(239, 226, 189, .84);
+  --text-3:    rgba(239, 226, 189, .62);
+  --accent:    var(--sp-brass-mid);
+  --accent-2:  var(--sp-copper-hi);
+  --accent-fg: var(--sp-ink);
+  --good:      var(--sp-green);
+  --grad-glow: none;
+}
+
+/* Iron plate background, fixed behind everything. (The display font is set on body: the
+   layout sets --ff-display inline on <html>, which a stylesheet can't override there.) */
+html[data-theme="steampunk"] body {
+  background: var(--sp-iron-1);
+  --ff-display: var(--font-pixel), "Pixelify Sans", var(--font-onest), sans-serif;
+}
+html[data-theme="steampunk"] body::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: url("/themes/steampunk/iron.png") 0 0 / 128px 128px repeat;
+  image-rendering: pixelated;
+}
+
+/* The pixel art scales crisply; photos and covers inside stay smooth. */
+html[data-theme="steampunk"] :is(.nav, .hm-list, .hm-cat, .hm-store, .hc, .hm-band, .footer, .sp-decor) { image-rendering: pixelated; }
+html[data-theme="steampunk"] :is(.nav, .hm-list, .hm-cat, .hm-store, .hc, .hm-band, .footer) img { image-rendering: auto; }
+
+/* Room for the machinery at the sides on wide screens. */
+html[data-theme="steampunk"] .shell { max-width: 1240px; }
+
+/* ── Header: dark iron bar on a copper pipe ───────────────────────────────── */
+html[data-theme="steampunk"] .nav {
+  background: url("/themes/steampunk/pipe-h.png") 0 100% / 16px 20px repeat-x, var(--sp-iron-0);
+  padding-bottom: 20px;
+  border-bottom: 0;
+  backdrop-filter: none;
+}
+html[data-theme="steampunk"] .brand { font-family: var(--ff-display); font-size: 22px; letter-spacing: .04em; gap: 8px; }
+html[data-theme="steampunk"] .brand {
+  color: var(--sp-brass-mid);
+  text-shadow: 2px 0 0 var(--sp-brass-lo), -2px 0 0 var(--sp-brass-lo), 0 2px 0 var(--sp-brass-lo), 0 -2px 0 var(--sp-brass-lo), 2px 2px 0 var(--sp-iron-0);
+}
+html[data-theme="steampunk"] .brand-dot {
+  width: 28px; height: 28px; border-radius: 0; background: url("/themes/steampunk/gear.png") center / 28px 28px no-repeat;
+  box-shadow: none; animation: sp-spin 12s steps(40) infinite; image-rendering: pixelated;
+}
+html[data-theme="steampunk"] .brand-dot::after { display: none; }
+html[data-theme="steampunk"] .nav-menu-btn:hover,
+html[data-theme="steampunk"] .nav-menu-btn[aria-expanded="true"],
+html[data-theme="steampunk"] .nav-link:hover { background: color-mix(in srgb, var(--sp-copper) 22%, transparent); }
+html[data-theme="steampunk"] .nav-drop { background: var(--sp-iron-1); border: 2px solid var(--sp-copper-lo); border-radius: 0; box-shadow: 0 0 0 2px var(--sp-iron-0), 0 18px 40px rgba(0, 0, 0, .6); }
+html[data-theme="steampunk"] .nav .searchbar { background: var(--sp-iron-1); border-radius: 0; box-shadow: inset 0 0 0 2px var(--sp-copper-lo); }
+
+/* ── Panels: copper frame (9-slice) ───────────────────────────────────────── */
+html[data-theme="steampunk"] :is(.hm-list, .hm-cat, .hc) {
+  border: 16px solid transparent;
+  border-image: url("/themes/steampunk/frame.png") 8 fill / 16px stretch;
+  border-radius: 0;
+  background: none;
+}
+html[data-theme="steampunk"] .hc { min-height: 372px; }
+html[data-theme="steampunk"] .hc-slide::after {
+  background: linear-gradient(90deg, rgba(24, 21, 20, .94) 0%, rgba(24, 21, 20, .7) 55%, rgba(24, 21, 20, .15) 100%);
+}
+
+/* List headers sit on a brass plate. */
+html[data-theme="steampunk"] .hm-list-h {
+  margin: -6px -6px 6px; padding: 4px 10px;
+  border: 10px solid transparent;
+  border-image: url("/themes/steampunk/plate.png") 5 fill / 10px stretch;
+}
+html[data-theme="steampunk"] .hm-list-h h3 { color: var(--sp-ink); font-family: var(--ff-display); font-size: 16px; letter-spacing: .02em; }
+html[data-theme="steampunk"] .hm-list-h a { color: color-mix(in srgb, var(--sp-ink) 75%, transparent); font-weight: 600; }
+html[data-theme="steampunk"] .hm-row { border-top-color: rgba(240, 180, 124, .12); }
+html[data-theme="steampunk"] .hm-row:hover { background: rgba(186, 102, 52, .14); }
+html[data-theme="steampunk"] .hm-thumb { border-radius: 0; box-shadow: 0 0 0 2px var(--sp-iron-0), 0 0 0 3px var(--sp-copper-lo); }
+html[data-theme="steampunk"] .hm-empty { border-top-color: rgba(240, 180, 124, .12); }
+
+/* Prices brass, discounts green like an indicator lamp. */
+html[data-theme="steampunk"] .hm-price { color: var(--sp-brass-mid); }
+html[data-theme="steampunk"] .hm-pill { background: #0f2414; color: var(--sp-green); border-radius: 0; box-shadow: inset 0 0 0 1px #1d5a2e; }
+
+/* Section headings: pixel brass lettering. */
+html[data-theme="steampunk"] :is(.hm-block-h h2, .hm-band h2) {
+  font-family: var(--ff-display); color: var(--sp-brass-mid); letter-spacing: .02em;
+  text-shadow: 2px 2px 0 var(--sp-iron-0);
+}
+html[data-theme="steampunk"] .hm-block-h a { color: var(--sp-copper-hi); }
+
+/* ── Hero: split-flap price, pixel title ──────────────────────────────────── */
+html[data-theme="steampunk"] .hc-title { font-family: var(--ff-display); color: var(--sp-cream); text-shadow: 3px 3px 0 var(--sp-iron-0); letter-spacing: .01em; }
+html[data-theme="steampunk"] .hc-eyebrow { color: var(--sp-copper-hi); }
+html[data-theme="steampunk"] .hc-platform { border-radius: 0; background: rgba(15, 13, 12, .7); border-color: var(--sp-copper-lo); }
+html[data-theme="steampunk"] .hc-cover { border-radius: 0; box-shadow: 0 0 0 3px var(--sp-iron-0), 0 0 0 6px var(--sp-brass), 0 20px 40px -18px #000; }
+html[data-theme="steampunk"] .hc-big { display: inline-flex; gap: 3px; font-family: var(--ff-display); font-size: 34px; }
+html[data-theme="steampunk"] .hc-big .flap {
+  display: inline-block; min-width: .78em; padding: 4px 4px 2px; text-align: center; line-height: 1;
+  color: var(--sp-copper-hi);
+  background: linear-gradient(#2c2622 0 48%, var(--sp-iron-0) 48% 52%, #221d1a 52%);
+  box-shadow: 0 0 0 2px var(--sp-iron-0), inset 0 0 0 1px #4a4038;
+}
+html[data-theme="steampunk"] .hc-dot { border-radius: 0; background: rgba(240, 180, 124, .25); }
+html[data-theme="steampunk"] .hc-dot[aria-current] { background: var(--sp-brass-mid); }
+html[data-theme="steampunk"] .hc-arrow { border-radius: 0; background: var(--sp-iron-1); border-color: var(--sp-copper-lo); }
+
+/* Buttons: brass plates. */
+html[data-theme="steampunk"] .pp-btn { border-radius: 0; }
+html[data-theme="steampunk"] .pp-btn-primary {
+  background: var(--sp-brass-mid); color: var(--sp-ink);
+  box-shadow: inset 2px 2px 0 var(--sp-brass-hi), inset -2px -2px 0 #9a7a2c, 0 0 0 2px var(--sp-iron-0);
+}
+
+/* Featured store: a parchment notice in a brass frame. */
+html[data-theme="steampunk"] .hm-store {
+  border: 16px solid transparent;
+  border-image: url("/themes/steampunk/frame-brass.png") 8 / 16px stretch;
+  border-radius: 0;
+  background: var(--sp-cream) padding-box;
+  color: var(--sp-ink);
+}
+html[data-theme="steampunk"] .hm-store:hover { background: #f7ecc9 padding-box; }
+html[data-theme="steampunk"] .hm-store b { font-family: var(--ff-display); color: var(--sp-ink); }
+html[data-theme="steampunk"] .hm-store :is(p, .hm-store-tag, small) { color: color-mix(in srgb, var(--sp-ink) 78%, transparent); }
+html[data-theme="steampunk"] .hm-store .pp-btn {
+  background: var(--sp-copper); color: var(--sp-cream); border: 0;
+  box-shadow: inset 2px 2px 0 var(--sp-copper-hi), inset -2px -2px 0 var(--sp-copper-lo), 0 0 0 2px var(--sp-ink);
+}
+
+/* Category tiles. */
+html[data-theme="steampunk"] .hm-cat-h { font-family: var(--ff-display); color: var(--sp-brass-mid); }
+html[data-theme="steampunk"] .hm-cat-links a { border-radius: 0; border-color: var(--sp-copper-lo); }
+html[data-theme="steampunk"] :is(.hm-marks i, .hm-cat-links i, .hc-platform i) { border-radius: 0; }
+
+/* Popular shelf: covers in brass. */
+html[data-theme="steampunk"] .hm-cover { border-radius: 0; box-shadow: 0 0 0 3px var(--sp-iron-0), 0 0 0 6px var(--sp-brass); }
+html[data-theme="steampunk"] .hm-card:hover .hm-cover { outline: 0; box-shadow: 0 0 0 3px var(--sp-iron-0), 0 0 0 6px var(--sp-brass-hi); }
+html[data-theme="steampunk"] .hm-shelf { gap: 22px; }
+
+/* Newsletter band between two pipes. */
+html[data-theme="steampunk"] .hm-band {
+  background:
+    url("/themes/steampunk/pipe-h.png") 0 0 / 16px 20px repeat-x,
+    url("/themes/steampunk/pipe-h.png") 0 100% / 16px 20px repeat-x,
+    rgba(15, 13, 12, .78);
+  border: 0; padding: 54px 0;
+}
+html[data-theme="steampunk"] .hm-band form input {
+  border-radius: 0; background: var(--sp-iron-0); border-color: var(--sp-copper-lo); color: var(--sp-cream);
+}
+html[data-theme="steampunk"] .hm-band form button {
+  border-radius: 0; background: var(--sp-brass-mid); color: var(--sp-ink); font-weight: 700;
+  box-shadow: inset 2px 2px 0 var(--sp-brass-hi), inset -2px -2px 0 #9a7a2c, 0 0 0 2px var(--sp-iron-0);
+}
+html[data-theme="steampunk"] .hm-band form button:hover { background: var(--sp-brass-hi); }
+html[data-theme="steampunk"] .hm-how span { border-radius: 0; background: var(--sp-iron-1); border-color: var(--sp-copper-lo); color: var(--sp-green); }
+
+/* ── Footer: framed, with three gauges on top ─────────────────────────────── */
+html[data-theme="steampunk"] .footer {
+  position: relative; margin-top: 110px; padding: 40px 28px 28px;
+  border: 16px solid transparent;
+  border-image: url("/themes/steampunk/frame.png") 8 fill / 16px stretch;
+}
+html[data-theme="steampunk"] .footer::before {
+  content: ""; position: absolute; top: -66px; left: 50%; width: 176px; height: 48px; transform: translateX(-50%);
+  background:
+    url("/themes/steampunk/gauge.png") 0 0 / 48px 48px no-repeat,
+    url("/themes/steampunk/gauge.png") 64px 0 / 48px 48px no-repeat,
+    url("/themes/steampunk/gauge.png") 128px 0 / 48px 48px no-repeat;
+  image-rendering: pixelated;
+}
+html[data-theme="steampunk"] .footer h5 { font-family: var(--ff-display); color: var(--sp-brass-mid); letter-spacing: .08em; }
+
+/* ── Side machinery (SteampunkDecor) ──────────────────────────────────────── */
+.sp-decor { display: none; }
+@media (min-width: 1520px) {
+  html[data-theme="steampunk"] .sp-decor { display: block; }
+}
+.sp-side { position: fixed; top: 0; bottom: 0; width: calc((100vw - 1240px) / 2); pointer-events: none; z-index: 0; }
+.sp-left { left: 0; }
+.sp-right { right: 0; transform: scaleX(-1); }
+.sp-side > * { position: absolute; display: block; background-repeat: no-repeat; background-size: 100% 100%; }
+.sp-pipe { top: 0; bottom: 0; left: 42%; width: 20px; background: url("/themes/steampunk/pipe-v.png") 0 0 / 20px 16px repeat-y !important; }
+.sp-pipe-2 { top: 0; bottom: 0; left: 68%; width: 20px; background: url("/themes/steampunk/pipe-v.png") 0 0 / 20px 16px repeat-y !important; opacity: .8; }
+.sp-flange { left: calc(42% - 4px); width: 28px; height: 12px; background-image: url("/themes/steampunk/flange.png"); }
+.sp-gear { width: 96px; height: 96px; background-image: url("/themes/steampunk/gear.png"); animation: sp-spin 16s steps(60) infinite; }
+.sp-gear.small { width: 60px; height: 60px; background-image: url("/themes/steampunk/gear-small.png"); animation: sp-spin-back 9s steps(48) infinite; }
+.sp-gauge { width: 72px; height: 72px; background-image: url("/themes/steampunk/gauge.png"); }
+.sp-tube { width: 36px; height: 144px; background-image: url("/themes/steampunk/tube-green.png"); }
+.sp-tube.teal { background-image: url("/themes/steampunk/tube-teal.png"); }
+
+@keyframes sp-spin { to { transform: rotate(360deg); } }
+@keyframes sp-spin-back { to { transform: rotate(-360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .sp-gear, html[data-theme="steampunk"] .brand-dot { animation: none !important; }
+}
+
+/* Phones: lighter frames. */
+@media (max-width: 820px) {
+  html[data-theme="steampunk"] :is(.hm-list, .hm-cat, .hc, .hm-store, .footer) { border-width: 12px; border-image-width: 12px; }
+  html[data-theme="steampunk"] .hc-big { font-size: 28px; }
+}
