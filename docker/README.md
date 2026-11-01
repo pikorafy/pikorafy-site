@@ -63,6 +63,10 @@ http://localhost:3033/admin:
   into another title. "Store items without a title" lists, per store, what has no page yet
   and links it to a title. Corrections are kept in `title_overrides` / `title_edits`, so the
   daily link-titles run never undoes them; **Reset** hands an item back to link-titles.
+- **Review queue**: matches the daily link-titles run wasn't sure about: a store item whose
+  name fits several IGDB games (pick **This one**, **None of these**, or link it elsewhere),
+  and name-only matches whose release years are far apart (**The match is right** or unlink).
+  Decisions are corrections too, and an item you decided or dismissed isn't asked again.
 - **Jobs**: every job's schedule, last run and log; **Run now**, **Stop**, **Pause**/**Resume**.
 
 Create your account once (it asks for a password of at least 12 characters, typed hidden):

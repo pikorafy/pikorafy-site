@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { db } from "@/lib/admin/db";
 import { activeRuns, jobOverview, latestRuns, progressOf, type JobRun } from "@/lib/admin/jobs";
+import { openReviewCount } from "@/lib/admin/review";
 import { requireAdmin } from "@/lib/admin/session";
 import AutoRefresh from "./AutoRefresh";
 import { RunStatus, duration, fmt, time } from "./ui";
@@ -24,7 +25,7 @@ async function count(sql: string): Promise<number | null> {
 
 export default async function AdminDashboard() {
   const user = await requireAdmin();
-  const [titles, steamQueued, dbSize, linkRows, storeCounts, running, recent, jobs, failedToday] = await Promise.all([
+  const [titles, steamQueued, dbSize, linkRows, storeCounts, running, recent, jobs, failedToday, toReview] = await Promise.all([
     count("select count(*) n from public.titles"),
     count("select count(*) n from public.import_queue where not skip"),
     db().raw("select pg_size_pretty(pg_database_size(current_database())) s").then((r) => r.rows[0].s as string).catch(() => "?"),
@@ -34,6 +35,7 @@ export default async function AdminDashboard() {
     latestRuns(8),
     jobOverview(),
     count("select count(*) n from public.job_runs where status = 'failed' and queued_at > now() - interval '24 hours'"),
+    openReviewCount(),
   ]);
 
   const linked = new Map(linkRows.map((r) => [r.store, Number(r.n)]));
@@ -129,7 +131,10 @@ export default async function AdminDashboard() {
               })}
             </ul>
           </div>
-          <Link href="/admin/catalog?filter=unlinked" className="adm-btn primary" style={{ minHeight: 44 }}>
+          <Link href="/admin/review" className="adm-btn primary" style={{ minHeight: 44 }}>
+            {toReview ? `Review ${toReview.toLocaleString("en-US")} uncertain match${toReview === 1 ? "" : "es"}` : "Review queue"}
+          </Link>
+          <Link href="/admin/catalog?filter=unlinked" className="adm-btn" style={{ minHeight: 40 }}>
             Store items without a title
           </Link>
           <p className="adm-muted" style={{ margin: 0, fontSize: 12 }}>

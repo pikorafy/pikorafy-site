@@ -18,7 +18,7 @@ const ICONS: Record<string, React.ReactNode> = {
 const ITEMS: { key: string; label: string; href?: string }[] = [
   { key: "dashboard", label: "Dashboard", href: "/admin" },
   { key: "catalog", label: "Catalog", href: "/admin/catalog" },
-  { key: "review", label: "Review queue" },
+  { key: "review", label: "Review queue", href: "/admin/review" },
   { key: "jobs", label: "Jobs", href: "/admin/jobs" },
   { key: "prices", label: "Prices" },
   { key: "content", label: "Content" },
@@ -34,7 +34,7 @@ function Icon({ name }: { name: string }) {
   );
 }
 
-export default function AdminNav() {
+export default function AdminNav({ reviewCount = 0 }: { reviewCount?: number }) {
   const pathname = usePathname();
   return (
     <nav className="adm-nav" aria-label="Admin">
@@ -46,6 +46,11 @@ export default function AdminNav() {
         return (
           <Link key={item.key} href={item.href} aria-current={current ? "page" : undefined}>
             <Icon name={item.key} />{item.label}
+            {item.key === "review" && reviewCount > 0 && (
+              <span style={{ marginLeft: "auto", fontSize: 12, fontWeight: 700, background: "var(--a-warn-bg)", color: "var(--a-warn)", padding: "2px 8px", borderRadius: 999 }}>
+                {reviewCount.toLocaleString("en-US")}
+              </span>
+            )}
           </Link>
         );
       })}
