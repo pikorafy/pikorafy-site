@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // The admin's database and queue clients load database drivers dynamically: use them
+  // from node_modules as they are instead of bundling them.
+  serverExternalPackages: ["knex", "pg", "bullmq", "ioredis"],
   // Removed sections (tool comparisons, alternatives, articles, AI quiz, gaming hub):
   // send old links and search results somewhere useful instead of a 404.
   async redirects() {
