@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Script from "next/script";
-import { Onest, JetBrains_Mono } from "next/font/google";
+import { Onest, JetBrains_Mono, Pixelify_Sans } from "next/font/google";
 import PikorafyNavbar from "@/components/PikorafyNavbar";
 import Footer from "@/components/Footer";
 import HideOnAdmin from "@/components/HideOnAdmin";
+import SteampunkDecor from "@/components/SteampunkDecor";
 import "./globals.css";
+import "./themes/steampunk.css";
 
 const GA_ID = "G-KM9VYM8YJC";
 
@@ -13,6 +15,14 @@ const onest = Onest({
   subsets: ["latin"],
   variable: "--font-onest",
   display: "swap",
+});
+
+// Steampunk theme headings and prices only: not preloaded, so other themes don't pay for it.
+const pixelify = Pixelify_Sans({
+  subsets: ["latin"],
+  variable: "--font-pixel",
+  display: "swap",
+  preload: false,
 });
 
 const jetbrainsMono = JetBrains_Mono({
@@ -70,10 +80,11 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       data-theme="dark"
       data-density="cozy"
       data-fontpair="onest"
-      className={`${onest.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      className={`${onest.variable} ${jetbrainsMono.variable} ${pixelify.variable} h-full antialiased`}
       style={
         {
           "--ff-display": `var(--font-onest), 'Onest', ui-sans-serif, system-ui, sans-serif`,
@@ -83,6 +94,12 @@ export default function RootLayout({
       }
     >
       <head>
+        {/* The chosen theme before the first paint (no flash of the default one). */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var t=localStorage.getItem("pkfy:theme");if(t==="light"||t==="steampunk")document.documentElement.dataset.theme=t}catch(e){}`,
+          }}
+        />
         <Script
           src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
           strategy="afterInteractive"
@@ -101,6 +118,7 @@ export default function RootLayout({
         />
       </head>
       <body className="flex min-h-full flex-col">
+        <HideOnAdmin><SteampunkDecor /></HideOnAdmin>
         <HideOnAdmin><PikorafyNavbar /></HideOnAdmin>
         <main className="flex-1">{children}</main>
         <HideOnAdmin><Footer /></HideOnAdmin>

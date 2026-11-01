@@ -59,7 +59,10 @@ export default function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
                 {s.platforms.map((p) => <span key={p.key} className={`hc-platform pf-${p.key}`}><i aria-hidden />{p.label}</span>)}
               </div>
               <div className="hc-deal">
-                <span className="hm-price hc-big num">{s.price}</span>
+                {/* One box per character: the Steampunk theme draws them as split-flap tiles. */}
+                <span className="hm-price hc-big num" aria-label={s.price}>
+                  {[...s.price].map((ch, n) => <span key={n} className="flap" aria-hidden="true">{ch}</span>)}
+                </span>
                 <span className="hm-pill">-{s.discount}%</span>
                 {s.regular && <s className="num">{s.regular}</s>}
               </div>
